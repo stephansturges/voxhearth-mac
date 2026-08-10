@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">VoxHearth app icon</title>
+  <rect width="1024" height="1024" rx="220" fill="#15171A"/>
+  <path d="M238 248h548c70 0 126 56 126 126v266c0 70-56 126-126 126H512L330 886v-120h-92c-70 0-126-56-126-126V374c0-70 56-126 126-126Z" fill="#F7F4EE"/>
+  <path d="M276 523h78l42-116 70 231 74-298 69 233 49-132 46 82h44" fill="none" stroke="#F59E0B" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
