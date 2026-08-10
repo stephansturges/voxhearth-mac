@@ -4,58 +4,98 @@ import FluidAudioLocal
 import Foundation
 import os
 
-/// Offline-only Parakeet TDT v3 adapter. Model assets are injected by URL and
-/// opened directly with Core ML; this type never invokes a download or cache API.
+/// Offline-only adapter for VoxHearth's two bundled Parakeet models. Assets are
+/// injected by URL and opened directly with Core ML; this type never invokes a
+/// download or cache API.
 public actor ParakeetEngine: LocalTranscriptionEngine {
-    public static let modelDirectoryName = "parakeet-tdt-0.6b-v3-coreml"
-    public static let requiredAssetNames = [
-        "Preprocessor.mlmodelc",
-        "Encoder.mlmodelc",
-        "Decoder.mlmodelc",
-        "JointDecisionv3.mlmodelc",
-        "parakeet_vocab.json",
-    ]
-
-    private let modelDirectoryURL: URL
+    private let modelDirectoryURLs: [TranscriptionModel: URL]
     private var manager: AsrManager?
     private let logger = PrivacySafeLogger(category: "LocalTranscription")
 
     public private(set) var isPrepared = false
+    public private(set) var preparedModel: TranscriptionModel?
 
-    public init(modelDirectoryURL: URL) {
-        self.modelDirectoryURL = modelDirectoryURL.standardizedFileURL
+    public init(
+        multilingualModelDirectoryURL: URL,
+        compactEnglishModelDirectoryURL: URL
+    ) {
+        modelDirectoryURLs = [
+            .multilingual: multilingualModelDirectoryURL.standardizedFileURL,
+            .compactEnglish: compactEnglishModelDirectoryURL.standardizedFileURL,
+        ]
     }
 
-    public func prepare() async throws {
-        guard !isPrepared else { return }
+    /// Focused initializer used by the real-model smoke harness.
+    public init(modelDirectoryURL: URL, model: TranscriptionModel = .multilingual) {
+        modelDirectoryURLs = [model: modelDirectoryURL.standardizedFileURL]
+    }
+
+    public static func requiredAssetNames(for model: TranscriptionModel) -> [String] {
+        switch model {
+        case .multilingual:
+            [
+                "Preprocessor.mlmodelc",
+                "Encoder.mlmodelc",
+                "Decoder.mlmodelc",
+                "JointDecisionv3.mlmodelc",
+                "parakeet_vocab.json",
+            ]
+        case .compactEnglish:
+            [
+                "Preprocessor.mlmodelc",
+                "Decoder.mlmodelc",
+                "JointDecision.mlmodelc",
+                "parakeet_vocab.json",
+            ]
+        }
+    }
+
+    public func prepare(model: TranscriptionModel) async throws {
+        guard preparedModel != model else { return }
         #if !arch(arm64)
         throw ParakeetEngineError.unsupportedArchitecture
         #else
         logger.info(.localModelLoadStarted)
         do {
-            try Self.validateAssets(in: modelDirectoryURL)
+            guard let modelDirectoryURL = modelDirectoryURLs[model] else {
+                throw ParakeetEngineError.missingModelAsset(model.rawValue)
+            }
+            try Self.validateAssets(in: modelDirectoryURL, model: model)
+
+            if let manager {
+                await manager.cleanup()
+                self.manager = nil
+            }
+            isPrepared = false
+            preparedModel = nil
 
             let generalConfiguration = MLModelConfiguration()
             generalConfiguration.computeUnits = .cpuAndNeuralEngine
             generalConfiguration.allowLowPrecisionAccumulationOnGPU = true
 
             let preprocessorConfiguration = MLModelConfiguration()
-            preprocessorConfiguration.computeUnits = .cpuOnly
+            preprocessorConfiguration.computeUnits = model == .multilingual
+                ? .cpuOnly
+                : .cpuAndNeuralEngine
 
             let preprocessor = try MLModel(
                 contentsOf: modelDirectoryURL.appendingPathComponent("Preprocessor.mlmodelc"),
                 configuration: preprocessorConfiguration
             )
-            let encoder = try MLModel(
-                contentsOf: modelDirectoryURL.appendingPathComponent("Encoder.mlmodelc"),
-                configuration: generalConfiguration
-            )
+            let encoder: MLModel? = if model == .multilingual {
+                try MLModel(
+                    contentsOf: modelDirectoryURL.appendingPathComponent("Encoder.mlmodelc"),
+                    configuration: generalConfiguration
+                )
+            } else {
+                nil
+            }
             let decoder = try MLModel(
                 contentsOf: modelDirectoryURL.appendingPathComponent("Decoder.mlmodelc"),
                 configuration: generalConfiguration
             )
             let joint = try MLModel(
-                contentsOf: modelDirectoryURL.appendingPathComponent("JointDecisionv3.mlmodelc"),
+                contentsOf: modelDirectoryURL.appendingPathComponent(model.jointAssetName),
                 configuration: generalConfiguration
             )
             let vocabulary = try Self.loadVocabulary(
@@ -69,7 +109,7 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
                 joint: joint,
                 configuration: generalConfiguration,
                 vocabulary: vocabulary,
-                version: .v3
+                version: model.fluidAudioVersion
             )
             let configuration = ASRConfig(
                 streamingEnabled: false,
@@ -77,6 +117,7 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
             )
             manager = AsrManager(config: configuration, models: models)
             isPrepared = true
+            preparedModel = model
             logger.info(.localModelLoadCompleted)
         } catch let error as ParakeetEngineError {
             logger.error(.operationFailed, error: error)
@@ -90,14 +131,13 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
 
     public func transcribe(
         _ audio: CapturedAudio,
-        language: DictationLanguage
+        language: DictationLanguage,
+        model: TranscriptionModel
     ) async throws -> String {
         guard !audio.samples.isEmpty, audio.sampleRate > 0 else {
             throw ParakeetEngineError.emptyAudio
         }
-        if !isPrepared {
-            try await prepare()
-        }
+        try await prepare(model: model)
         guard let manager else { throw ParakeetEngineError.modelLoadFailed }
 
         do {
@@ -107,11 +147,11 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
                 from: audio.sampleRate,
                 to: 16_000
             )
-            var decoderState = try TdtDecoderState(decoderLayers: 2)
+            var decoderState = try TdtDecoderState(decoderLayers: model.decoderLayers)
             let result = try await manager.transcribe(
                 normalizedSamples,
                 decoderState: &decoderState,
-                language: language.fluidAudioLanguage
+                language: model == .multilingual ? language.fluidAudioLanguage : nil
             )
             logger.info(.localTranscriptionCompleted)
             return result.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
@@ -124,16 +164,16 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
         }
     }
 
-    static func validateAssets(in directory: URL) throws {
+    static func validateAssets(in directory: URL, model: TranscriptionModel) throws {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(
             atPath: directory.path,
             isDirectory: &isDirectory
         ), isDirectory.boolValue else {
-            throw ParakeetEngineError.missingModelAsset(Self.modelDirectoryName)
+            throw ParakeetEngineError.missingModelAsset(model.rawValue)
         }
 
-        for assetName in requiredAssetNames {
+        for assetName in requiredAssetNames(for: model) {
             let assetURL = directory.appendingPathComponent(assetName)
             guard FileManager.default.fileExists(atPath: assetURL.path) else {
                 throw ParakeetEngineError.missingModelAsset(assetName)
@@ -156,6 +196,29 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
             throw error
         } catch {
             throw ParakeetEngineError.invalidVocabulary
+        }
+    }
+}
+
+private extension TranscriptionModel {
+    var fluidAudioVersion: AsrModelVersion {
+        switch self {
+        case .multilingual: .v3
+        case .compactEnglish: .tdtCtc110m
+        }
+    }
+
+    var jointAssetName: String {
+        switch self {
+        case .multilingual: "JointDecisionv3.mlmodelc"
+        case .compactEnglish: "JointDecision.mlmodelc"
+        }
+    }
+
+    var decoderLayers: Int {
+        switch self {
+        case .multilingual: 2
+        case .compactEnglish: 1
         }
     }
 }

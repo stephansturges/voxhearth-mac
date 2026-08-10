@@ -15,7 +15,7 @@ file has one auditable path into the signed artifact.
   `xcrun stapler`, `spctl`, `plutil`, and `ditto`
 
 macOS 14 is the deployment target. Other recent Xcode versions may work for
-development, but an official v0.1.0 artifact is built only in the pinned
+development, but an official v0.2.0 artifact is built only in the pinned
 environment.
 
 ## Source dependencies
@@ -34,10 +34,11 @@ and unrelated model surfaces. `Vendor/FluidAudioLocal/UPSTREAM.md` records file
 provenance and modifications. Relevant third-party license texts remain under
 `LICENSES/`.
 
-The Core ML model is a separate build input pinned to Hugging Face revision:
+The two Core ML models are separate build inputs pinned to Hugging Face revisions:
 
 ```text
 aed02740059203c4a87495924f685de3722ae9ce
+9bc92ead6e8f17eca92a869fd578ae76842b82ba
 ```
 
 ## Test and compile
@@ -49,49 +50,53 @@ From the repository root:
 ```
 
 This resolves the exact Swift dependency, runs all tests, builds debug and
-release configurations, validates shell and Python helpers, validates the model
+release configurations, validates shell and Python helpers, validates both model
 manifest, checks action pins, rejects tracked model/release secrets, and scans
 the runtime source for forbidden networking/updater APIs.
 
-## Fetch the build-only model
+## Fetch the build-only models
 
 ```sh
-./scripts/fetch-model.sh
+./scripts/fetch-models.sh
 ```
 
-The script downloads exactly the manifest's 21 files over HTTPS into a fresh
-temporary directory, verifies every size and SHA-256, and then moves the valid
-tree to:
+The script downloads exactly the two manifests' allowlisted files over HTTPS
+into fresh temporary directories, verifies every size and SHA-256, and then
+moves the valid trees to:
 
 ```text
 .build/models/parakeet-tdt-0.6b-v3-coreml
+.build/models/parakeet-tdt-ctc-110m-coreml
 ```
 
 It does not download optional model variants. It refuses to overwrite an
-existing invalid destination. To validate an existing payload without network
+existing invalid destination. To validate both payloads without network
 access:
 
 ```sh
 ./scripts/verify-model.py .build/models/parakeet-tdt-0.6b-v3-coreml
+./scripts/verify-model.py \
+  --manifest Models/parakeet-tdt-ctc-110m-coreml.json \
+  .build/models/parakeet-tdt-ctc-110m-coreml
 ```
 
 ## Construct the app and development DMG
 
 ```sh
 ./scripts/build-app-bundle.sh \
-  --version 0.1.0 \
+  --version 0.2.0 \
   --build 1 \
   --output .build/distribution/VoxHearth.app
 
 ./scripts/create-dmg.sh \
   .build/distribution/VoxHearth.app \
-  .build/distribution/VoxHearth-v0.1.0-unsigned.dmg
+  .build/distribution/VoxHearth-v0.2.0-unsigned.dmg
 ```
 
 Or run both validation and packaging:
 
 ```sh
-VERSION=0.1.0 BUILD_NUMBER=1 ./scripts/build-release-local.sh
+VERSION=0.2.0 BUILD_NUMBER=1 ./scripts/build-release-local.sh
 ```
 
 The local app has an anonymous ad-hoc signature so LaunchServices can validate
@@ -105,8 +110,8 @@ artifact before rebuilding.
 
 The automated development path is
 `.github/workflows/development-release.yml`. It requires no Apple secrets and
-publishes only tag `v0.1.0-dev.1` as a GitHub prerelease. It must not be renamed
-to `VoxHearth-v0.1.0.dmg`, marked as the latest stable release, or described as
+publishes only tag `v0.2.0-dev.1` as a GitHub prerelease. It must not be renamed
+to `VoxHearth-v0.2.0.dmg`, marked as the latest stable release, or described as
 signed/notarized.
 
 ## Sign and notarize manually
@@ -124,25 +129,25 @@ export APPLE_TEAM_ID='TEAMID1234'
 ./scripts/sign-release.sh .build/distribution/VoxHearth.app
 ./scripts/archive-app.sh \
   .build/distribution/VoxHearth.app \
-  .build/distribution/VoxHearth-v0.1.0-notary.zip
+  .build/distribution/VoxHearth-v0.2.0-notary.zip
 
 export ASC_KEY_ID='ABC123DEFG'
 export ASC_ISSUER_ID='00000000-0000-0000-0000-000000000000'
 export ASC_PRIVATE_KEY_PATH='/absolute/path/to/AuthKey_ABC123DEFG.p8'
 
 ./scripts/notarize-release.sh \
-  .build/distribution/VoxHearth-v0.1.0-notary.zip \
+  .build/distribution/VoxHearth-v0.2.0-notary.zip \
   .build/distribution/VoxHearth.app
 
 ./scripts/create-dmg.sh \
   .build/distribution/VoxHearth.app \
-  .build/distribution/VoxHearth-v0.1.0.dmg
-./scripts/sign-release.sh .build/distribution/VoxHearth-v0.1.0.dmg
+  .build/distribution/VoxHearth-v0.2.0.dmg
+./scripts/sign-release.sh .build/distribution/VoxHearth-v0.2.0.dmg
 ./scripts/notarize-release.sh \
-  .build/distribution/VoxHearth-v0.1.0.dmg \
-  .build/distribution/VoxHearth-v0.1.0.dmg
+  .build/distribution/VoxHearth-v0.2.0.dmg \
+  .build/distribution/VoxHearth-v0.2.0.dmg
 
-./scripts/verify-release.sh .build/distribution/VoxHearth-v0.1.0.dmg
+./scripts/verify-release.sh .build/distribution/VoxHearth-v0.2.0.dmg
 ```
 
 The app is notarized and stapled before it enters the DMG. The DMG is then
@@ -154,8 +159,8 @@ Create the complete corresponding source archive for the checked-out release
 tag:
 
 ```sh
-./scripts/create-source-bundle.sh v0.1.0 0.1.0 \
-  .build/distribution/VoxHearth-v0.1.0-source.tar.gz
+./scripts/create-source-bundle.sh v0.2.0 0.2.0 \
+  .build/distribution/VoxHearth-v0.2.0-source.tar.gz
 ```
 
 This Git archive includes the exact VoxHearth tree and its complete reviewed
@@ -164,9 +169,9 @@ FluidAudio subset under `Vendor/FluidAudioLocal`.
 The release workflow also runs:
 
 ```sh
-./scripts/generate-sbom.py --version 0.1.0 --source-revision "$GIT_COMMIT" \
-  --artifact .build/distribution/VoxHearth-v0.1.0.dmg \
-  --output .build/distribution/VoxHearth-v0.1.0.spdx.json
+./scripts/generate-sbom.py --version 0.2.0 --source-revision "$GIT_COMMIT" \
+  --artifact .build/distribution/VoxHearth-v0.2.0.dmg \
+  --output .build/distribution/VoxHearth-v0.2.0.spdx.json
 ```
 
 `generate-provenance.py` records artifact and material digests. The pinned

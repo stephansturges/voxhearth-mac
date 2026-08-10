@@ -16,6 +16,22 @@ Developer ID-signed, Apple-notarized releases.
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
 
+## [0.2.0-dev.1] - 2026-08-10
+
+### Added
+
+- Bundled Parakeet TDT-CTC 110M as a compact English-only speech model for
+  faster startup and lower memory use on smaller Apple silicon Macs.
+- Added a persisted Speech model picker under Settings → Dictation → Speech.
+- Added exact hashes, offline real-model smoke coverage, SBOM entries,
+  provenance, attribution, and packaging checks for both bundled models.
+
+### Changed
+
+- Existing settings migrate to the multilingual 600M model, preserving the
+  prior behavior. Choosing the compact model safely constrains language to English.
+- Release packaging now includes both models and never downloads either at runtime.
+
 ## [0.1.0-dev.1] - 2026-08-10
 
 ### Added
@@ -62,5 +78,6 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.1.0-dev.1...HEAD
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.2.0-dev.1...HEAD
+[0.2.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.0-dev.1
 [0.1.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.1.0-dev.1

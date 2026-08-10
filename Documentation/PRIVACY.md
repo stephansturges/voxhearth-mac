@@ -1,6 +1,6 @@
 # Privacy
 
-VoxHearth 0.1 has one purpose: turn microphone audio into text on the same Mac.
+VoxHearth 0.2 has one purpose: turn microphone audio into text on the same Mac.
 There is no online mode.
 
 ## Runtime data flow
@@ -12,7 +12,7 @@ microphone
 memory-only Float32 audio (maximum 10 minutes)
    │
    ▼
-bundled Parakeet Core ML model through a network-free FluidAudio subset
+selected bundled Parakeet Core ML model through a network-free FluidAudio subset
    │
    ▼
 memory-only transcript
@@ -36,9 +36,9 @@ operations are not present in the installed runtime application.
 | --- | --- |
 | Microphone audio | Captured into process memory only, capped at ten minutes per dictation, then released after transcription, cancellation, failure, or process exit. VoxHearth does not create an audio file. |
 | Transcript | Exists in process memory while it is being inserted. If insertion fails, VoxHearth may retain that transcript in memory for a Retry/Discard prompt for at most two minutes, then discards it automatically. Quitting or choosing Discard clears it sooner. VoxHearth does not save a transcript history. |
-| Preferences | Shortcut, selected microphone identifier, language, launch-at-login choice, clipboard-fallback choice, and onboarding completion are stored in macOS UserDefaults for bundle ID `com.stephansturges.voxhearth`. |
+| Preferences | Shortcut, selected microphone identifier, selected speech model, language, launch-at-login choice, clipboard-fallback choice, and onboarding completion are stored in macOS UserDefaults for bundle ID `com.stephansturges.voxhearth`. |
 | Logs | Apple Unified Logging receives fixed operation identifiers and error type names. Log calls cannot accept audio, transcript text, clipboard contents, arbitrary paths, or free-form user text. |
-| Model | Immutable model files are read from the signed application bundle. No model cache or runtime download is created by VoxHearth. |
+| Models | Two immutable model payloads are read from the application bundle. Only the selected model is loaded for inference; switching releases the previous manager. No model cache or runtime download is created by VoxHearth. |
 
 The application into which VoxHearth inserts text receives the transcript and
 may store, sync, or transmit it under that application's own policy. macOS and

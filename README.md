@@ -5,7 +5,7 @@
 [![Build](https://github.com/stephansturges/voxhearth-mac/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/stephansturges/voxhearth-mac/actions/workflows/build.yml)
 
 VoxHearth is a small, open-source macOS menu bar app for private dictation. It
-records into memory, transcribes with a bundled Core ML model, and inserts the
+records into memory, transcribes with one of two bundled Core ML models, and inserts the
 result into the focused app. The installed app has no account, telemetry,
 automatic updater, remote API, or runtime model download.
 
@@ -29,7 +29,7 @@ microphone → in-memory audio → bundled Core ML model → in-memory text → 
 - Audio and transcripts are not written to a VoxHearth history or cache. If
   insertion fails, the transcript may remain in memory for up to two minutes so
   you can Retry or Discard it; it is then discarded automatically.
-- The model is part of the signed app and is loaded through a reviewed,
+- Both selectable models are part of the app and are loaded through a reviewed,
   network-free FluidAudio subset; downloader and cache clients are not linked.
 - The normal insertion paths use macOS Accessibility or Unicode keyboard
   events. An optional clipboard compatibility fallback is off by default.
@@ -53,7 +53,7 @@ destination-app trust boundaries.
 ## Install
 
 The current downloadable build is
-[`v0.1.0-dev.1`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.1.0-dev.1),
+[`v0.2.0-dev.1`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.0-dev.1),
 an explicitly **unsigned and unnotarized development prerelease**. It includes
 the bundled model, checksums, complete source, SBOM, provenance, and GitHub
 attestations, but it has no trusted Apple publisher identity. macOS is expected
@@ -61,7 +61,7 @@ to block it on first launch.
 
 To install that development preview:
 
-1. Download `VoxHearth-v0.1.0-dev.1-unsigned.dmg` and `SHA256SUMS` from the same
+1. Download `VoxHearth-v0.2.0-dev.1-unsigned.dmg` and `SHA256SUMS` from the same
    release.
 2. Verify the checksum by following
    [VERIFY_RELEASE.md](Documentation/VERIFY_RELEASE.md).
@@ -75,7 +75,7 @@ The first launch opens a visible setup window. After setup, VoxHearth remains
 in the menu bar; launching it again reuses the existing instance instead of
 registering a second dictation listener.
 
-The future official `v0.1.0` release remains reserved for a DMG signed with a
+The future official `v0.2.0` release remains reserved for a DMG signed with a
 Developer ID Application certificate, notarized by Apple, and given a stapled
 ticket. No such official build exists yet because the project does not have the
 required Apple signing credentials. VoxHearth has no automatic updater; install
@@ -85,8 +85,10 @@ future versions manually from GitHub Releases.
 
 The default shortcut is **Control-Option-Space**. Hold it while speaking and
 release to transcribe and insert. You can also start and stop from the menu bar.
-Settings let you choose the shortcut, microphone, and one of the model's 25
-supported European languages.
+Settings let you choose the shortcut, microphone, speech model, and language.
+The multilingual 600M model remains the default and supports 25 European
+languages. The compact 110M model is English-only and is intended for faster
+startup and lower memory use on smaller Apple silicon Macs.
 
 The menu panel exposes the shortcut editor directly. VoxHearth also accepts an
 unmodified F13-F20 key for USB macro buttons and device remapping utilities. In
@@ -126,7 +128,7 @@ Xcode 26.2 and its Swift 6 toolchain are the pinned release environment.
 
 ```sh
 ./scripts/local-check.sh
-./scripts/fetch-model.sh
+./scripts/fetch-models.sh
 ./scripts/build-app-bundle.sh
 ```
 
@@ -148,10 +150,13 @@ bundling, and the exact release credentials.
 - `Vendor/FluidAudioLocal` is an attributed, network-free subset adapted from
   FluidAudio commit `19600a485baa4998812e4654b70d2bab8f2c9949`
   (release 0.15.5). The root package has no remote runtime dependency.
-- The model is pinned to Hugging Face revision
+- The multilingual model is pinned to Hugging Face revision
   `aed02740059203c4a87495924f685de3722ae9ce`.
+- The compact English model is pinned to Hugging Face revision
+  `9bc92ead6e8f17eca92a869fd578ae76842b82ba`.
 - [`Models/parakeet-tdt-0.6b-v3-coreml.json`](Models/parakeet-tdt-0.6b-v3-coreml.json)
-  locks every permitted model file by byte count and SHA-256.
+  and [`Models/parakeet-tdt-ctc-110m-coreml.json`](Models/parakeet-tdt-ctc-110m-coreml.json)
+  lock every permitted model file by byte count and SHA-256.
 - Each published build includes checksums, SPDX 2.3 SBOM, provenance metadata, a
   complete source archive containing the reviewed FluidAudio subset, and GitHub
   provenance and SBOM attestations.

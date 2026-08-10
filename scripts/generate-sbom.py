@@ -15,7 +15,8 @@ from urllib.parse import quote
 
 
 FLUIDAUDIO_REVISION = "19600a485baa4998812e4654b70d2bab8f2c9949"
-MODEL_REVISION = "aed02740059203c4a87495924f685de3722ae9ce"
+MULTILINGUAL_MODEL_REVISION = "aed02740059203c4a87495924f685de3722ae9ce"
+COMPACT_MODEL_REVISION = "9bc92ead6e8f17eca92a869fd578ae76842b82ba"
 
 
 def sha256(path: Path) -> str:
@@ -51,15 +52,27 @@ def main() -> int:
         print("error: vendored FluidAudio provenance is not at the approved revision", file=sys.stderr)
         return 1
 
-    subprocess.run(
-        [str(repo_root / "scripts" / "verify-model.py"), "--manifest-only"],
-        check=True,
-    )
-    model_manifest = json.loads(
-        (repo_root / "Models" / "parakeet-tdt-0.6b-v3-coreml.json").read_text(encoding="utf-8")
-    )
-    if model_manifest["revision"] != MODEL_REVISION:
-        print("error: model revision changed unexpectedly", file=sys.stderr)
+    manifests = {
+        "multilingual": repo_root / "Models" / "parakeet-tdt-0.6b-v3-coreml.json",
+        "compact": repo_root / "Models" / "parakeet-tdt-ctc-110m-coreml.json",
+    }
+    for manifest_path in manifests.values():
+        subprocess.run(
+            [
+                str(repo_root / "scripts" / "verify-model.py"),
+                "--manifest",
+                str(manifest_path),
+                "--manifest-only",
+            ],
+            check=True,
+        )
+    multilingual_manifest = json.loads(manifests["multilingual"].read_text(encoding="utf-8"))
+    compact_manifest = json.loads(manifests["compact"].read_text(encoding="utf-8"))
+    if multilingual_manifest["revision"] != MULTILINGUAL_MODEL_REVISION:
+        print("error: multilingual model revision changed unexpectedly", file=sys.stderr)
+        return 1
+    if compact_manifest["revision"] != COMPACT_MODEL_REVISION:
+        print("error: compact model revision changed unexpectedly", file=sys.stderr)
         return 1
 
     repository = os.environ.get("GITHUB_REPOSITORY", "VoxHearth/voxhearth-mac")
@@ -127,10 +140,10 @@ def main() -> int:
             {
                 "name": "Parakeet-TDT-0.6B-v3 Core ML",
                 "SPDXID": "SPDXRef-Package-ParakeetModel",
-                "versionInfo": MODEL_REVISION,
+                "versionInfo": MULTILINGUAL_MODEL_REVISION,
                 "downloadLocation": (
                     "https://huggingface.co/FluidInference/"
-                    "parakeet-tdt-0.6b-v3-coreml/tree/" + MODEL_REVISION
+                    "parakeet-tdt-0.6b-v3-coreml/tree/" + MULTILINGUAL_MODEL_REVISION
                 ),
                 "filesAnalyzed": False,
                 "licenseConcluded": "CC-BY-4.0",
@@ -142,7 +155,30 @@ def main() -> int:
                         "referenceType": "purl",
                         "referenceLocator": (
                             "pkg:huggingface/FluidInference/"
-                            "parakeet-tdt-0.6b-v3-coreml@" + MODEL_REVISION
+                            "parakeet-tdt-0.6b-v3-coreml@" + MULTILINGUAL_MODEL_REVISION
+                        ),
+                    }
+                ],
+            },
+            {
+                "name": "Parakeet-TDT-CTC-110M Core ML",
+                "SPDXID": "SPDXRef-Package-ParakeetCompactModel",
+                "versionInfo": COMPACT_MODEL_REVISION,
+                "downloadLocation": (
+                    "https://huggingface.co/FluidInference/"
+                    "parakeet-tdt-ctc-110m-coreml/tree/" + COMPACT_MODEL_REVISION
+                ),
+                "filesAnalyzed": False,
+                "licenseConcluded": "CC-BY-4.0",
+                "licenseDeclared": "CC-BY-4.0",
+                "copyrightText": "Copyright NVIDIA Corporation; Core ML conversion by FluidInference",
+                "externalRefs": [
+                    {
+                        "referenceCategory": "PACKAGE-MANAGER",
+                        "referenceType": "purl",
+                        "referenceLocator": (
+                            "pkg:huggingface/FluidInference/"
+                            "parakeet-tdt-ctc-110m-coreml@" + COMPACT_MODEL_REVISION
                         ),
                     }
                 ],
@@ -163,6 +199,11 @@ def main() -> int:
                 "spdxElementId": "SPDXRef-Package-VoxHearth",
                 "relationshipType": "CONTAINS",
                 "relatedSpdxElement": "SPDXRef-Package-ParakeetModel",
+            },
+            {
+                "spdxElementId": "SPDXRef-Package-VoxHearth",
+                "relationshipType": "CONTAINS",
+                "relatedSpdxElement": "SPDXRef-Package-ParakeetCompactModel",
             },
         ],
     }

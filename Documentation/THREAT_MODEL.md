@@ -1,6 +1,6 @@
 # Threat model
 
-This threat model applies to any signed VoxHearth 0.1 release built from this
+This threat model applies to any signed VoxHearth 0.2 release built from this
 repository. It distinguishes the installed runtime, which is designed for
 offline operation, from the connected build and release system. Source on
 `main` is not an official release until matching signed assets are published.
@@ -33,7 +33,7 @@ VoxHearth aims to:
 ```
 
 Trusted components are the selected source revision, reviewed vendored
-FluidAudio subset, checksum-locked model revision, GitHub-hosted release workflow,
+FluidAudio subset, checksum-locked model revisions, GitHub-hosted release workflow,
 Apple's code-signing/notarization system, macOS frameworks, and the local user
 account. The focused application is a recipient, not part of VoxHearth's
 privacy boundary.
@@ -71,8 +71,8 @@ VoxHearth does not attempt to protect dictation from:
 A release fails if any of these conditions is not met:
 
 - all tests and static offline-contract scans pass;
-- the model tree matches the committed 21-file manifest exactly;
-- the app contains the expected bundle ID, minimum OS, legal files, and model;
+- both model trees match their committed manifests exactly;
+- the app contains the expected bundle ID, minimum OS, legal files, and models;
 - the app has no network, iCloud, associated-domain, app-group, or debug
   entitlement and does not link known update/network frameworks;
 - the app and DMG have the expected Developer ID team, valid signatures,

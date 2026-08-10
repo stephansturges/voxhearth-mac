@@ -1,9 +1,9 @@
-name: Development Release v0.1.0-dev.1
+name: Development Release v0.2.0-dev.1
 
 on:
   push:
     tags:
-      - v0.1.0-dev.1
+      - v0.2.0-dev.1
   workflow_dispatch:
 
 permissions:
@@ -13,16 +13,17 @@ permissions:
   artifact-metadata: write
 
 concurrency:
-  group: development-release-v0.1.0-dev.1
+  group: development-release-v0.2.0-dev.1
   cancel-in-progress: false
 
 env:
   APP_NAME: VoxHearth
-  APP_VERSION: 0.1.0
-  RELEASE_VERSION: 0.1.0-dev.1
-  RELEASE_TAG: v0.1.0-dev.1
+  APP_VERSION: 0.2.0
+  RELEASE_VERSION: 0.2.0-dev.1
+  RELEASE_TAG: v0.2.0-dev.1
   FLUIDAUDIO_REVISION: 19600a485baa4998812e4654b70d2bab8f2c9949
   MODEL_REVISION: aed02740059203c4a87495924f685de3722ae9ce
+  COMPACT_MODEL_REVISION: 9bc92ead6e8f17eca92a869fd578ae76842b82ba
 
 jobs:
   development-release:
@@ -34,7 +35,7 @@ jobs:
       - name: Check out the development release tag
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: refs/tags/v0.1.0-dev.1
+          ref: refs/tags/v0.2.0-dev.1
           fetch-depth: 0
           persist-credentials: false
 
@@ -52,6 +53,7 @@ jobs:
           [[ -z "$(git status --porcelain)" ]]
           grep -Fq "$FLUIDAUDIO_REVISION" Vendor/FluidAudioLocal/UPSTREAM.md
           grep -Fq "$MODEL_REVISION" Models/parakeet-tdt-0.6b-v3-coreml.json
+          grep -Fq "$COMPACT_MODEL_REVISION" Models/parakeet-tdt-ctc-110m-coreml.json
           grep -Fq "## [$RELEASE_VERSION]" CHANGELOG.md
           printf 'SOURCE_REVISION=%s\n' "$source_revision" >> "$GITHUB_ENV"
           printf 'SOURCE_DATE_EPOCH=%s\n' "$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
@@ -63,11 +65,14 @@ jobs:
       - name: Test source and offline policy
         run: ./scripts/local-check.sh
 
-      - name: Fetch and verify the locked model
-        run: ./scripts/fetch-model.sh
+      - name: Fetch and verify the locked models
+        run: ./scripts/fetch-models.sh
 
-      - name: Run offline real-model transcription smoke test
-        run: ./scripts/model-smoke.sh
+      - name: Run offline real-model transcription smoke tests
+        run: |
+          ./scripts/model-smoke.sh
+          ./scripts/model-smoke.sh \
+            --manifest Models/parakeet-tdt-ctc-110m-coreml.json
 
       - name: Build the ad-hoc-signed app and unsigned DMG
         run: |
@@ -126,13 +131,13 @@ jobs:
       - name: Attest the development DMG
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
-          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.1.0-dev.1-unsigned.dmg
+          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.2.0-dev.1-unsigned.dmg
 
       - name: Attest the development DMG SBOM
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
-          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.1.0-dev.1-unsigned.dmg
-          sbom-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.1.0-dev.1.spdx.json
+          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.2.0-dev.1-unsigned.dmg
+          sbom-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.2.0-dev.1.spdx.json
 
       - name: Publish the GitHub prerelease
         env:
@@ -142,7 +147,7 @@ jobs:
           notes="$RUNNER_TEMP/VoxHearth-v$RELEASE_VERSION-release-notes.md"
           sed \
             -e "s/{{SOURCE_REVISION}}/$SOURCE_REVISION/g" \
-            .github/release-notes-v0.1.0-dev.1.md > "$notes"
+            .github/release-notes-v0.2.0-dev.1.md > "$notes"
 
           assets=(
             "$DIST_DIR/VoxHearth-v$RELEASE_VERSION-unsigned.dmg"
@@ -155,5 +160,5 @@ jobs:
           gh release create "$RELEASE_TAG" "${assets[@]}" \
             --verify-tag \
             --prerelease \
-            --title "VoxHearth 0.1.0 Development Preview 1 (unsigned)" \
+            --title "VoxHearth 0.2.0 Development Preview 1 (unsigned)" \
             --notes-file "$notes"

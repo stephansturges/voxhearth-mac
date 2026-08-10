@@ -49,6 +49,12 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent
     model_manifest_path = repo_root / "Models" / "parakeet-tdt-0.6b-v3-coreml.json"
     model_manifest = json.loads(model_manifest_path.read_text(encoding="utf-8"))
+    compact_model_manifest_path = (
+        repo_root / "Models" / "parakeet-tdt-ctc-110m-coreml.json"
+    )
+    compact_model_manifest = json.loads(
+        compact_model_manifest_path.read_text(encoding="utf-8")
+    )
     subjects = []
     for artifact in args.artifact:
         if not artifact.is_file():
@@ -96,6 +102,16 @@ def main() -> int:
                 ),
                 "digest": {"sha256": sha256(model_manifest_path)},
                 "manifest": "Models/parakeet-tdt-0.6b-v3-coreml.json",
+            },
+            {
+                "name": "Parakeet-TDT-CTC-110M Core ML",
+                "uri": (
+                    "https://huggingface.co/FluidInference/"
+                    "parakeet-tdt-ctc-110m-coreml/tree/"
+                    + compact_model_manifest["revision"]
+                ),
+                "digest": {"sha256": sha256(compact_model_manifest_path)},
+                "manifest": "Models/parakeet-tdt-ctc-110m-coreml.json",
             },
         ],
         "releaseContract": {

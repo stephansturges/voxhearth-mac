@@ -4,20 +4,24 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 manifest="$repo_root/Models/parakeet-tdt-0.6b-v3-coreml.json"
-default_destination="$repo_root/.build/models/parakeet-tdt-0.6b-v3-coreml"
-destination="$default_destination"
+destination=""
 
 usage() {
   cat <<'EOF'
-Usage: scripts/fetch-model.sh [--destination PATH]
+Usage: scripts/fetch-model.sh [--manifest PATH] [--destination PATH]
 
-Download the exact, build-only Parakeet model revision recorded in Models/.
+Download one exact, build-only Parakeet model revision recorded in Models/.
 The destination must not already contain an incomplete or changed payload.
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --manifest)
+      [[ $# -ge 2 ]] || { usage >&2; exit 2; }
+      manifest="$2"
+      shift 2
+      ;;
     --destination)
       [[ $# -ge 2 ]] || { usage >&2; exit 2; }
       destination="$2"
@@ -34,6 +38,22 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+[[ -f "$manifest" ]] || {
+  printf 'error: model manifest not found: %s\n' "$manifest" >&2
+  exit 1
+}
+
+bundle_root="$(python3 - "$manifest" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as source:
+    print(json.load(source)["bundleRoot"])
+PY
+)"
+if [[ -z "$destination" ]]; then
+  destination="$repo_root/.build/models/$bundle_root"
+fi
 
 for command_name in curl python3; do
   command -v "$command_name" >/dev/null 2>&1 || {
@@ -62,13 +82,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-bundle_root="$(python3 - "$manifest" <<'PY'
-import json
-import sys
-with open(sys.argv[1], encoding="utf-8") as source:
-    print(json.load(source)["bundleRoot"])
-PY
-)"
 revision="$(python3 - "$manifest" <<'PY'
 import json
 import sys

@@ -13,7 +13,7 @@ body:
     attributes:
       label: VoxHearth version
       description: Include the release tag and, if available, the DMG SHA-256.
-      placeholder: v0.1.0
+      placeholder: v0.2.0
     validations:
       required: true
   - type: input

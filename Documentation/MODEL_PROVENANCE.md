@@ -1,7 +1,7 @@
 # Model provenance and attribution
 
-VoxHearth release builds contain a Core ML conversion of NVIDIA's
-Parakeet-TDT-0.6B-v3 automatic-speech-recognition model.
+VoxHearth release builds contain two selectable Core ML conversions of NVIDIA
+Parakeet automatic-speech-recognition models. Both run entirely on the Mac.
 
 ## Material used
 
@@ -18,6 +18,20 @@ Parakeet-TDT-0.6B-v3 automatic-speech-recognition model.
 | Redistribution license used by VoxHearth | CC BY 4.0 |
 | Full license | [`LICENSES/CC-BY-4.0.txt`](../LICENSES/CC-BY-4.0.txt) |
 
+### Compact English model
+
+| Field | Value |
+| --- | --- |
+| Distributed model | `FluidInference/parakeet-tdt-ctc-110m-coreml` |
+| Immutable revision | `9bc92ead6e8f17eca92a869fd578ae76842b82ba` |
+| Source | <https://huggingface.co/FluidInference/parakeet-tdt-ctc-110m-coreml> |
+| Base model | `nvidia/parakeet-tdt_ctc-110m` |
+| Base source | <https://huggingface.co/nvidia/parakeet-tdt_ctc-110m> |
+| Creator/base-model attribution | NVIDIA Corporation |
+| Core ML conversion attribution | FluidInference |
+| Redistribution license used by VoxHearth | CC BY 4.0 |
+| Full license | [`LICENSES/CC-BY-4.0.txt`](../LICENSES/CC-BY-4.0.txt) |
+
 The converted model card's machine-readable metadata declares CC BY 4.0 and
 names the NVIDIA model as its base. Its prose footer separately says Apache
 2.0. The NVIDIA base model also declares CC BY 4.0. VoxHearth therefore takes
@@ -25,7 +39,7 @@ the conservative position and satisfies CC BY 4.0 for the distributed model
 bytes rather than relying on the less restrictive prose footer.
 
 VoxHearth does not claim ownership of the model. It does not change the pinned
-model files; it selects five upstream payloads, verifies them byte-for-byte,
+model files; it selects the required upstream payloads, verifies them byte-for-byte,
 and places them inside the signed application bundle. Packaging, naming, and
 integration code are VoxHearth changes, not changes to model weights.
 
@@ -48,6 +62,11 @@ directories.
 The `*.mlmodelc` directories are already-compiled Core ML artifacts. The
 manifest deliberately excludes upstream quantized alternatives, other joint
 model variants, examples, model-card media, and downloader metadata.
+
+The compact model contains `Preprocessor.mlmodelc`, `Decoder.mlmodelc`,
+`JointDecision.mlmodelc`, and `parakeet_vocab.json`. Its manifest records 16
+files totaling 227,466,209 bytes. It is English-only. The multilingual model's
+manifest records 21 files totaling 483,105,645 bytes.
 
 ## License obligations
 

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "modelId": "FluidInference/parakeet-tdt-ctc-110m-coreml",
+  "revision": "9bc92ead6e8f17eca92a869fd578ae76842b82ba",
+  "source": "https://huggingface.co/FluidInference/parakeet-tdt-ctc-110m-coreml",
+  "baseModel": "nvidia/parakeet-tdt_ctc-110m",
+  "license": "CC-BY-4.0",
+  "bundleRoot": "parakeet-tdt-ctc-110m-coreml",
+  "allowedTopLevel": [
+    "Preprocessor.mlmodelc",
+    "Decoder.mlmodelc",
+    "JointDecision.mlmodelc",
+    "parakeet_vocab.json"
+  ],
+  "totalSize": 227466209,
+  "files": [
+    {"path": "Decoder.mlmodelc/analytics/coremldata.bin", "size": 243, "sha256": "dc7174d25586869ffb33e6c519cfcc882bf04b2f0e527b8b84a38fe4d469f618"},
+    {"path": "Decoder.mlmodelc/coremldata.bin", "size": 562, "sha256": "407846e00c895ee447ee5795eb61c0437b4d5ed8ae33e603173fb3f79d871151"},
+    {"path": "Decoder.mlmodelc/metadata.json", "size": 3418, "sha256": "31e061914a0e0106020800ac6b19a66e1d11e9194597dc238babfdfad9bd1163"},
+    {"path": "Decoder.mlmodelc/model.mil", "size": 8765, "sha256": "5d8fe2126ead2e4467931f563f0ca4d7747a1feee27c75672b66204f0e95feba"},
+    {"path": "Decoder.mlmodelc/weights/weight.bin", "size": 7871040, "sha256": "dd90b58597ee2c172c672dffe13b1110898ba07394c1a15efc96cc8c6b18411b"},
+    {"path": "JointDecision.mlmodelc/analytics/coremldata.bin", "size": 243, "sha256": "42f7757cc6603cf025dd490169edef879c355b62a178243e1ca4d538e762af2f"},
+    {"path": "JointDecision.mlmodelc/coremldata.bin", "size": 583, "sha256": "9ef957d12add316f594b2e8766202ce2b06341e3e5ebaea35b9ff2c3d7a0f4f7"},
+    {"path": "JointDecision.mlmodelc/metadata.json", "size": 3565, "sha256": "d41758303b3430b38132b3d76b39bc88c16889be0dc0e8a88803226b891fa9b2"},
+    {"path": "JointDecision.mlmodelc/model.mil", "size": 11768, "sha256": "b8beac2b60a8b2b33854352784b2d37b3783b10eb262cf761095c8df5bf97d14"},
+    {"path": "JointDecision.mlmodelc/weights/weight.bin", "size": 2798028, "sha256": "b3f771cb65b190f1873e39629676ed79b65a8361522f451b37bdba8b1106e6ff"},
+    {"path": "Preprocessor.mlmodelc/analytics/coremldata.bin", "size": 243, "sha256": "d813d089b82b1edfdc558d902d91421c527c2db4ba85e36c4a611ea99eba8248"},
+    {"path": "Preprocessor.mlmodelc/coremldata.bin", "size": 499, "sha256": "69e29c6cf43349318661a4aaade4bc0cc124a5780582d283614056cc76eb2907"},
+    {"path": "Preprocessor.mlmodelc/metadata.json", "size": 3133, "sha256": "c126b295f723abb241ee9b0e855670fb2b4c68a041caaf5149fcf991b3daf307"},
+    {"path": "Preprocessor.mlmodelc/model.mil", "size": 794623, "sha256": "2dbf6796267859d0677ffe1bc1c41e72320ef5aa23b256cd96a73c21ecf1cc44"},
+    {"path": "Preprocessor.mlmodelc/weights/weight.bin", "size": 215951360, "sha256": "a1c90b88b52667ee4f349b39994003cc2a9fb1b12c310752399d90c880286a7b"},
+    {"path": "parakeet_vocab.json", "size": 18136, "sha256": "1d6e786d0c1842f45fd3a89044b099d4e3abf889ec986101166619d56bdb821e"}
+  ]
+}

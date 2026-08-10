@@ -8,6 +8,7 @@ import Testing
     #expect(settings.hotkey == .controlOptionSpace)
     #expect(settings.pointerButton == nil)
     #expect(settings.inputDeviceUID == nil)
+    #expect(settings.transcriptionModel == .multilingual)
     #expect(settings.language == .english)
     #expect(settings.launchAtLogin == false)
     #expect(settings.clipboardCompatibilityEnabled == false)
@@ -22,6 +23,7 @@ import Testing
         ),
         pointerButton: 4,
         inputDeviceUID: "local-device-uid",
+        transcriptionModel: .multilingual,
         language: .ukrainian,
         launchAtLogin: true,
         clipboardCompatibilityEnabled: true
@@ -31,6 +33,19 @@ import Testing
     let decoded = try JSONDecoder().decode(AppSettings.self, from: encoded)
     #expect(decoded == settings)
     #expect(decoded.pointerButton == 4)
+}
+
+@Test func legacySettingsWithoutModelRetainMultilingualBehavior() throws {
+    let legacy = #"{"hotkey":{"keyCode":49,"modifiers":3},"language":"fr","launchAtLogin":false,"clipboardCompatibilityEnabled":false}"#
+    let decoded = try JSONDecoder().decode(AppSettings.self, from: Data(legacy.utf8))
+    #expect(decoded.transcriptionModel == .multilingual)
+    #expect(decoded.language == .french)
+}
+
+@Test func compactModelForcesItsOnlySupportedLanguage() {
+    let settings = AppSettings(transcriptionModel: .compactEnglish, language: .french)
+    #expect(settings.language == .english)
+    #expect(TranscriptionModel.compactEnglish.supportedLanguages == [.english])
 }
 
 @Test func languageCatalogMatchesBundledModelContract() {
