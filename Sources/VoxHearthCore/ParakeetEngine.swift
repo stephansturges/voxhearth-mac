@@ -1,6 +1,6 @@
 @preconcurrency import AVFoundation
 @preconcurrency import CoreML
-import FluidAudio
+import FluidAudioLocal
 import Foundation
 import os
 
@@ -24,14 +24,10 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
 
     public init(modelDirectoryURL: URL) {
         self.modelDirectoryURL = modelDirectoryURL.standardizedFileURL
-        // Defense in depth: any accidental FluidAudio download entry point fails closed.
-        ModelHub.offlineMode = true
     }
 
     public func prepare() async throws {
         guard !isPrepared else { return }
-        ModelHub.offlineMode = true
-
         #if !arch(arm64)
         throw ParakeetEngineError.unsupportedArchitecture
         #else
@@ -105,7 +101,6 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
         guard let manager else { throw ParakeetEngineError.modelLoadFailed }
 
         do {
-            ModelHub.offlineMode = true
             logger.info(.localTranscriptionStarted)
             let normalizedSamples = try PCMResampler.resample(
                 audio.samples,

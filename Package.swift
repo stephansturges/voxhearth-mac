@@ -7,20 +7,17 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "VoxHearthCore", targets: ["VoxHearthCore"]),
+        .library(name: "FluidAudioLocal", targets: ["FluidAudioLocal"]),
         .executable(name: "VoxHearth", targets: ["VoxHearthApp"]),
-    ],
-    dependencies: [
-        .package(
-            url: "https://github.com/FluidInference/FluidAudio.git",
-            revision: "19600a485baa4998812e4654b70d2bab8f2c9949"
-        ),
     ],
     targets: [
         .target(
+            name: "FluidAudioLocal",
+            path: "Vendor/FluidAudioLocal/Sources/FluidAudioLocal"
+        ),
+        .target(
             name: "VoxHearthCore",
-            dependencies: [
-                .product(name: "FluidAudio", package: "FluidAudio"),
-            ]
+            dependencies: ["FluidAudioLocal"]
         ),
         .executableTarget(
             name: "VoxHearthApp",
@@ -28,7 +25,11 @@ let package = Package(
         ),
         .testTarget(
             name: "VoxHearthCoreTests",
-            dependencies: ["VoxHearthCore"]
+            dependencies: ["VoxHearthCore", "FluidAudioLocal"]
+        ),
+        .testTarget(
+            name: "VoxHearthAppTests",
+            dependencies: ["VoxHearthApp", "VoxHearthCore"]
         ),
     ]
 )

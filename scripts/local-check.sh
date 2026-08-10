@@ -1,19 +1,120 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
+for command_name in file python3 rg swift zsh; do
+  command -v "$command_name" >/dev/null 2>&1 || {
+    printf 'error: required command not found: %s\n' "$command_name" >&2
+    exit 1
+  }
+done
+
+printf '%s\n' '==> Validate scripts and distribution metadata'
+while IFS= read -r shell_script; do
+  bash -n "$shell_script"
+done < <(find scripts -maxdepth 1 -type f -name '*.sh' -print | sort)
+
+python_cache="$(mktemp -d "${TMPDIR:-/private/tmp}/voxhearth-pycache.XXXXXX")"
+cleanup() {
+  rm -rf "$python_cache"
+}
+trap cleanup EXIT
+PYTHONPYCACHEPREFIX="$python_cache" python3 -m py_compile scripts/*.py
+python3 scripts/verify-model.py --self-test
+python3 scripts/verify-model.py --manifest-only
+plutil -lint Documentation/Distribution/Info.plist >/dev/null
+plutil -lint Documentation/Distribution/VoxHearth.entitlements >/dev/null
+./scripts/check-release-binary.sh --self-test
+[[ -f Brand/VoxHearth.icns ]] || {
+  printf 'error: required application icon is missing: Brand/VoxHearth.icns\n' >&2
+  exit 1
+}
+file Brand/VoxHearth.icns | grep -Fq 'Mac OS X icon' || {
+  printf 'error: Brand/VoxHearth.icns is not a valid macOS icon file\n' >&2
+  exit 1
+}
+zsh -n Brand/build-icon.sh
+
+if unpinned_actions="$(rg -n '^\s*uses:\s*[^ ]+@' .github/workflows \
+  | grep -Ev '@[0-9a-f]{40}([[:space:]]+#.*)?$' || true)"; then
+  if [[ -n "$unpinned_actions" ]]; then
+    printf 'error: GitHub Actions must use full 40-character commit pins:\n%s\n' \
+      "$unpinned_actions" >&2
+    exit 1
+  fi
+fi
+
+printf '%s\n' '==> Validate source and artifact policy'
+for required_file in \
+  README.md SECURITY.md NOTICE UPSTREAM.md THIRD_PARTY_NOTICES.md CHANGELOG.md \
+  Documentation/PRIVACY.md Documentation/THREAT_MODEL.md \
+  Documentation/MODEL_PROVENANCE.md Documentation/BUILDING.md \
+  Documentation/VERIFY_RELEASE.md Documentation/RELEASE.md; do
+  [[ -f "$required_file" ]] || {
+    printf 'error: required project document is missing: %s\n' "$required_file" >&2
+    exit 1
+  }
+done
+
+if git ls-files | rg -i '(^|/)([^/]+\.dmg|[^/]+\.p12|AuthKey_[^/]+\.p8)$|\.mlmodelc/' >/dev/null; then
+  printf 'error: release/model/signing binaries must not be tracked by Git\n' >&2
+  git ls-files | rg -i '(^|/)([^/]+\.dmg|[^/]+\.p12|AuthKey_[^/]+\.p8)$|\.mlmodelc/' >&2
+  exit 1
+fi
+
+if rg -n -i \
+  'com\.typewhisper|TypeWhisper\.app|typewhisper-cli|TypeWhisperApp|import[[:space:]]+TypeWhisper' \
+  Package.swift Sources Tests Brand; then
+  printf 'error: unexpected upstream product identity in active VoxHearth files\n' >&2
+  exit 1
+fi
+
+if rg -n \
+  'URLSession|URLRequest|URLProtocol|NW(Connection|Listener|Browser|PathMonitor)|import[[:space:]]+Network|CFSocket|CFStream|NSStream|NetworkExtension|WebSocket|\bsocket\s*\(|getaddrinfo|Sparkle|SUUpdater|SUFeedURL|Alamofire|Sentry|Telemetry|Analytics|HFClient|FileDownloader|AssetDownloader|downloadAndLoad|ModelHub' \
+  Sources Vendor/FluidAudioLocal; then
+  printf 'error: runtime source contains a forbidden networking, updater, or telemetry API\n' >&2
+  exit 1
+fi
+
+if rg -n \
+  'FileHandle|FileManager|temporaryDirectory|NSTemporaryDirectory|\.write\(' \
+  Vendor/FluidAudioLocal/Sources; then
+  printf 'error: vendored runtime source contains a durable file/audio API\n' >&2
+  exit 1
+fi
+
+if rg -n \
+  'import[[:space:]]+OSLog|OSLog\.Logger|standard(Error|Output)|print\(' \
+  Vendor/FluidAudioLocal/Sources/FluidAudioLocal/Shared/AppLogger.swift; then
+  printf 'error: vendored logger must remain a no-op sink\n' >&2
+  exit 1
+fi
+
+if rg -n '^\s*\.package\(' Package.swift; then
+  printf 'error: Package.swift must not contain a remote runtime dependency\n' >&2
+  exit 1
+fi
+rg -Fq 'FluidAudioLocal' Package.swift
+rg -Fq '19600a485baa4998812e4654b70d2bab8f2c9949' Vendor/FluidAudioLocal/UPSTREAM.md
+
+printf '%s\n' '==> Resolve, test, and build'
 swift package resolve
 swift test
 swift build --configuration debug
 swift build --configuration release
 
-if rg -n -i 'typewhisper' Package.swift Sources Tests Brand README.md SECURITY.md NOTICE UPSTREAM.md \
-  | rg -v 'NOTICE|UPSTREAM.md|README.md'; then
-  echo "Unexpected upstream brand reference in active VoxHearth files" >&2
-  exit 1
+binary_dir="$(swift build --configuration release --show-bin-path)"
+./scripts/check-release-binary.sh "$binary_dir/VoxHearth"
+
+model_dir="$repo_root/.build/models/parakeet-tdt-0.6b-v3-coreml"
+if ./scripts/verify-model.py "$model_dir" >/dev/null 2>&1; then
+  ./scripts/model-smoke.sh "$model_dir"
+else
+  printf 'verified local model absent; skipping opt-in real-model smoke test\n'
 fi
 
-echo "VoxHearth local checks passed"
+git diff --check
+printf '%s\n' 'VoxHearth local checks passed'

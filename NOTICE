@@ -1,9 +1,29 @@
 VoxHearth
 Copyright (c) 2026 VoxHearth contributors
 
-VoxHearth is based on TypeWhisper v1.5.1:
+VoxHearth is a modified, independently branded fork of TypeWhisper v1.5.1.
+Portions of the source are Copyright (c) 2026 TypeWhisper and its contributors.
+
+Upstream source:
 https://github.com/TypeWhisper/typewhisper-mac
 
-The original and modified source is distributed under GPL-3.0-or-later. See
-LICENSE and UPSTREAM.md. TypeWhisper names and artwork are not used as the
-VoxHearth product identity.
+Fork point:
+ea2843f2d179b0f43941e0fb2d3ed92d363eb31e
+
+The upstream licensing record at that exact commit states verbatim:
+"Open-source usage is licensed under the GNU General Public License v3.0 or
+later (GPL-3.0-or-later)."
+
+The original and modified program source is distributed under
+GPL-3.0-or-later. The complete license text is in LICENSE. Corresponding source
+and build instructions are published with each VoxHearth binary release.
+
+VoxHearth release binaries also contain an adapted, network-free FluidAudio
+subset and a Core ML conversion of NVIDIA Parakeet-TDT-0.6B-v3. Their
+attribution and license texts are in
+THIRD_PARTY_NOTICES.md, Documentation/MODEL_PROVENANCE.md, and LICENSES/.
+
+"TypeWhisper" and its original artwork are not used as VoxHearth product
+identity. TypeWhisper is a trademark of its respective owner. VoxHearth is
+independent and is not endorsed by TypeWhisper, NVIDIA, FluidInference, or
+Apple.

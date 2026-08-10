@@ -1,0 +1,40 @@
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test and offline-contract checks
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode 26.2
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: "26.2"
+
+      - name: Record toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Run tests and policy checks
+        run: ./scripts/local-check.sh

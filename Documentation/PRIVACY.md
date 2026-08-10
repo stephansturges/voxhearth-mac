@@ -1,0 +1,97 @@
+# Privacy
+
+VoxHearth 0.1 has one purpose: turn microphone audio into text on the same Mac.
+There is no online mode.
+
+## Runtime data flow
+
+```text
+microphone
+   │
+   ▼
+memory-only Float32 audio (maximum 10 minutes)
+   │
+   ▼
+bundled Parakeet Core ML model through a network-free FluidAudio subset
+   │
+   ▼
+memory-only transcript
+   │
+   ▼
+focused application through Accessibility or Unicode events
+```
+
+VoxHearth does not send audio, transcripts, settings, diagnostics, or usage
+events to a VoxHearth service. It has no account, analytics SDK, advertising,
+crash uploader, cloud transcription endpoint, model downloader, automatic
+updater, appcast, or remote configuration.
+
+Build and release machines do use the network to obtain source dependencies and
+the pinned model, interact with GitHub, and request Apple notarization. Those
+operations are not present in the installed runtime application.
+
+## What is processed or stored
+
+| Data | Processing and lifetime |
+| --- | --- |
+| Microphone audio | Captured into process memory only, capped at ten minutes per dictation, then released after transcription, cancellation, failure, or process exit. VoxHearth does not create an audio file. |
+| Transcript | Exists in process memory while it is being inserted. If insertion fails, VoxHearth may retain that transcript in memory for a Retry/Discard prompt for at most two minutes, then discards it automatically. Quitting or choosing Discard clears it sooner. VoxHearth does not save a transcript history. |
+| Preferences | Shortcut, selected microphone identifier, language, launch-at-login choice, clipboard-fallback choice, and onboarding completion are stored in macOS UserDefaults for bundle ID `com.stephansturges.voxhearth`. |
+| Logs | Apple Unified Logging receives fixed operation identifiers and error type names. Log calls cannot accept audio, transcript text, clipboard contents, arbitrary paths, or free-form user text. |
+| Model | Immutable model files are read from the signed application bundle. No model cache or runtime download is created by VoxHearth. |
+
+The application into which VoxHearth inserts text receives the transcript and
+may store, sync, or transmit it under that application's own policy. macOS and
+software with sufficient local privileges can inspect process memory or audio;
+VoxHearth cannot protect data on a compromised operating system.
+
+## Permissions
+
+VoxHearth requests only:
+
+- **Microphone:** required to capture the dictation you initiate.
+- **Accessibility:** required to set selected text or post Unicode keyboard
+  events into the focused application.
+
+The global shortcut uses the macOS Carbon hotkey API. It receives only the
+registered shortcut's press/release events; it does not install a general
+keyboard event tap or record other keystrokes.
+
+Launch at login is optional and off by default. It uses macOS
+`SMAppService.mainApp`; it does not install a privileged helper.
+
+## Clipboard compatibility
+
+Clipboard fallback is off by default. When enabled, VoxHearth uses it only if
+the Accessibility and Unicode-event insertion methods fail. It snapshots every
+pasteboard item, writes the transcript, posts Command-V, and restores the prior
+clipboard after a short delay if nothing else has changed it.
+
+Clipboard managers, Universal Clipboard, the destination app, or another local
+process can observe the temporary transcript before restoration. Leave this
+setting disabled if that is unacceptable. If another process changes the
+clipboard during insertion, VoxHearth preserves the newer value rather than
+overwriting it with the snapshot.
+
+## Removing local state
+
+Quit VoxHearth to release in-memory audio, text, and loaded model state. To
+remove preferences:
+
+```sh
+defaults delete com.stephansturges.voxhearth
+```
+
+Disable “Launch VoxHearth at login” before deleting the app. Microphone and
+Accessibility grants can be revoked in System Settings → Privacy & Security.
+
+## Verification and changes
+
+The source-level offline contract and signed release checks are described in
+[THREAT_MODEL.md](THREAT_MODEL.md) and [VERIFY_RELEASE.md](VERIFY_RELEASE.md).
+Changes that add any runtime networking, content logging, history, or remote
+update behavior require an explicit privacy review and a prominent update to
+this document before release.
+
+Report a suspected privacy or security defect privately as described in
+[SECURITY.md](../SECURITY.md).

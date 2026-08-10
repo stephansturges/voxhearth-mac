@@ -10,6 +10,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import sys
+import tempfile
 
 
 REQUIRED_REVISION = "aed02740059203c4a87495924f685de3722ae9ce"
@@ -85,6 +86,30 @@ def digest_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def absolute_without_resolving(path: Path) -> Path:
+    """Make a path absolute without following a symlink at the model root."""
+    return Path(os.path.abspath(path.expanduser()))
+
+
+def self_test() -> None:
+    with tempfile.TemporaryDirectory(prefix="voxhearth-model-verifier-") as temporary:
+        temporary_root = Path(temporary)
+        target = temporary_root / "target"
+        target.mkdir()
+        root_symlink = temporary_root / "model"
+        root_symlink.symlink_to(target, target_is_directory=True)
+        unresolved = absolute_without_resolving(root_symlink)
+        if not unresolved.is_symlink():
+            fail("self-test resolved a model-root symlink before validation")
+        try:
+            verify_payload(unresolved, {"files": []})
+        except ValueError as error:
+            if "symlink" not in str(error):
+                fail(f"self-test rejected root symlink for the wrong reason: {error}")
+        else:
+            fail("self-test accepted a symlinked model root")
+
+
 def verify_payload(root: Path, manifest: dict) -> None:
     if not root.is_dir() or root.is_symlink():
         fail(f"model root is missing, not a directory, or a symlink: {root}")
@@ -147,9 +172,14 @@ def main() -> int:
         default=repo_root / "Models" / "parakeet-tdt-0.6b-v3-coreml.json",
     )
     parser.add_argument("--manifest-only", action="store_true")
+    parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
 
     try:
+        if args.self_test:
+            self_test()
+            print("model verifier self-test passed")
+            return 0
         manifest = load_manifest(args.manifest)
         if args.manifest_only:
             print(
@@ -159,7 +189,7 @@ def main() -> int:
             return 0
         if args.model_root is None:
             parser.error("model_root is required unless --manifest-only is used")
-        verify_payload(args.model_root.resolve(), manifest)
+        verify_payload(absolute_without_resolving(args.model_root), manifest)
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
