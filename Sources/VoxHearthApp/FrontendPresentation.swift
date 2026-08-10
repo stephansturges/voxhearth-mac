@@ -151,6 +151,23 @@ enum SettingsSection: Hashable {
     case licenses
 }
 
+enum LaunchPresentationPolicy {
+    static func shouldPresentOnboarding(hasCompletedOnboarding: Bool) -> Bool {
+        !hasCompletedOnboarding
+    }
+}
+
+enum AppInstancePolicy {
+    static func shouldTerminateNewInstance(
+        currentProcessIdentifier: Int32,
+        runningProcessIdentifiers: [Int32]
+    ) -> Bool {
+        runningProcessIdentifiers.contains {
+            $0 != currentProcessIdentifier && $0 < currentProcessIdentifier
+        }
+    }
+}
+
 enum OnboardingStep: Int, CaseIterable {
     case privacy
     case permissions

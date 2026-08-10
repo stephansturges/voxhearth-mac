@@ -116,6 +116,7 @@ private struct DictationSettingsView: View {
 
 private struct PrivacySettingsView: View {
     @Bindable var model: VoxHearthFrontendModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         ScrollView {
@@ -164,8 +165,11 @@ private struct PrivacySettingsView: View {
                 }
 
                 Button("Review privacy onboarding") {
+                    let settingsWindow = NSApplication.shared.keyWindow
                     model.restartOnboarding()
-                    NSApplication.shared.keyWindow?.close()
+                    openWindow(id: "onboarding")
+                    settingsWindow?.close()
+                    NSApplication.shared.activate(ignoringOtherApps: true)
                 }
             }
             .padding(4)
