@@ -55,8 +55,10 @@ printf '%s\n' '==> Validate source and artifact policy'
 for required_file in \
   README.md SECURITY.md NOTICE UPSTREAM.md THIRD_PARTY_NOTICES.md CHANGELOG.md \
   Documentation/PRIVACY.md Documentation/THREAT_MODEL.md \
+  Documentation/PEBBLE_INDEX.md \
   Documentation/MODEL_PROVENANCE.md Documentation/BUILDING.md \
-  Documentation/VERIFY_RELEASE.md Documentation/RELEASE.md; do
+  Documentation/VERIFY_RELEASE.md Documentation/RELEASE.md \
+  .github/release-notes-v0.1.0-dev.1.md; do
   [[ -f "$required_file" ]] || {
     printf 'error: required project document is missing: %s\n' "$required_file" >&2
     exit 1

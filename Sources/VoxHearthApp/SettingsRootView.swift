@@ -42,6 +42,15 @@ private struct DictationSettingsView: View {
                     .frame(width: 290)
                 }
 
+                LabeledContent("Mouse or accessory") {
+                    PointerButtonRecorderView(
+                        buttonNumber: model.settings.pointerButton,
+                        displayName: model.pointerButtonDisplayName,
+                        onChange: model.setPointerButton
+                    )
+                    .frame(width: 360)
+                }
+
                 LabeledContent("Behavior") {
                     Text("Hold to record, release to transcribe")
                         .foregroundStyle(.secondary)

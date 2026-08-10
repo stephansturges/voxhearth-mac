@@ -53,9 +53,13 @@ VoxHearth requests only:
 - **Accessibility:** required to set selected text or post Unicode keyboard
   events into the focused application.
 
-The global shortcut uses the macOS Carbon hotkey API. It receives only the
-registered shortcut's press/release events; it does not install a general
-keyboard event tap or record other keystrokes.
+The global keyboard shortcut uses the macOS Carbon hotkey API. It receives only
+the registered shortcut's press/release events; it does not install a general
+keyboard event tap or record other keystrokes. If you explicitly bind a middle
+or extra mouse/accessory button, VoxHearth additionally monitors only macOS
+`otherMouseDown` and `otherMouseUp` events and discards every button number
+except the one you selected. It does not observe pointer movement, scrolling,
+or primary/secondary clicks.
 
 Launch at login is optional and off by default. It uses macOS
 `SMAppService.mainApp`; it does not install a privileged helper.

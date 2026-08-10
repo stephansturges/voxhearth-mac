@@ -2,6 +2,9 @@ import Foundation
 
 public struct AppSettings: Codable, Equatable, Sendable {
     public var hotkey: HotkeyConfiguration
+    /// An optional NSEvent button number (2 is middle click; 3+ are extra
+    /// mouse/accessory buttons). The keyboard shortcut remains available.
+    public var pointerButton: UInt32?
     public var inputDeviceUID: String?
     public var language: DictationLanguage
     public var launchAtLogin: Bool
@@ -9,12 +12,14 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     public init(
         hotkey: HotkeyConfiguration = .controlOptionSpace,
+        pointerButton: UInt32? = nil,
         inputDeviceUID: String? = nil,
         language: DictationLanguage = .english,
         launchAtLogin: Bool = false,
         clipboardCompatibilityEnabled: Bool = false
     ) {
         self.hotkey = hotkey
+        self.pointerButton = pointerButton
         self.inputDeviceUID = inputDeviceUID
         self.language = language
         self.launchAtLogin = launchAtLogin
@@ -69,6 +74,14 @@ public struct HotkeyConfiguration: Codable, Hashable, Sendable {
         case 36: "Return"
         case 48: "Tab"
         case 53: "Escape"
+        case 105: "F13"
+        case 107: "F14"
+        case 113: "F15"
+        case 106: "F16"
+        case 64: "F17"
+        case 79: "F18"
+        case 80: "F19"
+        case 90: "F20"
         default: "Key \(keyCode)"
         }
     }

@@ -6,6 +6,7 @@ import Testing
     let settings = AppSettings.default
 
     #expect(settings.hotkey == .controlOptionSpace)
+    #expect(settings.pointerButton == nil)
     #expect(settings.inputDeviceUID == nil)
     #expect(settings.language == .english)
     #expect(settings.launchAtLogin == false)
@@ -19,6 +20,7 @@ import Testing
             keyCode: 36,
             modifiers: [.control, .shift, .command]
         ),
+        pointerButton: 4,
         inputDeviceUID: "local-device-uid",
         language: .ukrainian,
         launchAtLogin: true,
@@ -28,6 +30,7 @@ import Testing
     let encoded = try JSONEncoder().encode(settings)
     let decoded = try JSONDecoder().decode(AppSettings.self, from: encoded)
     #expect(decoded == settings)
+    #expect(decoded.pointerButton == 4)
 }
 
 @Test func languageCatalogMatchesBundledModelContract() {

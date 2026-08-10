@@ -45,6 +45,8 @@ struct MenuBarContentView: View {
             .buttonStyle(.plain)
             .disabled(model.sessionState.isBusy)
 
+            quickControls
+
             if case .listening = model.sessionState {
                 Button("Cancel Dictation", role: .cancel, action: model.cancelDictation)
                     .buttonStyle(.plain)
@@ -145,6 +147,45 @@ struct MenuBarContentView: View {
         }
         .padding(13)
         .background(Color.voxHearthAmber.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var quickControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Controls")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.voxWarmWhite.opacity(0.68))
+
+            HotkeyRecorderView(
+                hotkey: model.hotkeyDescriptor,
+                onChange: model.setHotkey
+            )
+
+            Button {
+                showSettings(.dictation)
+            } label: {
+                HStack {
+                    Image(systemName: "computermouse")
+                    Text(model.pointerButtonDisplayName)
+                    Spacer()
+                    Text(model.settings.pointerButton == nil ? "Add" : "Change")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+
+            Toggle("Launch VoxHearth at login", isOn: launchAtLoginBinding)
+                .toggleStyle(.checkbox)
+                .font(.callout)
+        }
+        .padding(12)
+        .background(Color.voxWarmWhite.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.launchAtLogin },
+            set: { model.setLaunchAtLogin($0) }
+        )
     }
 
     private var primaryActionSymbol: String {

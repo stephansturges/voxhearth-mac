@@ -32,6 +32,13 @@ def main() -> int:
     parser.add_argument("--version", required=True)
     parser.add_argument("--source-revision", required=True)
     parser.add_argument("--source-tag", required=True)
+    parser.add_argument("--workflow", default=".github/workflows/release.yml")
+    parser.add_argument("--signature", default="Developer ID Application")
+    parser.add_argument(
+        "--notarization",
+        default="Apple notary service with stapled ticket",
+    )
+    parser.add_argument("--release-channel", default="official")
     parser.add_argument("--artifact", action="append", required=True, type=Path)
     args = parser.parse_args()
 
@@ -59,7 +66,7 @@ def main() -> int:
             "sourceTag": args.source_tag,
             "version": args.version,
             "builder": "GitHub Actions",
-            "workflow": ".github/workflows/release.yml",
+            "workflow": args.workflow,
             "runnerImage": "macos-26",
             "xcodeVersion": "26.2",
             "createdAt": created_time(),
@@ -96,8 +103,9 @@ def main() -> int:
             "modelDelivery": "bundled-and-hash-locked",
             "automaticUpdates": "absent",
             "telemetry": "absent",
-            "signature": "Developer ID Application",
-            "notarization": "Apple notary service with stapled ticket",
+            "releaseChannel": args.release_channel,
+            "signature": args.signature,
+            "notarization": args.notarization,
         },
         "attestation": {
             "provider": "GitHub actions/attest",

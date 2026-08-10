@@ -96,7 +96,15 @@ struct HotkeyDescriptor: Codable, Equatable, Sendable {
 
     var isSuitableGlobalShortcut: Bool {
         !modifiers.intersection([.command, .control, .option]).isEmpty
+            || Self.unmodifiedAccessoryKeys.contains(keyCode)
     }
+
+    /// F13-F20 are intentionally accepted without modifiers. They are rarely
+    /// present on compact keyboards and are conventional safe targets for USB
+    /// macro buttons, headset utilities, and mouse remapping software.
+    private static let unmodifiedAccessoryKeys: Set<UInt16> = [
+        105, 107, 113, 106, 64, 79, 80, 90,
+    ]
 
     static func modifierDisplay(_ modifiers: NSEvent.ModifierFlags) -> String {
         var result = ""
@@ -114,7 +122,8 @@ struct HotkeyDescriptor: Codable, Equatable, Sendable {
             16: "Y", 17: "T", 31: "O", 32: "U", 34: "I", 35: "P", 37: "L",
             38: "J", 40: "K", 45: "N", 46: "M", 36: "Return", 48: "Tab",
             49: "Space", 51: "Delete", 53: "Escape", 123: "←", 124: "→",
-            125: "↓", 126: "↑",
+            125: "↓", 126: "↑", 105: "F13", 107: "F14", 113: "F15",
+            106: "F16", 64: "F17", 79: "F18", 80: "F19", 90: "F20",
         ]
         return knownKeys[keyCode] ?? "Key (keyCode)"
     }

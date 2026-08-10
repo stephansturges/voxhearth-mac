@@ -4,6 +4,8 @@ import Observation
 @MainActor
 @Observable
 public final class DictationController {
+    public static let maximumExternalAudioDuration: TimeInterval = 10 * 60
+
     public private(set) var state: DictationSessionState = .idle
     public private(set) var settings: AppSettings
     public private(set) var recordingStartedAt: Date?
@@ -12,15 +14,22 @@ public final class DictationController {
     @ObservationIgnored
     public var onOnboardingRequirement: (@MainActor @Sendable (OnboardingRequirement) -> Void)?
 
+    /// Runs immediately after a dictation request is accepted and before the
+    /// microphone starts. The app uses this for a short local acknowledgement
+    /// tone so the cue itself is not included in captured audio.
+    @ObservationIgnored
+    public var onStartCue: (@MainActor @Sendable () async -> Void)?
+
     @ObservationIgnored private let audioCapture: any AudioCapturing
     @ObservationIgnored private let transcriptionEngine: any LocalTranscriptionEngine
     @ObservationIgnored private let textInserter: any TextInserting
     @ObservationIgnored private let hotkeyService: any GlobalHotkeyRegistering
+    @ObservationIgnored private let pointerButtonService: any GlobalPointerButtonRegistering
     @ObservationIgnored private var isActive = false
     @ObservationIgnored private var transcriptionTask: Task<String, Error>?
     @ObservationIgnored private var pendingTranscriptExpiryTask: Task<Void, Never>?
-    @ObservationIgnored private var hotkeyStartTask: Task<Void, Never>?
-    @ObservationIgnored private var hotkeyIsPressed = false
+    @ObservationIgnored private var activationStartTask: Task<Void, Never>?
+    @ObservationIgnored private var activationIsPressed = false
     @ObservationIgnored private let pendingTranscriptLifetime: Duration
     @ObservationIgnored private let logger = PrivacySafeLogger(category: "Dictation")
 
@@ -30,6 +39,7 @@ public final class DictationController {
         audioCapture: any AudioCapturing = AudioCaptureService(),
         textInserter: any TextInserting = TextInsertionService(),
         hotkeyService: any GlobalHotkeyRegistering = CarbonGlobalHotkeyService(),
+        pointerButtonService: any GlobalPointerButtonRegistering = GlobalPointerButtonService(),
         pendingTranscriptLifetime: Duration = .seconds(120)
     ) {
         self.transcriptionEngine = transcriptionEngine
@@ -37,23 +47,26 @@ public final class DictationController {
         self.audioCapture = audioCapture
         self.textInserter = textInserter
         self.hotkeyService = hotkeyService
+        self.pointerButtonService = pointerButtonService
         self.pendingTranscriptLifetime = pendingTranscriptLifetime
     }
 
     deinit {
         transcriptionTask?.cancel()
         pendingTranscriptExpiryTask?.cancel()
-        hotkeyStartTask?.cancel()
+        activationStartTask?.cancel()
     }
 
     public func activate() throws {
         guard !isActive else { return }
         try registerHotkey(settings.hotkey)
+        registerPointerButton(settings.pointerButton)
         isActive = true
     }
 
     public func deactivate() {
         hotkeyService.unregister()
+        pointerButtonService.unregister()
         isActive = false
     }
 
@@ -66,6 +79,9 @@ public final class DictationController {
                 try? registerHotkey(previousSettings.hotkey)
                 throw error
             }
+        }
+        if isActive, settings.pointerButton != previousSettings.pointerButton {
+            registerPointerButton(settings.pointerButton)
         }
         self.settings = settings
     }
@@ -90,6 +106,8 @@ public final class DictationController {
         state = .preparing
 
         do {
+            await onStartCue?()
+            try Task.checkCancellation()
             try await transcriptionEngine.prepare()
             try Task.checkCancellation()
             try await audioCapture.start(
@@ -118,40 +136,44 @@ public final class DictationController {
         state = .transcribing
         recordingStartedAt = nil
 
-        var transcriptForRecovery: String?
         do {
             let audio = try await audioCapture.stop()
-            let selectedLanguage = settings.language
-            let task = Task {
-                try await transcriptionEngine.transcribe(audio, language: selectedLanguage)
-            }
-            transcriptionTask = task
-            let transcript = try await task.value
-            transcriptionTask = nil
-
-            guard !transcript.isEmpty else {
-                state = .idle
-                return
-            }
-            transcriptForRecovery = transcript
-
-            state = .inserting
-            _ = try await textInserter.insert(
-                transcript,
-                clipboardFallbackEnabled: settings.clipboardCompatibilityEnabled
-            )
-            clearPendingTranscript()
-            state = .idle
+            await transcribeAndInsert(audio)
         } catch is CancellationError {
             transcriptionTask = nil
             state = .idle
         } catch {
             transcriptionTask = nil
-            if let transcriptForRecovery {
-                retainPendingTranscript(transcriptForRecovery)
-            }
             handleCompletionError(error)
         }
+    }
+
+    /// Accepts PCM captured by a directly connected local accessory, without
+    /// opening the Mac microphone or playing the microphone-start cue.
+    ///
+    /// The caller remains responsible for authenticating the accessory,
+    /// bounding the transfer, validating packet integrity, and releasing its
+    /// transport buffers. Once accepted, audio follows the same in-memory
+    /// transcription and insertion path as microphone dictation.
+    @discardableResult
+    public func submitExternalAudio(
+        _ audio: CapturedAudio
+    ) async -> ExternalAudioSubmissionResult {
+        guard state == .idle || Self.isFailureState(state) else { return .busy }
+        guard audio.sampleRate.isFinite,
+              audio.sampleRate > 0,
+              audio.sampleRate <= 192_000,
+              !audio.samples.isEmpty,
+              audio.duration <= Self.maximumExternalAudioDuration,
+              audio.samples.allSatisfy(\.isFinite) else {
+            return .invalidAudio
+        }
+
+        clearPendingTranscript()
+        recordingStartedAt = nil
+        state = .transcribing
+        await transcribeAndInsert(audio)
+        return .accepted
     }
 
     /// Retries insertion of an in-memory transcript retained after a destination
@@ -205,6 +227,42 @@ public final class DictationController {
         pendingTranscript = nil
     }
 
+    private func transcribeAndInsert(_ audio: CapturedAudio) async {
+        var transcriptForRecovery: String?
+        do {
+            let selectedLanguage = settings.language
+            let task = Task {
+                try await transcriptionEngine.transcribe(audio, language: selectedLanguage)
+            }
+            transcriptionTask = task
+            let transcript = try await task.value
+            transcriptionTask = nil
+
+            guard !transcript.isEmpty else {
+                state = .idle
+                return
+            }
+            transcriptForRecovery = transcript
+
+            state = .inserting
+            _ = try await textInserter.insert(
+                transcript,
+                clipboardFallbackEnabled: settings.clipboardCompatibilityEnabled
+            )
+            clearPendingTranscript()
+            state = .idle
+        } catch is CancellationError {
+            transcriptionTask = nil
+            state = .idle
+        } catch {
+            transcriptionTask = nil
+            if let transcriptForRecovery {
+                retainPendingTranscript(transcriptForRecovery)
+            }
+            handleCompletionError(error)
+        }
+    }
+
     public func toggleDictation() {
         switch state {
         case .idle, .failed:
@@ -218,30 +276,36 @@ public final class DictationController {
 
     private func registerHotkey(_ configuration: HotkeyConfiguration) throws {
         try hotkeyService.register(configuration) { [weak self] phase in
-            self?.handleHotkey(phase)
+            self?.handleActivation(phase)
         }
     }
 
-    private func handleHotkey(_ phase: GlobalHotkeyPhase) {
+    private func registerPointerButton(_ buttonNumber: UInt32?) {
+        pointerButtonService.register(buttonNumber: buttonNumber) { [weak self] phase in
+            self?.handleActivation(phase)
+        }
+    }
+
+    private func handleActivation(_ phase: GlobalHotkeyPhase) {
         switch phase {
         case .pressed:
-            guard !hotkeyIsPressed else { return }
-            hotkeyIsPressed = true
+            guard !activationIsPressed else { return }
+            activationIsPressed = true
             guard state == .idle || Self.isFailureState(state) else { return }
-            hotkeyStartTask?.cancel()
-            hotkeyStartTask = Task { [weak self] in
+            activationStartTask?.cancel()
+            activationStartTask = Task { [weak self] in
                 guard let self else { return }
                 await self.startDictation()
-                if !self.hotkeyIsPressed, self.state == .recording {
+                if !self.activationIsPressed, self.state == .recording {
                     await self.stopDictation()
                 }
             }
         case .released:
-            guard hotkeyIsPressed else { return }
-            hotkeyIsPressed = false
+            guard activationIsPressed else { return }
+            activationIsPressed = false
             switch state {
             case .preparing:
-                hotkeyStartTask?.cancel()
+                activationStartTask?.cancel()
                 Task { await cancelDictation() }
             case .recording:
                 Task { await stopDictation() }

@@ -97,9 +97,17 @@ VERSION=0.1.0 BUILD_NUMBER=1 ./scripts/build-release-local.sh
 The local app has an anonymous ad-hoc signature so LaunchServices can validate
 its complete bundle and resources. The DMG is unsigned, and neither artifact
 has a trusted publisher identity or Apple notarization. They are suitable for
-development, not public distribution. Existing output is never overwritten;
-move it aside or remove the specific `.build/distribution` artifact before
-rebuilding.
+development. The same form of artifact may be published only as an explicitly
+named development prerelease with checksums, source, SBOM, provenance, GitHub
+attestations, and prominent Gatekeeper warnings. Existing output is never
+overwritten; move it aside or remove the specific `.build/distribution`
+artifact before rebuilding.
+
+The automated development path is
+`.github/workflows/development-release.yml`. It requires no Apple secrets and
+publishes only tag `v0.1.0-dev.1` as a GitHub prerelease. It must not be renamed
+to `VoxHearth-v0.1.0.dmg`, marked as the latest stable release, or described as
+signed/notarized.
 
 ## Sign and notarize manually
 
