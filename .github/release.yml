@@ -1,0 +1,21 @@
+changelog:
+  exclude:
+    labels:
+      - duplicate
+      - invalid
+      - question
+      - wontfix
+    authors:
+      - dependabot[bot]
+  categories:
+    - title: Security and privacy
+      labels:
+        - security
+        - privacy
+    - title: User-visible changes
+      labels:
+        - enhancement
+        - bug
+    - title: Maintenance
+      labels:
+        - "*"

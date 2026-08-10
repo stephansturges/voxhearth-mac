@@ -4,7 +4,11 @@ All notable user-visible changes are recorded here. This project follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and uses semantic
 versioning for release tags.
 
-## [0.1.0] - 2026-08-10
+Entries may describe a release candidate before its signed GitHub Release
+exists. A version is published only when both its Git tag and release assets
+are present on GitHub.
+
+## [0.1.0]
 
 ### Added
 

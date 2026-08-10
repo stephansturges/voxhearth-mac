@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+app_name="VoxHearth"
+bundle_id="com.stephansturges.voxhearth"
+version="${VERSION:-0.1.0}"
+build_number="${BUILD_NUMBER:-1}"
+architecture="${ARCHITECTURE:-arm64}"
+model_dir="${MODEL_DIR:-$repo_root/.build/models/parakeet-tdt-0.6b-v3-coreml}"
+output="${APP_OUTPUT:-$repo_root/.build/distribution/VoxHearth.app}"
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/build-app-bundle.sh [options]
+
+Options:
+  --version VERSION       Marketing version (default: VERSION or 0.1.0)
+  --build NUMBER          Integer build number (default: BUILD_NUMBER or 1)
+  --model-dir PATH        Verified model directory
+  --output PATH           New .app path; an existing path is never overwritten
+  --architecture ARCH     Swift target architecture (default: arm64)
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version) version="$2"; shift 2 ;;
+    --build) build_number="$2"; shift 2 ;;
+    --model-dir) model_dir="$2"; shift 2 ;;
+    --output) output="$2"; shift 2 ;;
+    --architecture) architecture="$2"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) printf 'error: unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] || {
+  printf 'error: invalid version: %s\n' "$version" >&2
+  exit 2
+}
+[[ "$build_number" =~ ^[1-9][0-9]*$ ]] || {
+  printf 'error: build number must be a positive integer\n' >&2
+  exit 2
+}
+[[ "$output" == *.app ]] || { printf 'error: output must end in .app\n' >&2; exit 2; }
+[[ ! -e "$output" ]] || {
+  printf 'error: output already exists; move it aside first: %s\n' "$output" >&2
+  exit 1
+}
+
+"$repo_root/scripts/verify-model.py" "$model_dir"
+
+cd "$repo_root"
+swift package resolve
+swift build --configuration release --arch "$architecture"
+bin_dir="$(swift build --configuration release --arch "$architecture" --show-bin-path)"
+executable="$bin_dir/$app_name"
+[[ -x "$executable" ]] || {
+  printf 'error: release executable not found: %s\n' "$executable" >&2
+  exit 1
+}
+
+output_parent="$(dirname "$output")"
+mkdir -p "$output_parent"
+staging="$(mktemp -d "$output_parent/.voxhearth-app.XXXXXX")"
+cleanup() {
+  rm -rf "$staging"
+}
+trap cleanup EXIT
+
+app="$staging/$app_name.app"
+contents="$app/Contents"
+resources="$contents/Resources"
+mkdir -p "$contents/MacOS" "$resources/Models" "$resources/Legal"
+ditto "$executable" "$contents/MacOS/$app_name"
+chmod 755 "$contents/MacOS/$app_name"
+
+ditto "$repo_root/Documentation/Distribution/Info.plist" "$contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" "$contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $build_number" "$contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $bundle_id" "$contents/Info.plist"
+
+icon="$repo_root/Brand/VoxHearth.icns"
+[[ -f "$icon" ]] || { printf 'error: required app icon is missing: %s\n' "$icon" >&2; exit 1; }
+file "$icon" | grep -Fq 'Mac OS X icon' || {
+  printf 'error: app icon is not a valid ICNS file: %s\n' "$icon" >&2
+  exit 1
+}
+ditto "$icon" "$resources/VoxHearth.icns"
+/usr/libexec/PlistBuddy -c 'Add :CFBundleIconFile string VoxHearth' "$contents/Info.plist"
+
+ditto "$model_dir" "$resources/Models/parakeet-tdt-0.6b-v3-coreml"
+ditto "$repo_root/Models/parakeet-tdt-0.6b-v3-coreml.json" "$resources/Models/manifest.json"
+
+for legal_file in LICENSE NOTICE UPSTREAM.md SECURITY.md THIRD_PARTY_NOTICES.md; do
+  [[ -f "$repo_root/$legal_file" ]] || {
+    printf 'error: required legal file is missing: %s\n' "$legal_file" >&2
+    exit 1
+  }
+  ditto "$repo_root/$legal_file" "$resources/Legal/$legal_file"
+done
+ditto "$repo_root/LICENSES" "$resources/Legal/LICENSES"
+for document in PRIVACY.md THREAT_MODEL.md MODEL_PROVENANCE.md; do
+  ditto "$repo_root/Documentation/$document" "$resources/Legal/$document"
+done
+
+plutil -lint "$contents/Info.plist" >/dev/null
+"$repo_root/scripts/check-release-binary.sh" "$contents/MacOS/$app_name"
+"$repo_root/scripts/verify-model.py" "$resources/Models/parakeet-tdt-0.6b-v3-coreml"
+
+mv "$app" "$output"
+printf 'unsigned app bundle created: %s\n' "$output"

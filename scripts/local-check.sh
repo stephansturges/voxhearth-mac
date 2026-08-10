@@ -5,7 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-for command_name in file python3 rg swift zsh; do
+for command_name in file git grep python3 swift zsh; do
   command -v "$command_name" >/dev/null 2>&1 || {
     printf 'error: required command not found: %s\n' "$command_name" >&2
     exit 1
@@ -38,7 +38,7 @@ file Brand/VoxHearth.icns | grep -Fq 'Mac OS X icon' || {
 }
 zsh -n Brand/build-icon.sh
 
-if unpinned_actions="$(rg -n '^\s*uses:\s*[^ ]+@' .github/workflows \
+if unpinned_actions="$(git grep -n -E '^[[:space:]]*uses:[[:space:]]*[^ ]+@' -- .github/workflows \
   | grep -Ev '@[0-9a-f]{40}([[:space:]]+#.*)?$' || true)"; then
   if [[ -n "$unpinned_actions" ]]; then
     printf 'error: GitHub Actions must use full 40-character commit pins:\n%s\n' \
@@ -59,46 +59,46 @@ for required_file in \
   }
 done
 
-if git ls-files | rg -i '(^|/)([^/]+\.dmg|[^/]+\.p12|AuthKey_[^/]+\.p8)$|\.mlmodelc/' >/dev/null; then
+if git ls-files | grep -E -i '(^|/)([^/]+\.dmg|[^/]+\.p12|AuthKey_[^/]+\.p8)$|\.mlmodelc/' >/dev/null; then
   printf 'error: release/model/signing binaries must not be tracked by Git\n' >&2
-  git ls-files | rg -i '(^|/)([^/]+\.dmg|[^/]+\.p12|AuthKey_[^/]+\.p8)$|\.mlmodelc/' >&2
+  git ls-files | grep -E -i '(^|/)([^/]+\.dmg|[^/]+\.p12|AuthKey_[^/]+\.p8)$|\.mlmodelc/' >&2
   exit 1
 fi
 
-if rg -n -i \
+if git grep -n -E -i \
   'com\.typewhisper|TypeWhisper\.app|typewhisper-cli|TypeWhisperApp|import[[:space:]]+TypeWhisper' \
-  Package.swift Sources Tests Brand; then
+  -- Package.swift Sources Tests Brand; then
   printf 'error: unexpected upstream product identity in active VoxHearth files\n' >&2
   exit 1
 fi
 
-if rg -n \
-  'URLSession|URLRequest|URLProtocol|NW(Connection|Listener|Browser|PathMonitor)|import[[:space:]]+Network|CFSocket|CFStream|NSStream|NetworkExtension|WebSocket|\bsocket\s*\(|getaddrinfo|Sparkle|SUUpdater|SUFeedURL|Alamofire|Sentry|Telemetry|Analytics|HFClient|FileDownloader|AssetDownloader|downloadAndLoad|ModelHub' \
-  Sources Vendor/FluidAudioLocal; then
+if git grep -n -E \
+  'URLSession|URLRequest|URLProtocol|NW(Connection|Listener|Browser|PathMonitor)|import[[:space:]]+Network|CFSocket|CFStream|NSStream|NetworkExtension|WebSocket|(^|[^[:alnum:]_])socket[[:space:]]*\(|getaddrinfo|Sparkle|SUUpdater|SUFeedURL|Alamofire|Sentry|Telemetry|Analytics|HFClient|FileDownloader|AssetDownloader|downloadAndLoad|ModelHub' \
+  -- Sources Vendor/FluidAudioLocal; then
   printf 'error: runtime source contains a forbidden networking, updater, or telemetry API\n' >&2
   exit 1
 fi
 
-if rg -n \
+if git grep -n -E \
   'FileHandle|FileManager|temporaryDirectory|NSTemporaryDirectory|\.write\(' \
-  Vendor/FluidAudioLocal/Sources; then
+  -- Vendor/FluidAudioLocal/Sources; then
   printf 'error: vendored runtime source contains a durable file/audio API\n' >&2
   exit 1
 fi
 
-if rg -n \
+if git grep -n -E \
   'import[[:space:]]+OSLog|OSLog\.Logger|standard(Error|Output)|print\(' \
-  Vendor/FluidAudioLocal/Sources/FluidAudioLocal/Shared/AppLogger.swift; then
+  -- Vendor/FluidAudioLocal/Sources/FluidAudioLocal/Shared/AppLogger.swift; then
   printf 'error: vendored logger must remain a no-op sink\n' >&2
   exit 1
 fi
 
-if rg -n '^\s*\.package\(' Package.swift; then
+if git grep -n -E '^[[:space:]]*\.package\(' -- Package.swift; then
   printf 'error: Package.swift must not contain a remote runtime dependency\n' >&2
   exit 1
 fi
-rg -Fq 'FluidAudioLocal' Package.swift
-rg -Fq '19600a485baa4998812e4654b70d2bab8f2c9949' Vendor/FluidAudioLocal/UPSTREAM.md
+grep -Fq 'FluidAudioLocal' Package.swift
+grep -Fq '19600a485baa4998812e4654b70d2bab8f2c9949' Vendor/FluidAudioLocal/UPSTREAM.md
 
 printf '%s\n' '==> Resolve, test, and build'
 swift package resolve

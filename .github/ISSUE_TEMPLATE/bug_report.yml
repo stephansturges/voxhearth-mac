@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible, non-sensitive VoxHearth defect
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not submit vulnerabilities, private audio/transcripts, credentials, or signing material here. Use GitHub private vulnerability reporting as described in SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: VoxHearth version
+      description: Include the release tag and, if available, the DMG SHA-256.
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Mac and macOS
+      placeholder: M2 MacBook Air, macOS 15.6
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Use synthetic dictation text and redact personal information.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: permissions
+    attributes:
+      label: Relevant configuration
+      options:
+        - label: Microphone permission is granted
+        - label: Accessibility permission is granted
+        - label: Clipboard compatibility is enabled
+        - label: The issue reproduces after relaunch
+  - type: checkboxes
+    id: safe
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed private audio, transcript text, credentials, and personal data.
+          required: true

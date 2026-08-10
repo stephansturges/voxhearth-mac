@@ -1,0 +1,221 @@
+name: Release v0.1.0
+
+on:
+  push:
+    tags:
+      - v0.1.0
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: release-v0.1.0
+  cancel-in-progress: false
+
+env:
+  APP_NAME: VoxHearth
+  APP_BUNDLE_ID: com.stephansturges.voxhearth
+  RELEASE_TAG: v0.1.0
+  VERSION: 0.1.0
+  FLUIDAUDIO_REVISION: 19600a485baa4998812e4654b70d2bab8f2c9949
+  MODEL_REVISION: aed02740059203c4a87495924f685de3722ae9ce
+
+jobs:
+  release:
+    name: Sign, notarize, attest, and publish
+    runs-on: macos-26
+    timeout-minutes: 150
+    environment: release
+
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: refs/tags/v0.1.0
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select Xcode 26.2
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: "26.2"
+
+      - name: Validate immutable release inputs
+        run: |
+          set -euo pipefail
+          source_revision="$(git rev-parse HEAD)"
+          tag_revision="$(git rev-parse "$RELEASE_TAG^{commit}")"
+          [[ "$source_revision" == "$tag_revision" ]]
+          [[ -z "$(git status --porcelain)" ]]
+          grep -Fq "$FLUIDAUDIO_REVISION" Vendor/FluidAudioLocal/UPSTREAM.md
+          grep -Fq "$MODEL_REVISION" Models/parakeet-tdt-0.6b-v3-coreml.json
+          grep -Fq "## [$VERSION]" CHANGELOG.md
+          printf 'SOURCE_REVISION=%s\n' "$source_revision" >> "$GITHUB_ENV"
+          printf 'SOURCE_DATE_EPOCH=%s\n' "$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+          printf 'BUILD_NUMBER=%s\n' "$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+          printf 'DIST_DIR=%s/voxhearth-release\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'KEYCHAIN_PATH=%s/voxhearth-signing.keychain-db\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          printf 'ASC_PRIVATE_KEY_PATH=%s/AuthKey.p8\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          xcodebuild -version
+          swift --version
+
+      - name: Test source and release policy
+        run: ./scripts/local-check.sh
+
+      - name: Fetch and verify the locked model
+        run: ./scripts/fetch-model.sh
+
+      - name: Run offline real-model transcription smoke test
+        run: ./scripts/model-smoke.sh
+
+      - name: Import Developer ID and notarization credentials
+        env:
+          MACOS_SIGNING_P12: ${{ secrets.MACOS_SIGNING_P12 }}
+          MACOS_SIGNING_P12_PASSWORD: ${{ secrets.MACOS_SIGNING_P12_PASSWORD }}
+          ASC_KEY_ID_VALUE: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID_VALUE: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY_P8: ${{ secrets.ASC_PRIVATE_KEY_P8 }}
+          APPLE_TEAM_ID_VALUE: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          : "${MACOS_SIGNING_P12:?missing release Environment secret}"
+          : "${MACOS_SIGNING_P12_PASSWORD:?missing release Environment secret}"
+          : "${ASC_KEY_ID_VALUE:?missing release Environment secret}"
+          : "${ASC_ISSUER_ID_VALUE:?missing release Environment secret}"
+          : "${ASC_PRIVATE_KEY_P8:?missing release Environment secret}"
+          : "${APPLE_TEAM_ID_VALUE:?missing release Environment variable}"
+
+          keychain_password="$(uuidgen)$(uuidgen)"
+          identity="$(./scripts/import-signing-certificate.sh \
+            "$KEYCHAIN_PATH" "$keychain_password")"
+
+          umask 077
+          printf '%s\n' "$ASC_PRIVATE_KEY_P8" > "$ASC_PRIVATE_KEY_PATH"
+
+          printf 'KEYCHAIN_PASSWORD=%s\n' "$keychain_password" >> "$GITHUB_ENV"
+          printf 'MACOS_SIGNING_IDENTITY=%s\n' "$identity" >> "$GITHUB_ENV"
+          printf 'APPLE_TEAM_ID=%s\n' "$APPLE_TEAM_ID_VALUE" >> "$GITHUB_ENV"
+          printf 'ASC_KEY_ID=%s\n' "$ASC_KEY_ID_VALUE" >> "$GITHUB_ENV"
+          printf 'ASC_ISSUER_ID=%s\n' "$ASC_ISSUER_ID_VALUE" >> "$GITHUB_ENV"
+
+      - name: Build and sign the application
+        run: |
+          set -euo pipefail
+          mkdir -p "$DIST_DIR"
+          ./scripts/build-app-bundle.sh \
+            --version "$VERSION" \
+            --build "$BUILD_NUMBER" \
+            --output "$DIST_DIR/VoxHearth.app"
+          ./scripts/sign-release.sh "$DIST_DIR/VoxHearth.app" "$KEYCHAIN_PATH"
+
+      - name: Notarize and staple the application
+        run: |
+          set -euo pipefail
+          ./scripts/archive-app.sh \
+            "$DIST_DIR/VoxHearth.app" \
+            "$DIST_DIR/VoxHearth-v$VERSION-notary.zip"
+          ./scripts/notarize-release.sh \
+            "$DIST_DIR/VoxHearth-v$VERSION-notary.zip" \
+            "$DIST_DIR/VoxHearth.app"
+
+      - name: Create, sign, notarize, and verify the DMG
+        run: |
+          set -euo pipefail
+          dmg="$DIST_DIR/VoxHearth-v$VERSION.dmg"
+          ./scripts/create-dmg.sh "$DIST_DIR/VoxHearth.app" "$dmg"
+          ./scripts/sign-release.sh "$dmg" "$KEYCHAIN_PATH"
+          ./scripts/notarize-release.sh "$dmg" "$dmg"
+          ./scripts/verify-release.sh "$dmg"
+
+      - name: Generate source, SBOM, provenance, and checksums
+        run: |
+          set -euo pipefail
+          dmg="$DIST_DIR/VoxHearth-v$VERSION.dmg"
+          source_archive="$DIST_DIR/VoxHearth-v$VERSION-source.tar.gz"
+          sbom="$DIST_DIR/VoxHearth-v$VERSION.spdx.json"
+          provenance="$DIST_DIR/VoxHearth-v$VERSION-provenance.json"
+
+          ./scripts/create-source-bundle.sh \
+            "$RELEASE_TAG" "$VERSION" "$source_archive"
+          ./scripts/generate-sbom.py \
+            --version "$VERSION" \
+            --source-revision "$SOURCE_REVISION" \
+            --artifact "$dmg" \
+            --output "$sbom"
+          ./scripts/generate-provenance.py \
+            --version "$VERSION" \
+            --source-revision "$SOURCE_REVISION" \
+            --source-tag "$RELEASE_TAG" \
+            --artifact "$dmg" \
+            --artifact "$sbom" \
+            --artifact "$source_archive" \
+            --output "$provenance"
+
+          cd "$DIST_DIR"
+          shasum -a 256 \
+            "VoxHearth-v$VERSION.dmg" \
+            "VoxHearth-v$VERSION.spdx.json" \
+            "VoxHearth-v$VERSION-provenance.json" \
+            "VoxHearth-v$VERSION-source.tar.gz" \
+            > SHA256SUMS
+          shasum -a 256 -c SHA256SUMS
+
+      - name: Attest the final DMG
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: ${{ runner.temp }}/voxhearth-release/VoxHearth-v0.1.0.dmg
+
+      - name: Attest the final DMG SBOM
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: ${{ runner.temp }}/voxhearth-release/VoxHearth-v0.1.0.dmg
+          sbom-path: ${{ runner.temp }}/voxhearth-release/VoxHearth-v0.1.0.spdx.json
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          notes="$RUNNER_TEMP/VoxHearth-v$VERSION-release-notes.md"
+          sed \
+            -e "s/{{APPLE_TEAM_ID}}/$APPLE_TEAM_ID/g" \
+            -e "s/{{SOURCE_REVISION}}/$SOURCE_REVISION/g" \
+            .github/release-notes-v0.1.0.md > "$notes"
+
+          assets=(
+            "$DIST_DIR/VoxHearth-v$VERSION.dmg"
+            "$DIST_DIR/VoxHearth-v$VERSION.spdx.json"
+            "$DIST_DIR/VoxHearth-v$VERSION-provenance.json"
+            "$DIST_DIR/VoxHearth-v$VERSION-source.tar.gz"
+            "$DIST_DIR/SHA256SUMS"
+          )
+
+          if is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            [[ "$is_draft" == true ]] || {
+              printf 'error: refusing to replace an already-published release\n' >&2
+              exit 1
+            }
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+            gh release edit "$RELEASE_TAG" --title "VoxHearth $VERSION" --notes-file "$notes"
+          else
+            gh release create "$RELEASE_TAG" "${assets[@]}" \
+              --verify-tag \
+              --draft \
+              --title "VoxHearth $VERSION" \
+              --notes-file "$notes"
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false --latest
+
+      - name: Remove signing material
+        if: always()
+        run: |
+          if [[ -n "${KEYCHAIN_PATH:-}" && -f "${KEYCHAIN_PATH:-}" ]]; then
+            security delete-keychain "$KEYCHAIN_PATH" || true
+          fi
+          if [[ -n "${ASC_PRIVATE_KEY_PATH:-}" ]]; then
+            rm -f "$ASC_PRIVATE_KEY_PATH"
+          fi

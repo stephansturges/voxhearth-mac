@@ -1,0 +1,44 @@
+name: Feature request
+description: Propose a change within VoxHearth's local-only scope
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed local solution
+      description: Describe the smallest useful interaction and implementation.
+    validations:
+      required: true
+  - type: dropdown
+    id: permissions
+    attributes:
+      label: New macOS permission required?
+      options:
+        - No
+        - Unsure
+        - Yes
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy and threat-model impact
+      description: Cover networking, persistence, logs, clipboard, Accessibility, and model/dependency changes.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope confirmation
+      options:
+        - label: This proposal does not require cloud inference, telemetry, accounts, automatic updates, or runtime downloads.
+          required: true
