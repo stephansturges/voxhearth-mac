@@ -66,7 +66,10 @@ final class VoxHearthFrontendModel {
         if let controller {
             self.controller = controller
         } else {
-            let engine = ParakeetEngine(modelDirectoryURL: Self.bundledModelDirectoryURL())
+            let engine = ParakeetEngine(
+                multilingualModelDirectoryURL: Self.bundledModelDirectoryURL(for: .multilingual),
+                compactEnglishModelDirectoryURL: Self.bundledModelDirectoryURL(for: .compactEnglish)
+            )
             self.controller = DictationController(
                 transcriptionEngine: engine,
                 settings: settings,
@@ -248,6 +251,17 @@ final class VoxHearthFrontendModel {
         apply(next)
     }
 
+    func setTranscriptionModel(_ transcriptionModel: TranscriptionModel) {
+        guard controller.state == .idle || isFailureState else { return }
+        var next = settings
+        next.transcriptionModel = transcriptionModel
+        if !transcriptionModel.supports(next.language) {
+            next.language = .english
+        }
+        apply(next)
+        Task { await controller.prepareEngine() }
+    }
+
     func setLaunchAtLogin(_ enabled: Bool) {
         Task {
             do {
@@ -312,16 +326,21 @@ final class VoxHearthFrontendModel {
         defaults.set(try JSONEncoder().encode(settings), forKey: DefaultsKey.appSettings)
     }
 
-    private static func bundledModelDirectoryURL() -> URL {
+    private var isFailureState: Bool {
+        if case .failed = controller.state { return true }
+        return false
+    }
+
+    private static func bundledModelDirectoryURL(for model: TranscriptionModel) -> URL {
         if let explicitURL = Bundle.main.url(
-            forResource: ParakeetEngine.modelDirectoryName,
+            forResource: model.rawValue,
             withExtension: nil
         ) {
             return explicitURL
         }
         return (Bundle.main.resourceURL ?? Bundle.main.bundleURL)
             .appendingPathComponent("Models", isDirectory: true)
-            .appendingPathComponent(ParakeetEngine.modelDirectoryName, isDirectory: true)
+            .appendingPathComponent(model.rawValue, isDirectory: true)
     }
 
     private static func appKitModifiers(from modifiers: HotkeyModifiers) -> NSEvent.ModifierFlags {

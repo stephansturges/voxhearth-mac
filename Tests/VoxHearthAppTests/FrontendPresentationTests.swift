@@ -65,6 +65,7 @@ struct FrontendPresentationTests {
         #expect(settings.hotkey == .controlOptionSpace)
         #expect(settings.pointerButton == nil)
         #expect(settings.inputDeviceUID == nil)
+        #expect(settings.transcriptionModel == .multilingual)
         #expect(settings.language == .english)
         #expect(!settings.launchAtLogin)
         #expect(!settings.clipboardCompatibilityEnabled)

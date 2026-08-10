@@ -58,6 +58,17 @@ private struct DictationSettingsView: View {
             }
 
             Section("Speech") {
+                Picker("Speech model", selection: transcriptionModelBinding) {
+                    ForEach(TranscriptionModel.allCases) { speechModel in
+                        Text(speechModel.displayName).tag(speechModel)
+                    }
+                }
+                .disabled(!canChangeSpeechModel)
+
+                Text(model.settings.transcriptionModel.detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 Picker("Microphone", selection: inputDeviceBinding) {
                     Text("System Default").tag("")
                     ForEach(model.availableMicrophones) { device in
@@ -66,10 +77,11 @@ private struct DictationSettingsView: View {
                 }
 
                 Picker("Language", selection: languageBinding) {
-                    ForEach(DictationLanguage.allCases) { language in
+                    ForEach(model.settings.transcriptionModel.supportedLanguages) { language in
                         Text(language.displayName).tag(language)
                     }
                 }
+                .disabled(model.settings.transcriptionModel == .compactEnglish)
 
                 HStack {
                     Spacer()
@@ -113,6 +125,20 @@ private struct DictationSettingsView: View {
             get: { model.settings.language },
             set: { model.setLanguage($0) }
         )
+    }
+
+    private var transcriptionModelBinding: Binding<TranscriptionModel> {
+        Binding(
+            get: { model.settings.transcriptionModel },
+            set: { model.setTranscriptionModel($0) }
+        )
+    }
+
+    private var canChangeSpeechModel: Bool {
+        switch model.controller.state {
+        case .idle, .failed: true
+        case .preparing, .recording, .transcribing, .inserting: false
+        }
     }
 
     private var launchAtLoginBinding: Binding<Bool> {
@@ -168,7 +194,7 @@ private struct PrivacySettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Preferences stored on this Mac")
                         .font(.subheadline.weight(.semibold))
-                    Text("Shortcut, selected microphone identifier, language, launch-at-login choice, clipboard compatibility choice, and onboarding completion.")
+                    Text("Shortcut, selected microphone identifier, speech model, language, launch-at-login choice, clipboard compatibility choice, and onboarding completion.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -262,6 +288,11 @@ private struct LicensesView: View {
                     "Parakeet TDT v3 Core ML model",
                     terms: "Creative Commons Attribution 4.0",
                     note: "Derived from NVIDIA Parakeet and redistributed with attribution in the release notices."
+                )
+                license(
+                    "Parakeet TDT-CTC 110M Core ML model",
+                    terms: "Creative Commons Attribution 4.0",
+                    note: "The compact English model is derived from NVIDIA Parakeet and redistributed with attribution in the release notices."
                 )
 
                 Divider()

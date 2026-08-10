@@ -13,13 +13,28 @@ import sys
 import tempfile
 
 
-REQUIRED_REVISION = "aed02740059203c4a87495924f685de3722ae9ce"
-REQUIRED_TOP_LEVEL = {
-    "Preprocessor.mlmodelc",
-    "Encoder.mlmodelc",
-    "Decoder.mlmodelc",
-    "JointDecisionv3.mlmodelc",
-    "parakeet_vocab.json",
+APPROVED_MODELS = {
+    "FluidInference/parakeet-tdt-0.6b-v3-coreml": {
+        "revision": "aed02740059203c4a87495924f685de3722ae9ce",
+        "bundleRoot": "parakeet-tdt-0.6b-v3-coreml",
+        "allowedTopLevel": {
+            "Preprocessor.mlmodelc",
+            "Encoder.mlmodelc",
+            "Decoder.mlmodelc",
+            "JointDecisionv3.mlmodelc",
+            "parakeet_vocab.json",
+        },
+    },
+    "FluidInference/parakeet-tdt-ctc-110m-coreml": {
+        "revision": "9bc92ead6e8f17eca92a869fd578ae76842b82ba",
+        "bundleRoot": "parakeet-tdt-ctc-110m-coreml",
+        "allowedTopLevel": {
+            "Preprocessor.mlmodelc",
+            "Decoder.mlmodelc",
+            "JointDecision.mlmodelc",
+            "parakeet_vocab.json",
+        },
+    },
 }
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -36,11 +51,16 @@ def load_manifest(path: Path) -> dict:
 
     if manifest.get("schemaVersion") != 1:
         fail("unsupported model manifest schema")
-    if manifest.get("revision") != REQUIRED_REVISION:
+    model_id = manifest.get("modelId")
+    approved = APPROVED_MODELS.get(model_id)
+    if approved is None:
+        fail("modelId is not in the approved bundled-model allowlist")
+    if manifest.get("revision") != approved["revision"]:
         fail("model revision is not the approved immutable revision")
-    if set(manifest.get("allowedTopLevel", [])) != REQUIRED_TOP_LEVEL:
-        fail("allowedTopLevel does not match the approved five payloads")
-    if manifest.get("bundleRoot") != "parakeet-tdt-0.6b-v3-coreml":
+    required_top_level = approved["allowedTopLevel"]
+    if set(manifest.get("allowedTopLevel", [])) != required_top_level:
+        fail("allowedTopLevel does not match the approved model payloads")
+    if manifest.get("bundleRoot") != approved["bundleRoot"]:
         fail("unexpected model bundleRoot")
 
     files = manifest.get("files")
@@ -71,7 +91,7 @@ def load_manifest(path: Path) -> dict:
             fail(f"invalid SHA-256 for {relative}")
         total_size += size
 
-    if discovered_top_level != REQUIRED_TOP_LEVEL:
+    if discovered_top_level != required_top_level:
         fail("manifest file paths do not cover exactly the approved payloads")
     if total_size != manifest.get("totalSize"):
         fail("manifest totalSize does not equal the sum of file sizes")

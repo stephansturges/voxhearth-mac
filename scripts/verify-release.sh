@@ -92,8 +92,13 @@ fi
 "$repo_root/scripts/check-release-binary.sh" "$binary"
 
 cmp "$repo_root/Models/parakeet-tdt-0.6b-v3-coreml.json" \
-  "$app/Contents/Resources/Models/manifest.json"
+  "$app/Contents/Resources/Models/parakeet-tdt-0.6b-v3-coreml.json"
 "$repo_root/scripts/verify-model.py" \
   "$app/Contents/Resources/Models/parakeet-tdt-0.6b-v3-coreml"
+cmp "$repo_root/Models/parakeet-tdt-ctc-110m-coreml.json" \
+  "$app/Contents/Resources/Models/parakeet-tdt-ctc-110m-coreml.json"
+"$repo_root/scripts/verify-model.py" \
+  --manifest "$app/Contents/Resources/Models/parakeet-tdt-ctc-110m-coreml.json" \
+  "$app/Contents/Resources/Models/parakeet-tdt-ctc-110m-coreml"
 
 printf 'release verified: %s\n' "$dmg"

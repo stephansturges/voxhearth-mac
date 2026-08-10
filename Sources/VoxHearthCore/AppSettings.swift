@@ -1,11 +1,45 @@
 import Foundation
 
+/// The immutable local speech models bundled inside VoxHearth.
+public enum TranscriptionModel: String, CaseIterable, Codable, Identifiable, Sendable {
+    case multilingual = "parakeet-tdt-0.6b-v3-coreml"
+    case compactEnglish = "parakeet-tdt-ctc-110m-coreml"
+
+    public var id: String { rawValue }
+
+    public var displayName: String {
+        switch self {
+        case .multilingual: "Multilingual (600M)"
+        case .compactEnglish: "Compact English (110M)"
+        }
+    }
+
+    public var detail: String {
+        switch self {
+        case .multilingual: "Best accuracy and 25 languages"
+        case .compactEnglish: "Lower memory use and faster startup"
+        }
+    }
+
+    public var supportedLanguages: [DictationLanguage] {
+        switch self {
+        case .multilingual: DictationLanguage.allCases
+        case .compactEnglish: [.english]
+        }
+    }
+
+    public func supports(_ language: DictationLanguage) -> Bool {
+        supportedLanguages.contains(language)
+    }
+}
+
 public struct AppSettings: Codable, Equatable, Sendable {
     public var hotkey: HotkeyConfiguration
     /// An optional NSEvent button number (2 is middle click; 3+ are extra
     /// mouse/accessory buttons). The keyboard shortcut remains available.
     public var pointerButton: UInt32?
     public var inputDeviceUID: String?
+    public var transcriptionModel: TranscriptionModel
     public var language: DictationLanguage
     public var launchAtLogin: Bool
     public var clipboardCompatibilityEnabled: Bool
@@ -14,6 +48,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         hotkey: HotkeyConfiguration = .controlOptionSpace,
         pointerButton: UInt32? = nil,
         inputDeviceUID: String? = nil,
+        transcriptionModel: TranscriptionModel = .multilingual,
         language: DictationLanguage = .english,
         launchAtLogin: Bool = false,
         clipboardCompatibilityEnabled: Bool = false
@@ -21,12 +56,56 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.hotkey = hotkey
         self.pointerButton = pointerButton
         self.inputDeviceUID = inputDeviceUID
-        self.language = language
+        self.transcriptionModel = transcriptionModel
+        self.language = transcriptionModel.supports(language) ? language : .english
         self.launchAtLogin = launchAtLogin
         self.clipboardCompatibilityEnabled = clipboardCompatibilityEnabled
     }
 
     public static let `default` = AppSettings()
+
+    private enum CodingKeys: String, CodingKey {
+        case hotkey
+        case pointerButton
+        case inputDeviceUID
+        case transcriptionModel
+        case language
+        case launchAtLogin
+        case clipboardCompatibilityEnabled
+    }
+
+    /// Keeps settings written by the first preview compatible: the model field
+    /// did not exist there, so those users retain the multilingual model.
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            hotkey: try values.decodeIfPresent(HotkeyConfiguration.self, forKey: .hotkey)
+                ?? .controlOptionSpace,
+            pointerButton: try values.decodeIfPresent(UInt32.self, forKey: .pointerButton),
+            inputDeviceUID: try values.decodeIfPresent(String.self, forKey: .inputDeviceUID),
+            transcriptionModel: try values.decodeIfPresent(
+                TranscriptionModel.self,
+                forKey: .transcriptionModel
+            ) ?? .multilingual,
+            language: try values.decodeIfPresent(DictationLanguage.self, forKey: .language)
+                ?? .english,
+            launchAtLogin: try values.decodeIfPresent(Bool.self, forKey: .launchAtLogin)
+                ?? false,
+            clipboardCompatibilityEnabled: try values.decodeIfPresent(
+                Bool.self,
+                forKey: .clipboardCompatibilityEnabled
+            ) ?? false
+        )
+    }
+
+    public func normalizedForSelectedModel() -> AppSettings {
+        guard transcriptionModel.supports(language) else {
+            var copy = self
+            copy.language = .english
+            return copy
+        }
+        return self
+    }
 }
 
 public struct HotkeyModifiers: OptionSet, Codable, Hashable, Sendable {

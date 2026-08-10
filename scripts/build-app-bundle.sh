@@ -5,10 +5,11 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app_name="VoxHearth"
 bundle_id="com.stephansturges.voxhearth"
-version="${VERSION:-0.1.0}"
+version="${VERSION:-0.2.0}"
 build_number="${BUILD_NUMBER:-1}"
 architecture="${ARCHITECTURE:-arm64}"
 model_dir="${MODEL_DIR:-$repo_root/.build/models/parakeet-tdt-0.6b-v3-coreml}"
+compact_model_dir="${COMPACT_MODEL_DIR:-$repo_root/.build/models/parakeet-tdt-ctc-110m-coreml}"
 output="${APP_OUTPUT:-$repo_root/.build/distribution/VoxHearth.app}"
 
 usage() {
@@ -16,9 +17,10 @@ usage() {
 Usage: scripts/build-app-bundle.sh [options]
 
 Options:
-  --version VERSION       Marketing version (default: VERSION or 0.1.0)
+  --version VERSION       Marketing version (default: VERSION or 0.2.0)
   --build NUMBER          Integer build number (default: BUILD_NUMBER or 1)
   --model-dir PATH        Verified model directory
+  --compact-model-dir PATH  Verified compact English model directory
   --output PATH           New .app path; an existing path is never overwritten
   --architecture ARCH     Swift target architecture (default: arm64)
 EOF
@@ -29,6 +31,7 @@ while [[ $# -gt 0 ]]; do
     --version) version="$2"; shift 2 ;;
     --build) build_number="$2"; shift 2 ;;
     --model-dir) model_dir="$2"; shift 2 ;;
+    --compact-model-dir) compact_model_dir="$2"; shift 2 ;;
     --output) output="$2"; shift 2 ;;
     --architecture) architecture="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
@@ -51,6 +54,9 @@ done
 }
 
 "$repo_root/scripts/verify-model.py" "$model_dir"
+"$repo_root/scripts/verify-model.py" \
+  --manifest "$repo_root/Models/parakeet-tdt-ctc-110m-coreml.json" \
+  "$compact_model_dir"
 
 cd "$repo_root"
 swift package resolve
@@ -92,7 +98,11 @@ ditto "$icon" "$resources/VoxHearth.icns"
 /usr/libexec/PlistBuddy -c 'Add :CFBundleIconFile string VoxHearth' "$contents/Info.plist"
 
 ditto "$model_dir" "$resources/Models/parakeet-tdt-0.6b-v3-coreml"
-ditto "$repo_root/Models/parakeet-tdt-0.6b-v3-coreml.json" "$resources/Models/manifest.json"
+ditto "$compact_model_dir" "$resources/Models/parakeet-tdt-ctc-110m-coreml"
+ditto "$repo_root/Models/parakeet-tdt-0.6b-v3-coreml.json" \
+  "$resources/Models/parakeet-tdt-0.6b-v3-coreml.json"
+ditto "$repo_root/Models/parakeet-tdt-ctc-110m-coreml.json" \
+  "$resources/Models/parakeet-tdt-ctc-110m-coreml.json"
 
 for legal_file in LICENSE NOTICE UPSTREAM.md SECURITY.md THIRD_PARTY_NOTICES.md; do
   [[ -f "$repo_root/$legal_file" ]] || {
@@ -109,6 +119,9 @@ done
 plutil -lint "$contents/Info.plist" >/dev/null
 "$repo_root/scripts/check-release-binary.sh" "$contents/MacOS/$app_name"
 "$repo_root/scripts/verify-model.py" "$resources/Models/parakeet-tdt-0.6b-v3-coreml"
+"$repo_root/scripts/verify-model.py" \
+  --manifest "$resources/Models/parakeet-tdt-ctc-110m-coreml.json" \
+  "$resources/Models/parakeet-tdt-ctc-110m-coreml"
 
 # Seal the complete development bundle so LaunchServices can validate its
 # Info.plist and resources. This anonymous ad-hoc signature carries no trusted

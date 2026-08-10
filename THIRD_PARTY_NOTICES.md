@@ -64,6 +64,21 @@ The converted model card's metadata and its NVIDIA base-model declaration say
 CC BY 4.0, while a prose footer in the converted card says Apache 2.0.
 VoxHearth follows the more conservative CC BY 4.0 terms.
 
+## Parakeet-TDT-CTC-110M Core ML model
+
+- Converted model: `FluidInference/parakeet-tdt-ctc-110m-coreml`
+- Exact revision: `9bc92ead6e8f17eca92a869fd578ae76842b82ba`
+- Converted-model source: <https://huggingface.co/FluidInference/parakeet-tdt-ctc-110m-coreml>
+- Base model: `nvidia/parakeet-tdt_ctc-110m`
+- Base-model source: <https://huggingface.co/nvidia/parakeet-tdt_ctc-110m>
+- Base-model attribution: NVIDIA Corporation
+- Core ML conversion attribution: FluidInference
+- License applied by VoxHearth: Creative Commons Attribution 4.0 International
+- License text: [`LICENSES/CC-BY-4.0.txt`](LICENSES/CC-BY-4.0.txt)
+
+VoxHearth redistributes the compact model files unchanged and records every
+distributed byte in `Models/parakeet-tdt-ctc-110m-coreml.json`.
+
 ## Apple platform components
 
 VoxHearth uses system frameworks supplied by macOS, including SwiftUI, AppKit,

@@ -43,7 +43,7 @@ public final class DictationController {
         pendingTranscriptLifetime: Duration = .seconds(120)
     ) {
         self.transcriptionEngine = transcriptionEngine
-        self.settings = settings
+        self.settings = settings.normalizedForSelectedModel()
         self.audioCapture = audioCapture
         self.textInserter = textInserter
         self.hotkeyService = hotkeyService
@@ -71,6 +71,7 @@ public final class DictationController {
     }
 
     public func applySettings(_ settings: AppSettings) throws {
+        let settings = settings.normalizedForSelectedModel()
         let previousSettings = self.settings
         if isActive, settings.hotkey != previousSettings.hotkey {
             do {
@@ -90,7 +91,7 @@ public final class DictationController {
         guard state == .idle || Self.isFailureState(state) else { return }
         state = .preparing
         do {
-            try await transcriptionEngine.prepare()
+            try await transcriptionEngine.prepare(model: settings.transcriptionModel)
             state = .idle
         } catch is CancellationError {
             state = .idle
@@ -108,7 +109,7 @@ public final class DictationController {
         do {
             await onStartCue?()
             try Task.checkCancellation()
-            try await transcriptionEngine.prepare()
+            try await transcriptionEngine.prepare(model: settings.transcriptionModel)
             try Task.checkCancellation()
             try await audioCapture.start(
                 inputDeviceUID: settings.inputDeviceUID,
@@ -231,8 +232,13 @@ public final class DictationController {
         var transcriptForRecovery: String?
         do {
             let selectedLanguage = settings.language
+            let selectedModel = settings.transcriptionModel
             let task = Task {
-                try await transcriptionEngine.transcribe(audio, language: selectedLanguage)
+                try await transcriptionEngine.transcribe(
+                    audio,
+                    language: selectedLanguage,
+                    model: selectedModel
+                )
             }
             transcriptionTask = task
             let transcript = try await task.value

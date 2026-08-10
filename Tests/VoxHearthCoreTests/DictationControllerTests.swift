@@ -35,15 +35,22 @@ private actor MockTranscriptionEngine: LocalTranscriptionEngine {
     private(set) var prepareCount = 0
     private(set) var transcribeCount = 0
     private(set) var languages: [DictationLanguage] = []
+    private(set) var models: [TranscriptionModel] = []
 
-    func prepare() async throws {
+    func prepare(model: TranscriptionModel) async throws {
         prepareCount += 1
+        models.append(model)
         if let prepareError { throw prepareError }
     }
 
-    func transcribe(_ audio: CapturedAudio, language: DictationLanguage) async throws -> String {
+    func transcribe(
+        _ audio: CapturedAudio,
+        language: DictationLanguage,
+        model: TranscriptionModel
+    ) async throws -> String {
         transcribeCount += 1
         languages.append(language)
+        models.append(model)
         return transcript
     }
 }
@@ -147,8 +154,28 @@ private final class StartCueRecorder: @unchecked Sendable {
     #expect(inserter.insertedTexts == ["dictated locally"])
     #expect(inserter.clipboardFlags == [true])
     #expect(await engine.languages == [.french])
+    #expect(await engine.models == [.multilingual, .multilingual])
     #expect(await audio.startCount == 1)
     #expect(await audio.stopCount == 1)
+}
+
+@Test @MainActor func controllerPreparesSelectedCompactModelInEnglish() async {
+    let engine = MockTranscriptionEngine()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: AppSettings(
+            transcriptionModel: .compactEnglish,
+            language: .french
+        ),
+        hotkeyService: MockHotkeyService()
+    )
+
+    await controller.prepareEngine()
+
+    #expect(controller.state == .idle)
+    #expect(controller.settings.transcriptionModel == .compactEnglish)
+    #expect(controller.settings.language == .english)
+    #expect(await engine.models == [.compactEnglish])
 }
 
 @Test @MainActor func externalAudioUsesLocalPipelineWithoutOpeningMicrophone() async {

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-version="${VERSION:-0.1.0}"
+version="${VERSION:-0.2.0}"
 build_number="${BUILD_NUMBER:-1}"
 distribution="$repo_root/.build/distribution"
 app="$distribution/VoxHearth.app"
@@ -15,7 +15,7 @@ dmg="$distribution/VoxHearth-v$version-unsigned.dmg"
 }
 
 "$repo_root/scripts/local-check.sh"
-"$repo_root/scripts/fetch-model.sh"
+"$repo_root/scripts/fetch-models.sh"
 "$repo_root/scripts/build-app-bundle.sh" --version "$version" --build "$build_number" --output "$app"
 "$repo_root/scripts/create-dmg.sh" "$app" "$dmg"
 

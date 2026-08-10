@@ -10,7 +10,7 @@ import Testing
     defer { try? FileManager.default.removeItem(at: directory) }
 
     #expect(throws: ParakeetEngineError.missingModelAsset("Preprocessor.mlmodelc")) {
-        try ParakeetEngine.validateAssets(in: directory)
+        try ParakeetEngine.validateAssets(in: directory, model: .multilingual)
     }
 }
 
@@ -20,16 +20,17 @@ import Testing
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: directory) }
 
-    for assetName in ParakeetEngine.requiredAssetNames {
-        let assetURL = directory.appendingPathComponent(assetName)
-        if assetName.hasSuffix(".mlmodelc") {
-            try FileManager.default.createDirectory(at: assetURL, withIntermediateDirectories: true)
-        } else {
-            try Data("{}".utf8).write(to: assetURL)
+    for model in TranscriptionModel.allCases {
+        for assetName in ParakeetEngine.requiredAssetNames(for: model) {
+            let assetURL = directory.appendingPathComponent(assetName)
+            if assetName.hasSuffix(".mlmodelc") {
+                try FileManager.default.createDirectory(at: assetURL, withIntermediateDirectories: true)
+            } else {
+                try Data("{}".utf8).write(to: assetURL)
+            }
         }
+        try ParakeetEngine.validateAssets(in: directory, model: model)
     }
-
-    try ParakeetEngine.validateAssets(in: directory)
 }
 
 @Test func vocabularyLoaderRejectsEmptyOrMalformedData() throws {
@@ -81,10 +82,16 @@ import Testing
     )
     #expect(!samples.isEmpty)
 
-    let engine = ParakeetEngine(modelDirectoryURL: URL(fileURLWithPath: modelPath))
+    let modelID = try #require(environment["VOXHEARTH_MODEL_SMOKE_MODEL_ID"])
+    let model = try #require(TranscriptionModel(rawValue: modelID.split(separator: "/").last.map(String.init) ?? modelID))
+    let engine = ParakeetEngine(
+        modelDirectoryURL: URL(fileURLWithPath: modelPath),
+        model: model
+    )
     let transcript = try await engine.transcribe(
         CapturedAudio(samples: samples, sampleRate: audioFile.processingFormat.sampleRate),
-        language: .english
+        language: .english,
+        model: model
     )
     #expect(!transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 }

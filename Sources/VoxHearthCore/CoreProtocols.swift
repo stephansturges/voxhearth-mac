@@ -13,8 +13,12 @@ public protocol AudioCapturing: Sendable {
 }
 
 public protocol LocalTranscriptionEngine: Sendable {
-    func prepare() async throws
-    func transcribe(_ audio: CapturedAudio, language: DictationLanguage) async throws -> String
+    func prepare(model: TranscriptionModel) async throws
+    func transcribe(
+        _ audio: CapturedAudio,
+        language: DictationLanguage,
+        model: TranscriptionModel
+    ) async throws -> String
 }
 
 @MainActor

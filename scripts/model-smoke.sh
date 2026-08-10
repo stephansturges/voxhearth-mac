@@ -3,7 +3,30 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-model_dir="${1:-$repo_root/.build/models/parakeet-tdt-0.6b-v3-coreml}"
+manifest="$repo_root/Models/parakeet-tdt-0.6b-v3-coreml.json"
+model_dir=""
+
+if [[ "${1:-}" == "--manifest" ]]; then
+  [[ $# -ge 2 ]] || { printf 'error: --manifest requires a path\n' >&2; exit 2; }
+  manifest="$2"
+  shift 2
+fi
+if [[ $# -gt 1 ]]; then
+  printf 'Usage: scripts/model-smoke.sh [--manifest PATH] [MODEL_DIR]\n' >&2
+  exit 2
+fi
+if [[ $# -eq 1 ]]; then
+  model_dir="$1"
+else
+  bundle_root="$(python3 - "$manifest" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as source:
+    print(json.load(source)["bundleRoot"])
+PY
+)"
+  model_dir="$repo_root/.build/models/$bundle_root"
+fi
 
 for command_name in say sandbox-exec swift; do
   command -v "$command_name" >/dev/null 2>&1 || {
@@ -12,8 +35,15 @@ for command_name in say sandbox-exec swift; do
   }
 done
 
-"$repo_root/scripts/verify-model.py" "$model_dir"
+"$repo_root/scripts/verify-model.py" --manifest "$manifest" "$model_dir"
 model_dir="$(cd "$model_dir" && pwd -P)"
+model_id="$(python3 - "$manifest" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as source:
+    print(json.load(source)["modelId"])
+PY
+)"
 
 smoke_root="$(mktemp -d "${TMPDIR:-/private/tmp}/voxhearth-model-smoke.XXXXXX")"
 cleanup() {
@@ -44,6 +74,7 @@ sandbox-exec -p "$sandbox_profile" \
     CLANG_MODULE_CACHE_PATH="$smoke_root/clang-module-cache" \
     SWIFT_MODULE_CACHE_PATH="$smoke_root/swift-module-cache" \
     VOXHEARTH_MODEL_SMOKE=1 \
+    VOXHEARTH_MODEL_SMOKE_MODEL_ID="$model_id" \
     VOXHEARTH_MODEL_SMOKE_MODEL_DIR="$model_dir" \
     VOXHEARTH_MODEL_SMOKE_AUDIO_FILE="$audio_file" \
     swift test \

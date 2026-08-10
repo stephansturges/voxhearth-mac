@@ -25,6 +25,9 @@ trap cleanup EXIT
 PYTHONPYCACHEPREFIX="$python_cache" python3 -m py_compile scripts/*.py
 python3 scripts/verify-model.py --self-test
 python3 scripts/verify-model.py --manifest-only
+python3 scripts/verify-model.py \
+  --manifest Models/parakeet-tdt-ctc-110m-coreml.json \
+  --manifest-only
 plutil -lint Documentation/Distribution/Info.plist >/dev/null
 plutil -lint Documentation/Distribution/VoxHearth.entitlements >/dev/null
 [[ "$(plutil -extract LSMultipleInstancesProhibited raw -o - Documentation/Distribution/Info.plist)" == "true" ]] || {
@@ -58,7 +61,7 @@ for required_file in \
   Documentation/PEBBLE_INDEX.md \
   Documentation/MODEL_PROVENANCE.md Documentation/BUILDING.md \
   Documentation/VERIFY_RELEASE.md Documentation/RELEASE.md \
-  .github/release-notes-v0.1.0-dev.1.md; do
+  .github/release-notes-v0.2.0-dev.1.md; do
   [[ -f "$required_file" ]] || {
     printf 'error: required project document is missing: %s\n' "$required_file" >&2
     exit 1
@@ -115,12 +118,23 @@ swift build --configuration release
 binary_dir="$(swift build --configuration release --show-bin-path)"
 ./scripts/check-release-binary.sh "$binary_dir/VoxHearth"
 
-model_dir="$repo_root/.build/models/parakeet-tdt-0.6b-v3-coreml"
-if ./scripts/verify-model.py "$model_dir" >/dev/null 2>&1; then
-  ./scripts/model-smoke.sh "$model_dir"
-else
-  printf 'verified local model absent; skipping opt-in real-model smoke test\n'
-fi
+for manifest in \
+  Models/parakeet-tdt-0.6b-v3-coreml.json \
+  Models/parakeet-tdt-ctc-110m-coreml.json; do
+  bundle_root="$(python3 - "$manifest" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as source:
+    print(json.load(source)["bundleRoot"])
+PY
+)"
+  model_dir="$repo_root/.build/models/$bundle_root"
+  if ./scripts/verify-model.py --manifest "$manifest" "$model_dir" >/dev/null 2>&1; then
+    ./scripts/model-smoke.sh --manifest "$manifest" "$model_dir"
+  else
+    printf 'verified local model absent; skipping opt-in smoke test: %s\n' "$bundle_root"
+  fi
+done
 
 git diff --check
 printf '%s\n' 'VoxHearth local checks passed'
