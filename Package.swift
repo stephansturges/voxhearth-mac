@@ -9,8 +9,19 @@ let package = Package(
         .library(name: "VoxHearthCore", targets: ["VoxHearthCore"]),
         .executable(name: "VoxHearth", targets: ["VoxHearthApp"]),
     ],
+    dependencies: [
+        .package(
+            url: "https://github.com/FluidInference/FluidAudio.git",
+            revision: "19600a485baa4998812e4654b70d2bab8f2c9949"
+        ),
+    ],
     targets: [
-        .target(name: "VoxHearthCore"),
+        .target(
+            name: "VoxHearthCore",
+            dependencies: [
+                .product(name: "FluidAudio", package: "FluidAudio"),
+            ]
+        ),
         .executableTarget(
             name: "VoxHearthApp",
             dependencies: ["VoxHearthCore"]
