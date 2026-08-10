@@ -94,7 +94,9 @@ Or run both validation and packaging:
 VERSION=0.1.0 BUILD_NUMBER=1 ./scripts/build-release-local.sh
 ```
 
-These local artifacts are intentionally unsigned. They are suitable for
+The local app has an anonymous ad-hoc signature so LaunchServices can validate
+its complete bundle and resources. The DMG is unsigned, and neither artifact
+has a trusted publisher identity or Apple notarization. They are suitable for
 development, not public distribution. Existing output is never overwritten;
 move it aside or remove the specific `.build/distribution` artifact before
 rebuilding.

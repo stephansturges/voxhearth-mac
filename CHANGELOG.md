@@ -13,6 +13,7 @@ are present on GitHub.
 ### Added
 
 - A focused Apple Silicon/macOS 14+ menu bar dictation application.
+- A visible first-launch setup window that closes after onboarding.
 - Hold-to-talk global shortcut with Control-Option-Space as the default.
 - Memory-only microphone capture with a ten-minute safety limit.
 - Fully local multilingual transcription using a bundled Parakeet-TDT-0.6B-v3
@@ -42,5 +43,7 @@ are present on GitHub.
   to a protected Environment.
 - Final artifacts are checked for the expected identity, entitlements, bundled
   model, notarization tickets, and known updater/network dependencies.
+- macOS bundle policy and an in-process guard prevent duplicate app instances
+  from registering the dictation shortcut twice.
 
 [0.1.0]: ../../releases/tag/v0.1.0

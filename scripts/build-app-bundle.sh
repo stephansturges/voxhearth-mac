@@ -110,5 +110,16 @@ plutil -lint "$contents/Info.plist" >/dev/null
 "$repo_root/scripts/check-release-binary.sh" "$contents/MacOS/$app_name"
 "$repo_root/scripts/verify-model.py" "$resources/Models/parakeet-tdt-0.6b-v3-coreml"
 
+# Seal the complete development bundle so LaunchServices can validate its
+# Info.plist and resources. This anonymous ad-hoc signature carries no trusted
+# publisher identity and is replaced by the Developer ID signature in release
+# builds.
+codesign --force \
+  --sign - \
+  --options runtime \
+  --entitlements "$repo_root/Documentation/Distribution/VoxHearth.entitlements" \
+  "$app"
+codesign --verify --deep --strict --verbose=2 "$app"
+
 mv "$app" "$output"
-printf 'unsigned app bundle created: %s\n' "$output"
+printf 'ad-hoc signed development app bundle created: %s\n' "$output"

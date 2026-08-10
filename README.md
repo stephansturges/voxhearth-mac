@@ -57,6 +57,10 @@ To install a published release:
 4. Open the DMG, drag VoxHearth to Applications, and launch it.
 5. Complete the microphone and Accessibility permission steps.
 
+The first launch opens a visible setup window. After setup, VoxHearth remains
+in the menu bar; launching it again reuses the existing instance instead of
+registering a second dictation listener.
+
 The release workflow publishes a DMG only after it is signed with a Developer
 ID Application certificate, notarized by Apple, and given a stapled ticket.
 VoxHearth has no automatic updater; install future versions manually from
@@ -83,7 +87,9 @@ Xcode 26.2 and its Swift 6 toolchain are the pinned release environment.
 ./scripts/build-app-bundle.sh
 ```
 
-The app appears at `.build/distribution/VoxHearth.app`. To create a local,
+The app appears at `.build/distribution/VoxHearth.app`. It receives an anonymous
+ad-hoc signature so the complete local bundle launches consistently, but it has
+no trusted publisher identity or Apple notarization. To create a local,
 unsigned development DMG in one command:
 
 ```sh

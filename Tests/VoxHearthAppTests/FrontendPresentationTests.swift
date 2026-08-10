@@ -47,4 +47,26 @@ struct FrontendPresentationTests {
         #expect(!settings.launchAtLogin)
         #expect(!settings.clipboardCompatibilityEnabled)
     }
+
+    @Test("First launch presents onboarding and later launches stay menu-bar only")
+    func launchPresentationPolicy() {
+        #expect(LaunchPresentationPolicy.shouldPresentOnboarding(hasCompletedOnboarding: false))
+        #expect(!LaunchPresentationPolicy.shouldPresentOnboarding(hasCompletedOnboarding: true))
+    }
+
+    @Test("A second process yields to an older VoxHearth instance")
+    func singleInstancePolicy() {
+        #expect(
+            AppInstancePolicy.shouldTerminateNewInstance(
+                currentProcessIdentifier: 200,
+                runningProcessIdentifiers: [200, 100]
+            )
+        )
+        #expect(
+            !AppInstancePolicy.shouldTerminateNewInstance(
+                currentProcessIdentifier: 100,
+                runningProcessIdentifiers: [100]
+            )
+        )
+    }
 }

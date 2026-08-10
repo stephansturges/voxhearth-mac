@@ -27,6 +27,10 @@ python3 scripts/verify-model.py --self-test
 python3 scripts/verify-model.py --manifest-only
 plutil -lint Documentation/Distribution/Info.plist >/dev/null
 plutil -lint Documentation/Distribution/VoxHearth.entitlements >/dev/null
+[[ "$(plutil -extract LSMultipleInstancesProhibited raw -o - Documentation/Distribution/Info.plist)" == "true" ]] || {
+  printf 'error: app bundle must prohibit multiple instances\n' >&2
+  exit 1
+}
 ./scripts/check-release-binary.sh --self-test
 [[ -f Brand/VoxHearth.icns ]] || {
   printf 'error: required application icon is missing: Brand/VoxHearth.icns\n' >&2
