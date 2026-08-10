@@ -1,0 +1,296 @@
+@preconcurrency import AVFoundation
+import AudioToolbox
+import CoreAudio
+import Foundation
+import os
+
+/// Thread-safe, memory-only audio storage shared with AVAudioEngine's render callback.
+final class AudioSampleAccumulator: @unchecked Sendable {
+    struct State: Sendable {
+        var samples: [Float] = []
+        var didSignalLimit = false
+    }
+
+    let sampleRate: Double
+    let maximumSampleCount: Int
+    private let state = OSAllocatedUnfairLock(initialState: State())
+
+    init(sampleRate: Double, maximumDuration: TimeInterval) {
+        self.sampleRate = sampleRate
+        maximumSampleCount = max(1, Int((sampleRate * maximumDuration).rounded(.down)))
+    }
+
+    /// Returns true exactly once, when the duration cap is first reached.
+    @discardableResult
+    func append(_ newSamples: [Float]) -> Bool {
+        state.withLock { state in
+            guard state.samples.count < maximumSampleCount else { return false }
+            let remaining = maximumSampleCount - state.samples.count
+            state.samples.append(contentsOf: newSamples.prefix(remaining))
+            guard state.samples.count == maximumSampleCount, !state.didSignalLimit else {
+                return false
+            }
+            state.didSignalLimit = true
+            return true
+        }
+    }
+
+    func snapshot() -> [Float] {
+        state.withLock { $0.samples }
+    }
+}
+
+public actor AudioCaptureService: AudioCapturing {
+    public static let maximumDuration: TimeInterval = 10 * 60
+    private static let tapBufferSize: AVAudioFrameCount = 1_024
+
+    private var engine: AVAudioEngine?
+    private var accumulator: AudioSampleAccumulator?
+    private let logger = PrivacySafeLogger(category: "AudioCapture")
+
+    public init() {}
+
+    public func availableInputDevices() async -> [AudioInputDevice] {
+        Self.inputDevices()
+    }
+
+    public func start(
+        inputDeviceUID: String?,
+        maximumDurationReached: @escaping @Sendable () async -> Void
+    ) async throws {
+        guard engine == nil else { throw AudioCaptureError.alreadyRecording }
+        guard await Self.requestMicrophonePermission() else {
+            throw AudioCaptureError.microphonePermissionDenied
+        }
+
+        let newEngine = AVAudioEngine()
+        let inputNode = newEngine.inputNode
+
+        if let inputDeviceUID {
+            guard let deviceID = Self.audioDeviceID(forUID: inputDeviceUID) else {
+                throw AudioCaptureError.microphoneUnavailable
+            }
+            try Self.selectInputDevice(deviceID, on: inputNode)
+        }
+
+        let inputFormat = inputNode.outputFormat(forBus: 0)
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+            throw AudioCaptureError.invalidInputFormat
+        }
+        guard let tapFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: inputFormat.sampleRate,
+            channels: inputFormat.channelCount,
+            interleaved: false
+        ) else {
+            throw AudioCaptureError.invalidInputFormat
+        }
+
+        let newAccumulator = AudioSampleAccumulator(
+            sampleRate: tapFormat.sampleRate,
+            maximumDuration: Self.maximumDuration
+        )
+        inputNode.installTap(
+            onBus: 0,
+            bufferSize: Self.tapBufferSize,
+            format: tapFormat
+        ) { buffer, _ in
+            let monoSamples = Self.monoSamples(from: buffer)
+            if newAccumulator.append(monoSamples) {
+                Task {
+                    await maximumDurationReached()
+                }
+            }
+        }
+
+        do {
+            newEngine.prepare()
+            try newEngine.start()
+        } catch {
+            inputNode.removeTap(onBus: 0)
+            newEngine.stop()
+            logger.error(.operationFailed, error: error)
+            throw AudioCaptureError.engineStartFailed
+        }
+
+        engine = newEngine
+        accumulator = newAccumulator
+        logger.info(.audioCaptureStarted)
+    }
+
+    public func stop() async throws -> CapturedAudio {
+        guard let activeEngine = engine, let activeAccumulator = accumulator else {
+            throw AudioCaptureError.notRecording
+        }
+
+        activeEngine.inputNode.removeTap(onBus: 0)
+        activeEngine.stop()
+        engine = nil
+        accumulator = nil
+
+        let samples = activeAccumulator.snapshot()
+        guard !samples.isEmpty else { throw AudioCaptureError.noAudioCaptured }
+        logger.info(.audioCaptureStopped)
+        return CapturedAudio(samples: samples, sampleRate: activeAccumulator.sampleRate)
+    }
+
+    public func cancel() async {
+        guard let activeEngine = engine else { return }
+        activeEngine.inputNode.removeTap(onBus: 0)
+        activeEngine.stop()
+        engine = nil
+        accumulator = nil
+        logger.info(.audioCaptureCancelled)
+    }
+
+    private static func requestMicrophonePermission() async -> Bool {
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted:
+            true
+        case .denied:
+            false
+        case .undetermined:
+            await withCheckedContinuation { continuation in
+                AVAudioApplication.requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
+        @unknown default:
+            false
+        }
+    }
+
+    private static func monoSamples(from buffer: AVAudioPCMBuffer) -> [Float] {
+        guard let channels = buffer.floatChannelData else { return [] }
+        let frameCount = Int(buffer.frameLength)
+        let channelCount = Int(buffer.format.channelCount)
+        guard frameCount > 0, channelCount > 0 else { return [] }
+
+        if channelCount == 1 {
+            return Array(UnsafeBufferPointer(start: channels[0], count: frameCount))
+        }
+
+        var mono = [Float](repeating: 0, count: frameCount)
+        let scale = 1 / Float(channelCount)
+        for channel in 0..<channelCount {
+            let input = channels[channel]
+            for frame in 0..<frameCount {
+                mono[frame] += input[frame] * scale
+            }
+        }
+        return mono
+    }
+
+    private static func selectInputDevice(
+        _ deviceID: AudioDeviceID,
+        on inputNode: AVAudioInputNode
+    ) throws {
+        guard let audioUnit = inputNode.audioUnit else {
+            throw AudioCaptureError.microphoneUnavailable
+        }
+        var mutableDeviceID = deviceID
+        let status = AudioUnitSetProperty(
+            audioUnit,
+            kAudioOutputUnitProperty_CurrentDevice,
+            kAudioUnitScope_Global,
+            0,
+            &mutableDeviceID,
+            UInt32(MemoryLayout<AudioDeviceID>.size)
+        )
+        guard status == noErr else { throw AudioCaptureError.microphoneUnavailable }
+    }
+
+    private static func inputDevices() -> [AudioInputDevice] {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dataSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            0,
+            nil,
+            &dataSize
+        ) == noErr, dataSize > 0 else { return [] }
+
+        let count = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+        var identifiers = [AudioDeviceID](repeating: 0, count: count)
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            0,
+            nil,
+            &dataSize,
+            &identifiers
+        ) == noErr else { return [] }
+
+        return identifiers.compactMap { identifier in
+            guard hasInputStreams(identifier),
+                  let uid = stringProperty(
+                      selector: kAudioDevicePropertyDeviceUID,
+                      deviceID: identifier
+                  ),
+                  let name = stringProperty(
+                      selector: kAudioObjectPropertyName,
+                      deviceID: identifier
+                  ) else { return nil }
+            return AudioInputDevice(uid: uid, name: name)
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private static func hasInputStreams(_ deviceID: AudioDeviceID) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var size: UInt32 = 0
+        return AudioObjectGetPropertyDataSize(deviceID, &address, 0, nil, &size) == noErr
+            && size >= UInt32(MemoryLayout<AudioStreamID>.size)
+    }
+
+    private static func stringProperty(
+        selector: AudioObjectPropertySelector,
+        deviceID: AudioDeviceID
+    ) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var value: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        guard AudioObjectGetPropertyData(
+            deviceID,
+            &address,
+            0,
+            nil,
+            &size,
+            &value
+        ) == noErr, let value else { return nil }
+        return value.takeUnretainedValue() as String
+    }
+
+    private static func audioDeviceID(forUID uid: String) -> AudioDeviceID? {
+        var deviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyTranslateUIDToDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var unmanagedUID: Unmanaged<CFString>? = Unmanaged.passUnretained(uid as CFString)
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            UInt32(MemoryLayout<Unmanaged<CFString>?>.size),
+            &unmanagedUID,
+            &size,
+            &deviceID
+        )
+        return status == noErr && deviceID != 0 ? deviceID : nil
+    }
+}
