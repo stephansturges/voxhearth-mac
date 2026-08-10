@@ -1,37 +1,35 @@
+import AppKit
 import SwiftUI
 import VoxHearthCore
 
 @main
+@MainActor
 struct VoxHearthApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @State private var model = VoxHearthFrontendModel()
+
     var body: some Scene {
-        MenuBarExtra(AppIdentity.name, systemImage: "waveform") {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(AppIdentity.name)
-                    .font(.headline)
-                Text(AppIdentity.tagline)
-                    .foregroundStyle(.secondary)
-                Divider()
-                SettingsLink {
-                    Label("Settings", systemImage: "gear")
-                }
-                Button("Quit") {
-                    NSApplication.shared.terminate(nil)
-                }
-            }
-            .padding()
-            .frame(width: 280)
+        MenuBarExtra {
+            MenuBarContentView(model: model)
+        } label: {
+            Image(systemName: model.sessionState.symbolName)
+                .accessibilityLabel("\(AppIdentity.name): \(model.sessionState.title)")
         }
         .menuBarExtraStyle(.window)
 
         Settings {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(AppIdentity.name)
-                    .font(.title2.bold())
-                Text("The local dictation engine will be configured in the next build stage.")
-                    .foregroundStyle(.secondary)
-            }
-            .padding(24)
-            .frame(width: 480, height: 180)
+            SettingsRootView(model: model)
         }
+    }
+}
+
+@MainActor
+private final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApplication.shared.setActivationPolicy(.accessory)
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        .terminateNow
     }
 }
