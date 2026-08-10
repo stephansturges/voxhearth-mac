@@ -27,6 +27,15 @@ public struct CapturedAudio: Equatable, Sendable {
     }
 }
 
+/// Whether an external, memory-only audio source was accepted for local
+/// transcription. External sources include a future directly paired BLE audio
+/// accessory; they never need to impersonate the Mac microphone.
+public enum ExternalAudioSubmissionResult: Equatable, Sendable {
+    case accepted
+    case busy
+    case invalidAudio
+}
+
 public enum DictationSessionState: Equatable, Sendable {
     case idle
     case preparing

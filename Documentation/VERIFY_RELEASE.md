@@ -1,4 +1,47 @@
-# Verify a VoxHearth release
+# Verify a VoxHearth build
+
+## Current development prerelease
+
+`v0.1.0-dev.1` is intentionally ad-hoc signed and not notarized. Download these
+files from that exact prerelease:
+
+```text
+VoxHearth-v0.1.0-dev.1-unsigned.dmg
+VoxHearth-v0.1.0-dev.1.spdx.json
+VoxHearth-v0.1.0-dev.1-provenance.json
+VoxHearth-v0.1.0-dev.1-source.tar.gz
+SHA256SUMS
+```
+
+Run:
+
+```sh
+shasum -a 256 -c SHA256SUMS
+gh attestation verify VoxHearth-v0.1.0-dev.1-unsigned.dmg \
+  --repo stephansturges/voxhearth-mac
+```
+
+Confirm the attestation identifies
+`.github/workflows/development-release.yml`, tag `v0.1.0-dev.1`, and the commit
+shown in the release notes. Inspect the provenance JSON and confirm it says
+`development-prerelease`, `anonymous ad-hoc signature`, and `notarization:
+absent`.
+
+After mounting the DMG, this command must validate the app's internal ad-hoc
+seal:
+
+```sh
+codesign --verify --deep --strict --verbose=2 /Volumes/VoxHearth/VoxHearth.app
+codesign -dvvv /Volumes/VoxHearth/VoxHearth.app
+```
+
+The second command must report `Signature=adhoc` and no ten-character Apple
+Team Identifier. `spctl` and `stapler` are expected to reject this development
+build; that rejection is not a defect. If you choose to run it after reviewing
+the source and verification evidence, use only macOS's per-app **Open Anyway**
+control. Do not disable Gatekeeper globally.
+
+## Future official release
 
 Verification answers three different questions:
 

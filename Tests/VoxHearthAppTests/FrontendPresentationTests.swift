@@ -37,11 +37,33 @@ struct FrontendPresentationTests {
         #expect(!bareSpace.isSuitableGlobalShortcut)
     }
 
+    @Test("Accessory function keys can be bound without modifiers")
+    func acceptsAccessoryFunctionKeys() {
+        let f13 = HotkeyDescriptor(keyCode: 105, modifierRawValue: 0)
+        let f20 = HotkeyDescriptor(keyCode: 90, modifierRawValue: 0)
+
+        #expect(f13.isSuitableGlobalShortcut)
+        #expect(f13.displayName == "F13")
+        #expect(f20.isSuitableGlobalShortcut)
+        #expect(f20.displayName == "F20")
+    }
+
+    @Test("Start cue is a tiny in-memory PCM wave")
+    func startCueWaveData() {
+        let data = DictationStartCuePlayer.makeToneData()
+
+        #expect(String(decoding: data.prefix(4), as: UTF8.self) == "RIFF")
+        #expect(String(decoding: data.dropFirst(8).prefix(4), as: UTF8.self) == "WAVE")
+        #expect(data.count > 44)
+        #expect(data.count < 5_000)
+    }
+
     @Test("Privacy-sensitive settings start conservative")
     func privacyDefaults() {
         let settings = AppSettings.default
 
         #expect(settings.hotkey == .controlOptionSpace)
+        #expect(settings.pointerButton == nil)
         #expect(settings.inputDeviceUID == nil)
         #expect(settings.language == .english)
         #expect(!settings.launchAtLogin)

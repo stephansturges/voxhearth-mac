@@ -1,8 +1,30 @@
 # Release checklist
 
-This is the maintainer checklist for v0.1.x. The automated path is
-`.github/workflows/release.yml`; manual signing is documented in
-[BUILDING.md](BUILDING.md).
+VoxHearth has two deliberately separate publication channels:
+
+- `.github/workflows/development-release.yml` publishes the ad-hoc-signed,
+  unnotarized `v0.1.0-dev.1` GitHub prerelease without Apple secrets.
+- `.github/workflows/release.yml` publishes the future Developer ID-signed and
+  Apple-notarized `v0.1.0` release.
+
+Manual building and signing are documented in [BUILDING.md](BUILDING.md).
+
+## Publish v0.1.0-dev.1
+
+- [ ] The development-release commit is reviewed and merged to `main`.
+- [ ] `./scripts/local-check.sh` passes from a clean checkout.
+- [ ] No model, app, DMG, certificate, key, or password is tracked by Git.
+- [ ] Create annotated tag `v0.1.0-dev.1` on that exact commit and push it.
+- [ ] Confirm the workflow publishes the unsigned DMG, source archive, SBOM,
+      provenance, `SHA256SUMS`, and both GitHub attestations.
+- [ ] Confirm GitHub marks the release as a prerelease and that its title,
+      notes, artifact name, and provenance all say unsigned/unnotarized.
+- [ ] Download the assets and follow the development verification path in
+      [VERIFY_RELEASE.md](VERIFY_RELEASE.md).
+
+This preview is useful for testing and source review. It is not a substitute
+for Developer ID signing or notarization, and must never be marked `latest` or
+presented as the official `v0.1.0` release.
 
 ## One-time prerequisites
 

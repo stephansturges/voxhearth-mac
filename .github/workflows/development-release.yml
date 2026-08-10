@@ -1,0 +1,159 @@
+name: Development Release v0.1.0-dev.1
+
+on:
+  push:
+    tags:
+      - v0.1.0-dev.1
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: development-release-v0.1.0-dev.1
+  cancel-in-progress: false
+
+env:
+  APP_NAME: VoxHearth
+  APP_VERSION: 0.1.0
+  RELEASE_VERSION: 0.1.0-dev.1
+  RELEASE_TAG: v0.1.0-dev.1
+  FLUIDAUDIO_REVISION: 19600a485baa4998812e4654b70d2bab8f2c9949
+  MODEL_REVISION: aed02740059203c4a87495924f685de3722ae9ce
+
+jobs:
+  development-release:
+    name: Build, attest, and publish unsigned preview
+    runs-on: macos-26
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out the development release tag
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: refs/tags/v0.1.0-dev.1
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select Xcode 26.2
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: "26.2"
+
+      - name: Validate immutable inputs
+        run: |
+          set -euo pipefail
+          source_revision="$(git rev-parse HEAD)"
+          tag_revision="$(git rev-parse "$RELEASE_TAG^{commit}")"
+          [[ "$source_revision" == "$tag_revision" ]]
+          [[ -z "$(git status --porcelain)" ]]
+          grep -Fq "$FLUIDAUDIO_REVISION" Vendor/FluidAudioLocal/UPSTREAM.md
+          grep -Fq "$MODEL_REVISION" Models/parakeet-tdt-0.6b-v3-coreml.json
+          grep -Fq "## [$RELEASE_VERSION]" CHANGELOG.md
+          printf 'SOURCE_REVISION=%s\n' "$source_revision" >> "$GITHUB_ENV"
+          printf 'SOURCE_DATE_EPOCH=%s\n' "$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+          printf 'BUILD_NUMBER=%s\n' "$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+          printf 'DIST_DIR=%s/voxhearth-development-release\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+          xcodebuild -version
+          swift --version
+
+      - name: Test source and offline policy
+        run: ./scripts/local-check.sh
+
+      - name: Fetch and verify the locked model
+        run: ./scripts/fetch-model.sh
+
+      - name: Run offline real-model transcription smoke test
+        run: ./scripts/model-smoke.sh
+
+      - name: Build the ad-hoc-signed app and unsigned DMG
+        run: |
+          set -euo pipefail
+          mkdir -p "$DIST_DIR"
+          app="$DIST_DIR/VoxHearth.app"
+          dmg="$DIST_DIR/VoxHearth-v$RELEASE_VERSION-unsigned.dmg"
+          ./scripts/build-app-bundle.sh \
+            --version "$APP_VERSION" \
+            --build "$BUILD_NUMBER" \
+            --output "$app"
+          ./scripts/create-dmg.sh "$app" "$dmg"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          signature="$(codesign -dvvv "$app" 2>&1)"
+          grep -Fq 'Signature=adhoc' <<< "$signature"
+          ! grep -Eq '^TeamIdentifier=[A-Z0-9]{10}$' <<< "$signature"
+          hdiutil verify "$dmg"
+
+      - name: Generate source, SBOM, provenance, and checksums
+        run: |
+          set -euo pipefail
+          dmg="$DIST_DIR/VoxHearth-v$RELEASE_VERSION-unsigned.dmg"
+          source_archive="$DIST_DIR/VoxHearth-v$RELEASE_VERSION-source.tar.gz"
+          sbom="$DIST_DIR/VoxHearth-v$RELEASE_VERSION.spdx.json"
+          provenance="$DIST_DIR/VoxHearth-v$RELEASE_VERSION-provenance.json"
+
+          ./scripts/create-source-bundle.sh \
+            "$RELEASE_TAG" "$RELEASE_VERSION" "$source_archive"
+          ./scripts/generate-sbom.py \
+            --version "$RELEASE_VERSION" \
+            --source-revision "$SOURCE_REVISION" \
+            --artifact "$dmg" \
+            --output "$sbom"
+          ./scripts/generate-provenance.py \
+            --version "$RELEASE_VERSION" \
+            --source-revision "$SOURCE_REVISION" \
+            --source-tag "$RELEASE_TAG" \
+            --workflow .github/workflows/development-release.yml \
+            --signature 'anonymous ad-hoc signature; no publisher identity' \
+            --notarization 'absent; development preview' \
+            --release-channel development-prerelease \
+            --artifact "$dmg" \
+            --artifact "$sbom" \
+            --artifact "$source_archive" \
+            --output "$provenance"
+
+          cd "$DIST_DIR"
+          shasum -a 256 \
+            "VoxHearth-v$RELEASE_VERSION-unsigned.dmg" \
+            "VoxHearth-v$RELEASE_VERSION.spdx.json" \
+            "VoxHearth-v$RELEASE_VERSION-provenance.json" \
+            "VoxHearth-v$RELEASE_VERSION-source.tar.gz" \
+            > SHA256SUMS
+          shasum -a 256 -c SHA256SUMS
+
+      - name: Attest the development DMG
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.1.0-dev.1-unsigned.dmg
+
+      - name: Attest the development DMG SBOM
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.1.0-dev.1-unsigned.dmg
+          sbom-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.1.0-dev.1.spdx.json
+
+      - name: Publish the GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          notes="$RUNNER_TEMP/VoxHearth-v$RELEASE_VERSION-release-notes.md"
+          sed \
+            -e "s/{{SOURCE_REVISION}}/$SOURCE_REVISION/g" \
+            .github/release-notes-v0.1.0-dev.1.md > "$notes"
+
+          assets=(
+            "$DIST_DIR/VoxHearth-v$RELEASE_VERSION-unsigned.dmg"
+            "$DIST_DIR/VoxHearth-v$RELEASE_VERSION.spdx.json"
+            "$DIST_DIR/VoxHearth-v$RELEASE_VERSION-provenance.json"
+            "$DIST_DIR/VoxHearth-v$RELEASE_VERSION-source.tar.gz"
+            "$DIST_DIR/SHA256SUMS"
+          )
+
+          gh release create "$RELEASE_TAG" "${assets[@]}" \
+            --verify-tag \
+            --prerelease \
+            --title "VoxHearth 0.1.0 Development Preview 1 (unsigned)" \
+            --notes-file "$notes"

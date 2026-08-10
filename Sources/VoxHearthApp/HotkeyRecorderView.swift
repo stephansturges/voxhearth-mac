@@ -52,7 +52,7 @@ struct HotkeyRecorderView: View {
                     .rawValue
             )
             guard descriptor.isSuitableGlobalShortcut else {
-                validationMessage = "Include Control, Option, or Command in the shortcut."
+                validationMessage = "Include Control, Option, or Command, or use F13-F20 for an accessory button."
                 NSSound.beep()
                 return nil
             }

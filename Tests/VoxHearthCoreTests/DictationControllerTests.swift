@@ -89,8 +89,36 @@ private final class MockHotkeyService: GlobalHotkeyRegistering {
 }
 
 @MainActor
+private final class MockPointerButtonService: GlobalPointerButtonRegistering {
+    private(set) var registeredButtonNumber: UInt32?
+    private var handler: (@MainActor @Sendable (GlobalHotkeyPhase) -> Void)?
+
+    func register(
+        buttonNumber: UInt32?,
+        onEvent: @escaping @MainActor @Sendable (GlobalHotkeyPhase) -> Void
+    ) {
+        registeredButtonNumber = buttonNumber
+        handler = buttonNumber == nil ? nil : onEvent
+    }
+
+    func unregister() {
+        registeredButtonNumber = nil
+        handler = nil
+    }
+
+    func emit(_ phase: GlobalHotkeyPhase) {
+        handler?(phase)
+    }
+}
+
+@MainActor
 private final class OnboardingRecorder: @unchecked Sendable {
     var requirements: [OnboardingRequirement] = []
+}
+
+@MainActor
+private final class StartCueRecorder: @unchecked Sendable {
+    var count = 0
 }
 
 @Test @MainActor func controllerRunsMemoryOnlyDictationPipeline() async {
@@ -121,6 +149,87 @@ private final class OnboardingRecorder: @unchecked Sendable {
     #expect(await engine.languages == [.french])
     #expect(await audio.startCount == 1)
     #expect(await audio.stopCount == 1)
+}
+
+@Test @MainActor func externalAudioUsesLocalPipelineWithoutOpeningMicrophone() async {
+    let audio = MockAudioCapture()
+    let engine = MockTranscriptionEngine()
+    let inserter = MockTextInserter()
+    let cue = StartCueRecorder()
+    var settings = AppSettings.default
+    settings.language = .german
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: settings,
+        audioCapture: audio,
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService()
+    )
+    controller.onStartCue = { cue.count += 1 }
+
+    let result = await controller.submitExternalAudio(
+        CapturedAudio(samples: [0.25, -0.25], sampleRate: 16_000)
+    )
+
+    #expect(result == .accepted)
+    #expect(controller.state == .idle)
+    #expect(inserter.insertedTexts == ["dictated locally"])
+    #expect(await engine.languages == [.german])
+    #expect(await audio.startCount == 0)
+    #expect(await audio.stopCount == 0)
+    #expect(cue.count == 0)
+}
+
+@Test @MainActor func externalAudioRejectsInvalidOrConcurrentSubmission() async {
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService()
+    )
+
+    let invalid = await controller.submitExternalAudio(
+        CapturedAudio(samples: [], sampleRate: 16_000)
+    )
+    #expect(invalid == .invalidAudio)
+
+    let tooLong = await controller.submitExternalAudio(
+        CapturedAudio(
+            samples: Array(
+                repeating: 0.1,
+                count: Int(DictationController.maximumExternalAudioDuration) + 1
+            ),
+            sampleRate: 1
+        )
+    )
+    #expect(tooLong == .invalidAudio)
+
+    await controller.startDictation()
+    let busy = await controller.submitExternalAudio(
+        CapturedAudio(samples: [0.1], sampleRate: 16_000)
+    )
+    #expect(busy == .busy)
+    await controller.cancelDictation()
+}
+
+@Test @MainActor func startCueRunsBeforeMicrophoneCapture() async {
+    let audio = MockAudioCapture()
+    let cue = StartCueRecorder()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: audio,
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService()
+    )
+    controller.onStartCue = {
+        #expect(await audio.startCount == 0)
+        cue.count += 1
+    }
+
+    await controller.startDictation()
+
+    #expect(cue.count == 1)
+    #expect(await audio.startCount == 1)
 }
 
 @Test @MainActor func microphoneDenialSurfacesOnboardingRequirement() async {
@@ -216,6 +325,28 @@ private final class OnboardingRecorder: @unchecked Sendable {
     hotkey.emit(.pressed)
     await waitUntil { controller.state == .recording }
     hotkey.emit(.released)
+    await waitUntil { controller.state == .idle }
+    #expect(controller.state == .idle)
+}
+
+@Test @MainActor func pointerButtonRegistersHoldToTalkPhases() async throws {
+    let pointer = MockPointerButtonService()
+    var settings = AppSettings.default
+    settings.pointerButton = 4
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        settings: settings,
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        pointerButtonService: pointer
+    )
+    try controller.activate()
+    #expect(pointer.registeredButtonNumber == 4)
+
+    pointer.emit(.pressed)
+    await waitUntil { controller.state == .recording }
+    pointer.emit(.released)
     await waitUntil { controller.state == .idle }
     #expect(controller.state == .idle)
 }

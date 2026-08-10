@@ -11,6 +11,15 @@ automatic updater, remote API, or runtime model download.
 
 ![VoxHearth app icon](Brand/VoxHearthIcon.svg)
 
+## Origin and credit
+
+VoxHearth is a privacy-focused fork, not a from-scratch implementation. It is
+based on [TypeWhisper](https://github.com/TypeWhisper/typewhisper-mac) v1.5.1,
+and the upstream authors retain credit through the preserved Git history,
+copyright notices, and GPL license. This fork replaces the product identity and
+reduces the application to one local-only dictation path; the exact fork point
+and a summary of the changes are documented in [UPSTREAM.md](UPSTREAM.md).
+
 ## What “local” means
 
 ```text
@@ -43,28 +52,34 @@ destination-app trust boundaries.
 
 ## Install
 
-Official binaries exist only as tagged [GitHub Releases](../../releases). If
-that page does not list `v0.1.0`, no official VoxHearth binary has been
-published yet; build from source and treat any unsigned local DMG as a
-development artifact.
+The current downloadable build is
+[`v0.1.0-dev.1`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.1.0-dev.1),
+an explicitly **unsigned and unnotarized development prerelease**. It includes
+the bundled model, checksums, complete source, SBOM, provenance, and GitHub
+attestations, but it has no trusted Apple publisher identity. macOS is expected
+to block it on first launch.
 
-To install a published release:
+To install that development preview:
 
-1. Open the [latest GitHub release](../../releases/latest) and confirm its tag.
-2. Download the matching `VoxHearth-v<VERSION>.dmg` and `SHA256SUMS`.
-3. Verify the checksum and, optionally, the GitHub provenance/SBOM attestations by
-   following [VERIFY_RELEASE.md](Documentation/VERIFY_RELEASE.md).
-4. Open the DMG, drag VoxHearth to Applications, and launch it.
+1. Download `VoxHearth-v0.1.0-dev.1-unsigned.dmg` and `SHA256SUMS` from the same
+   release.
+2. Verify the checksum by following
+   [VERIFY_RELEASE.md](Documentation/VERIFY_RELEASE.md).
+3. Open the DMG and drag VoxHearth to Applications.
+4. Try to launch it. If macOS blocks it and you accept the development-build
+   risk after verification, use the per-app **Open Anyway** control in
+   **System Settings → Privacy & Security**. Never disable Gatekeeper globally.
 5. Complete the microphone and Accessibility permission steps.
 
 The first launch opens a visible setup window. After setup, VoxHearth remains
 in the menu bar; launching it again reuses the existing instance instead of
 registering a second dictation listener.
 
-The release workflow publishes a DMG only after it is signed with a Developer
-ID Application certificate, notarized by Apple, and given a stapled ticket.
-VoxHearth has no automatic updater; install future versions manually from
-GitHub Releases.
+The future official `v0.1.0` release remains reserved for a DMG signed with a
+Developer ID Application certificate, notarized by Apple, and given a stapled
+ticket. No such official build exists yet because the project does not have the
+required Apple signing credentials. VoxHearth has no automatic updater; install
+future versions manually from GitHub Releases.
 
 ## Use
 
@@ -72,6 +87,34 @@ The default shortcut is **Control-Option-Space**. Hold it while speaking and
 release to transcribe and insert. You can also start and stop from the menu bar.
 Settings let you choose the shortcut, microphone, and one of the model's 25
 supported European languages.
+
+The menu panel exposes the shortcut editor directly. VoxHearth also accepts an
+unmodified F13-F20 key for USB macro buttons and device remapping utilities. In
+Settings, an optional middle or extra mouse/accessory button can be captured as
+a second hold-to-talk control. Devices that do not present a keyboard or mouse
+event require a dedicated local adapter.
+
+Direct, phone-free **Pebble Index 01** support is being designed as a native
+CoreBluetooth audio source, with no webhook, MCP bridge, or network relay. The
+local transcription ingress is ready, but the driver is not advertised as
+working until Pebble's unpublished collection-transfer layer is available and
+the complete flow passes physical-ring tests. See the evidence, security model,
+and exact remaining work in
+[PEBBLE_INDEX.md](Documentation/PEBBLE_INDEX.md).
+
+To start VoxHearth automatically after signing in to your Mac:
+
+1. Keep `VoxHearth.app` in `/Applications` rather than running it from a DMG or
+   build folder.
+2. Open the menu bar icon, choose **Settings**, and enable **Launch VoxHearth at
+   login** under **Dictation → Mac**.
+3. macOS will show the registration under **System Settings → General → Login
+   Items & Extensions**.
+
+This uses Apple's standard login-item service and does not require a package
+installer or privileged helper. Disable the setting before moving or deleting
+the app. Developer ID signing and notarization are still needed for a smooth,
+trusted public download; they are separate from the login-item mechanism.
 
 The Accessibility insertion path is preferred. Clipboard compatibility is an
 explicit opt-in for applications that reject the normal paths; clipboard
@@ -109,13 +152,15 @@ bundling, and the exact release credentials.
   `aed02740059203c4a87495924f685de3722ae9ce`.
 - [`Models/parakeet-tdt-0.6b-v3-coreml.json`](Models/parakeet-tdt-0.6b-v3-coreml.json)
   locks every permitted model file by byte count and SHA-256.
-- Each release includes checksums, SPDX 2.3 SBOM, provenance metadata, a
+- Each published build includes checksums, SPDX 2.3 SBOM, provenance metadata, a
   complete source archive containing the reviewed FluidAudio subset, and GitHub
   provenance and SBOM attestations.
 
-The signed DMG is not bit-for-bit reproducible because Apple timestamps,
-notarization tickets, and disk-image metadata vary. Its source and model inputs
-are immutable and independently checkable.
+Development prereleases are visibly named `unsigned` and describe the absent
+Apple trust properties in both their notes and provenance. A future signed DMG
+will not be bit-for-bit reproducible because Apple timestamps, notarization
+tickets, and disk-image metadata vary. Source and model inputs remain immutable
+and independently checkable in both channels.
 
 ## Contributing and security
 

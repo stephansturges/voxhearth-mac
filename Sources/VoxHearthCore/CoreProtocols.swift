@@ -34,3 +34,13 @@ public protocol GlobalHotkeyRegistering: AnyObject {
 
     func unregister()
 }
+
+@MainActor
+public protocol GlobalPointerButtonRegistering: AnyObject {
+    func register(
+        buttonNumber: UInt32?,
+        onEvent: @escaping @MainActor @Sendable (GlobalHotkeyPhase) -> Void
+    )
+
+    func unregister()
+}

@@ -49,6 +49,7 @@ final class VoxHearthFrontendModel {
 
     private let defaults: UserDefaults
     private let audioCapture: AudioCaptureService
+    private let startCuePlayer: DictationStartCuePlayer
 
     init(
         controller: DictationController? = nil,
@@ -57,6 +58,8 @@ final class VoxHearthFrontendModel {
     ) {
         self.defaults = defaults
         self.audioCapture = audioCapture
+        let startCuePlayer = DictationStartCuePlayer()
+        self.startCuePlayer = startCuePlayer
         hasCompletedOnboarding = defaults.bool(forKey: DefaultsKey.completedOnboarding)
 
         let settings = Self.loadSettings(from: defaults)
@@ -79,6 +82,9 @@ final class VoxHearthFrontendModel {
             case .accessibility:
                 self.accessibilityPermission = .denied
             }
+        }
+        self.controller.onStartCue = { [weak startCuePlayer] in
+            await startCuePlayer?.play()
         }
 
         do {
@@ -224,6 +230,12 @@ final class VoxHearthFrontendModel {
         apply(next)
     }
 
+    func setPointerButton(_ buttonNumber: UInt32?) {
+        var next = settings
+        next.pointerButton = buttonNumber
+        apply(next)
+    }
+
     func setInputDevice(uid: String?) {
         var next = settings
         next.inputDeviceUID = uid
@@ -268,6 +280,14 @@ final class VoxHearthFrontendModel {
             keyCode: UInt16(clamping: settings.hotkey.keyCode),
             modifierRawValue: Self.appKitModifiers(from: settings.hotkey.modifiers).rawValue
         )
+    }
+
+    var pointerButtonDisplayName: String {
+        guard let buttonNumber = settings.pointerButton else { return "Not configured" }
+        switch buttonNumber {
+        case 2: return "Middle mouse button"
+        default: return "Mouse/accessory button \(buttonNumber + 1)"
+        }
     }
 
     private func apply(_ settings: AppSettings) {
