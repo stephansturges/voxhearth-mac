@@ -176,6 +176,10 @@ struct MenuBarContentView: View {
             Toggle("Launch VoxHearth at login", isOn: launchAtLoginBinding)
                 .toggleStyle(.checkbox)
                 .font(.callout)
+
+            Toggle("Show live transcript overlay", isOn: liveTranscriptOverlayBinding)
+                .toggleStyle(.checkbox)
+                .font(.callout)
         }
         .padding(12)
         .background(Color.voxWarmWhite.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
@@ -185,6 +189,13 @@ struct MenuBarContentView: View {
         Binding(
             get: { model.settings.launchAtLogin },
             set: { model.setLaunchAtLogin($0) }
+        )
+    }
+
+    private var liveTranscriptOverlayBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.liveTranscriptOverlayEnabled },
+            set: { model.setLiveTranscriptOverlay($0) }
         )
     }
 

@@ -29,6 +29,9 @@ microphone → in-memory audio → bundled Core ML model → in-memory text → 
 - Audio and transcripts are not written to a VoxHearth history or cache. If
   insertion fails, the transcript may remain in memory for up to two minutes so
   you can Retry or Discard it; it is then discarded automatically.
+- An optional live-preview overlay is off by default. When enabled, VoxHearth
+  periodically transcribes a bounded, in-memory snapshot and shows approximate
+  text in a passive panel; it does not create Notification Center history.
 - Both selectable models are part of the app and are loaded through a reviewed,
   network-free FluidAudio subset; downloader and cache clients are not linked.
 - The normal insertion paths use macOS Accessibility or Unicode keyboard
@@ -99,6 +102,19 @@ current macOS system-default input and clears the unavailable selection.
 The multilingual 600M model remains the default and supports 25 European
 languages. The compact 110M model is English-only and is intended for faster
 startup and lower memory use on smaller Apple silicon Macs.
+
+The menu panel and **Settings → Dictation → Feedback** include an optional
+**Show live transcript overlay** checkbox. It displays recent approximate text
+near the top-right of the active screen while you speak, without taking focus
+from the app receiving your dictation. Preview inference is entirely local and
+uses only in-memory audio. It refreshes about every two seconds over at most the
+most recent 30 seconds, so enabling it performs extra inference and may use more
+energy on smaller Macs. The final full recording is always transcribed
+separately; only that final result is inserted, and it may differ from the live
+preview. The overlay clears after cancellation or shortly after completion.
+You can keep speaking to add context or spell a term after noticing a preview
+error, but the speech model is not a conversational editor and is not
+guaranteed to revise an earlier word exactly as instructed.
 
 The menu panel exposes the shortcut editor directly. VoxHearth also accepts an
 unmodified F13-F20 key for USB macro buttons and device remapping utilities. In

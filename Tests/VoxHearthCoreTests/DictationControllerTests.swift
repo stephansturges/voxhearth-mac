@@ -9,6 +9,7 @@ private actor MockAudioCapture: AudioCapturing {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var cancelCount = 0
+    private(set) var snapshotCount = 0
     private(set) var requestedInputDeviceUIDs: [String?] = []
 
     func availableInputDevices() async -> [AudioInputDevice] { [] }
@@ -25,6 +26,11 @@ private actor MockAudioCapture: AudioCapturing {
 
     func stop() async throws -> CapturedAudio {
         stopCount += 1
+        return result
+    }
+
+    func snapshot() async -> CapturedAudio? {
+        snapshotCount += 1
         return result
     }
 
@@ -137,6 +143,11 @@ private final class InputFallbackRecorder: @unchecked Sendable {
     var count = 0
 }
 
+@MainActor
+private final class LivePreviewRecorder: @unchecked Sendable {
+    var values: [String?] = []
+}
+
 @Test @MainActor func controllerRunsMemoryOnlyDictationPipeline() async {
     let audio = MockAudioCapture()
     let engine = MockTranscriptionEngine()
@@ -166,6 +177,55 @@ private final class InputFallbackRecorder: @unchecked Sendable {
     #expect(await engine.models == [.multilingual, .multilingual])
     #expect(await audio.startCount == 1)
     #expect(await audio.stopCount == 1)
+}
+
+@Test @MainActor func optionalLivePreviewUsesSnapshotsAndClearsOnCancel() async {
+    let audio = MockAudioCapture()
+    let engine = MockTranscriptionEngine()
+    let recorder = LivePreviewRecorder()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: AppSettings(liveTranscriptOverlayEnabled: true),
+        audioCapture: audio,
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        livePreviewInterval: .milliseconds(1),
+        livePreviewMinimumDuration: 0
+    )
+    controller.onLiveTranscriptPreview = { recorder.values.append($0) }
+
+    await controller.startDictation()
+    await waitUntil(attempts: 500) { controller.liveTranscriptPreview == "dictated locally" }
+
+    #expect(controller.state == .recording)
+    #expect(controller.liveTranscriptPreview == "dictated locally")
+    #expect(await audio.snapshotCount > 0)
+    #expect(await engine.transcribeCount > 0)
+    #expect(recorder.values.first == "")
+
+    await controller.cancelDictation()
+    #expect(controller.liveTranscriptPreview == nil)
+    #expect(recorder.values.count >= 2)
+    #expect(recorder.values[recorder.values.count - 1] == nil)
+}
+
+@Test @MainActor func livePreviewIsDisabledByDefault() async {
+    let audio = MockAudioCapture()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: audio,
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        livePreviewInterval: .milliseconds(1),
+        livePreviewMinimumDuration: 0
+    )
+
+    await controller.startDictation()
+    try? await Task.sleep(for: .milliseconds(5))
+
+    #expect(controller.liveTranscriptPreview == nil)
+    #expect(await audio.snapshotCount == 0)
+    await controller.cancelDictation()
 }
 
 @Test @MainActor func controllerPreparesSelectedCompactModelInEnglish() async {

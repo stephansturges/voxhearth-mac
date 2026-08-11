@@ -10,6 +10,13 @@ Developer ID-signed, Apple-notarized releases.
 
 ## [Unreleased]
 
+### Added
+
+- An off-by-default, non-activating live transcript overlay that shows
+  approximate on-device preview text near the top-right of the active screen.
+  Preview audio and text remain in memory, Notification Center is not used, and
+  the complete final recording is still transcribed separately for insertion.
+
 ### Planned
 
 - Direct, phone-free Pebble Index 01 collection transfer, pending publication
