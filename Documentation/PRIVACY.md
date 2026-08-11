@@ -1,6 +1,6 @@
 # Privacy
 
-VoxHearth 0.2 has one purpose: turn microphone audio into text on the same Mac.
+VoxHearth 0.3 has one purpose: turn microphone audio into text on the same Mac.
 There is no online mode.
 
 ## Runtime data flow

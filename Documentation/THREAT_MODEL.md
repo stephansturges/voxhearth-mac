@@ -1,6 +1,6 @@
 # Threat model
 
-This threat model applies to any signed VoxHearth 0.2 release built from this
+This threat model applies to any signed VoxHearth 0.3 release built from this
 repository. It distinguishes the installed runtime, which is designed for
 offline operation, from the connected build and release system. Source on
 `main` is not an official release until matching signed assets are published.
