@@ -53,6 +53,7 @@ final class VoxHearthFrontendModel {
     private let defaults: UserDefaults
     private let audioCapture: AudioCaptureService
     private let startCuePlayer: DictationStartCuePlayer
+    private let liveTranscriptOverlayController: LiveTranscriptOverlayController
     private let currentBuildIdentity: String
     @ObservationIgnored private var didRequestAccessibilityForUpdatedBuild = false
 
@@ -67,6 +68,8 @@ final class VoxHearthFrontendModel {
         self.currentBuildIdentity = currentBuildIdentity
         let startCuePlayer = DictationStartCuePlayer()
         self.startCuePlayer = startCuePlayer
+        let liveTranscriptOverlayController = LiveTranscriptOverlayController()
+        self.liveTranscriptOverlayController = liveTranscriptOverlayController
         let launchReason = LaunchPresentationPolicy.reason(
             previouslyCompleted: defaults.bool(forKey: DefaultsKey.completedOnboarding),
             completedBuildIdentity: defaults.string(forKey: DefaultsKey.completedOnboardingBuild),
@@ -104,6 +107,9 @@ final class VoxHearthFrontendModel {
         }
         self.controller.onInputDeviceFallback = { [weak self] in
             self?.handleInputDeviceFallback()
+        }
+        self.controller.onLiveTranscriptPreview = { [weak liveTranscriptOverlayController] text in
+            liveTranscriptOverlayController?.update(transcript: text)
         }
 
         do {
@@ -340,6 +346,12 @@ final class VoxHearthFrontendModel {
                 interfaceError = "Launch at login could not be updated: \(error.localizedDescription)"
             }
         }
+    }
+
+    func setLiveTranscriptOverlay(_ enabled: Bool) {
+        var next = settings
+        next.liveTranscriptOverlayEnabled = enabled
+        apply(next)
     }
 
     func setClipboardCompatibility(_ enabled: Bool) {

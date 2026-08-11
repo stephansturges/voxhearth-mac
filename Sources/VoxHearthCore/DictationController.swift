@@ -5,11 +5,16 @@ import Observation
 @Observable
 public final class DictationController {
     public static let maximumExternalAudioDuration: TimeInterval = 10 * 60
+    public static let defaultLivePreviewInterval: Duration = .milliseconds(600)
+    public static let defaultLivePreviewWindow: TimeInterval = 8
 
     public private(set) var state: DictationSessionState = .idle
     public private(set) var settings: AppSettings
     public private(set) var recordingStartedAt: Date?
     public private(set) var pendingTranscript: String?
+    /// Approximate, memory-only text for the optional overlay. This is never
+    /// used for insertion; the final full recording is transcribed separately.
+    public private(set) var liveTranscriptPreview: String?
 
     @ObservationIgnored
     public var onOnboardingRequirement: (@MainActor @Sendable (OnboardingRequirement) -> Void)?
@@ -23,6 +28,9 @@ public final class DictationController {
     @ObservationIgnored
     public var onInputDeviceFallback: (@MainActor @Sendable () -> Void)?
 
+    @ObservationIgnored
+    public var onLiveTranscriptPreview: (@MainActor @Sendable (String?) -> Void)?
+
     @ObservationIgnored private let audioCapture: any AudioCapturing
     @ObservationIgnored private let transcriptionEngine: any LocalTranscriptionEngine
     @ObservationIgnored private let textInserter: any TextInserting
@@ -32,8 +40,14 @@ public final class DictationController {
     @ObservationIgnored private var transcriptionTask: Task<String, Error>?
     @ObservationIgnored private var pendingTranscriptExpiryTask: Task<Void, Never>?
     @ObservationIgnored private var activationStartTask: Task<Void, Never>?
+    @ObservationIgnored private var livePreviewTask: Task<Void, Never>?
+    @ObservationIgnored private var livePreviewDismissTask: Task<Void, Never>?
     @ObservationIgnored private var activationIsPressed = false
     @ObservationIgnored private let pendingTranscriptLifetime: Duration
+    @ObservationIgnored private let livePreviewInterval: Duration
+    @ObservationIgnored private let livePreviewMinimumDuration: TimeInterval
+    @ObservationIgnored private let livePreviewWindow: TimeInterval
+    @ObservationIgnored private let livePreviewFinalVisibility: Duration
     @ObservationIgnored private let logger = PrivacySafeLogger(category: "Dictation")
 
     public init(
@@ -43,7 +57,11 @@ public final class DictationController {
         textInserter: any TextInserting = TextInsertionService(),
         hotkeyService: any GlobalHotkeyRegistering = CarbonGlobalHotkeyService(),
         pointerButtonService: any GlobalPointerButtonRegistering = GlobalPointerButtonService(),
-        pendingTranscriptLifetime: Duration = .seconds(120)
+        pendingTranscriptLifetime: Duration = .seconds(120),
+        livePreviewInterval: Duration = defaultLivePreviewInterval,
+        livePreviewMinimumDuration: TimeInterval = 0.6,
+        livePreviewWindow: TimeInterval = defaultLivePreviewWindow,
+        livePreviewFinalVisibility: Duration = .seconds(2)
     ) {
         self.transcriptionEngine = transcriptionEngine
         self.settings = settings.normalizedForSelectedModel()
@@ -52,12 +70,18 @@ public final class DictationController {
         self.hotkeyService = hotkeyService
         self.pointerButtonService = pointerButtonService
         self.pendingTranscriptLifetime = pendingTranscriptLifetime
+        self.livePreviewInterval = livePreviewInterval
+        self.livePreviewMinimumDuration = livePreviewMinimumDuration
+        self.livePreviewWindow = livePreviewWindow
+        self.livePreviewFinalVisibility = livePreviewFinalVisibility
     }
 
     deinit {
         transcriptionTask?.cancel()
         pendingTranscriptExpiryTask?.cancel()
         activationStartTask?.cancel()
+        livePreviewTask?.cancel()
+        livePreviewDismissTask?.cancel()
     }
 
     public func activate() throws {
@@ -88,6 +112,16 @@ public final class DictationController {
             registerPointerButton(settings.pointerButton)
         }
         self.settings = settings
+        if state == .recording,
+           settings.liveTranscriptOverlayEnabled != previousSettings.liveTranscriptOverlayEnabled {
+            if settings.liveTranscriptOverlayEnabled {
+                beginLiveTranscriptPreview()
+            } else {
+                stopLiveTranscriptPreview(clearText: true)
+            }
+        } else if !settings.liveTranscriptOverlayEnabled {
+            stopLiveTranscriptPreview(clearText: true)
+        }
     }
 
     public func prepareEngine() async {
@@ -126,6 +160,7 @@ public final class DictationController {
             }
             recordingStartedAt = Date()
             state = .recording
+            beginLiveTranscriptPreview()
         } catch is CancellationError {
             await audioCapture.cancel()
             recordingStartedAt = nil
@@ -143,6 +178,7 @@ public final class DictationController {
         // cannot both consume the same capture session.
         state = .transcribing
         recordingStartedAt = nil
+        stopLiveTranscriptPreview(clearText: false)
 
         do {
             let audio = try await audioCapture.stop()
@@ -213,6 +249,7 @@ public final class DictationController {
     public func cancelDictation() async {
         transcriptionTask?.cancel()
         transcriptionTask = nil
+        stopLiveTranscriptPreview(clearText: true)
         await audioCapture.cancel()
         recordingStartedAt = nil
         state = .idle
@@ -252,10 +289,14 @@ public final class DictationController {
             transcriptionTask = nil
 
             guard !transcript.isEmpty else {
+                scheduleLiveTranscriptPreviewDismissal()
                 state = .idle
                 return
             }
             transcriptForRecovery = transcript
+            if settings.liveTranscriptOverlayEnabled {
+                publishLiveTranscriptPreview(transcript)
+            }
 
             state = .inserting
             _ = try await textInserter.insert(
@@ -264,15 +305,109 @@ public final class DictationController {
             )
             clearPendingTranscript()
             state = .idle
+            scheduleLiveTranscriptPreviewDismissal()
         } catch is CancellationError {
             transcriptionTask = nil
             state = .idle
+            scheduleLiveTranscriptPreviewDismissal()
         } catch {
             transcriptionTask = nil
             if let transcriptForRecovery {
                 retainPendingTranscript(transcriptForRecovery)
             }
             handleCompletionError(error)
+            scheduleLiveTranscriptPreviewDismissal()
+        }
+    }
+
+    private func beginLiveTranscriptPreview() {
+        guard settings.liveTranscriptOverlayEnabled, state == .recording else { return }
+        livePreviewTask?.cancel()
+        livePreviewDismissTask?.cancel()
+        livePreviewDismissTask = nil
+        publishLiveTranscriptPreview("")
+
+        let interval = livePreviewInterval
+        livePreviewTask = Task { [weak self, interval] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: interval)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled, let self else { return }
+                await self.refreshLiveTranscriptPreview()
+            }
+        }
+    }
+
+    private func refreshLiveTranscriptPreview() async {
+        guard state == .recording, settings.liveTranscriptOverlayEnabled,
+              let audio = await audioCapture.snapshot(),
+              audio.duration >= livePreviewMinimumDuration else { return }
+
+        let selectedLanguage = settings.language
+        let selectedModel = settings.transcriptionModel
+        let boundedAudio = Self.trailingPreviewWindow(audio, maximumDuration: livePreviewWindow)
+        do {
+            let text = try await transcriptionEngine.transcribe(
+                boundedAudio,
+                language: selectedLanguage,
+                model: selectedModel
+            )
+            guard !Task.isCancelled, state == .recording,
+                  settings.liveTranscriptOverlayEnabled else { return }
+            publishLiveTranscriptPreview(text)
+        } catch is CancellationError {
+            return
+        } catch {
+            // Preview is optional and must never disrupt final transcription.
+            return
+        }
+    }
+
+    private static func trailingPreviewWindow(
+        _ audio: CapturedAudio,
+        maximumDuration: TimeInterval
+    ) -> CapturedAudio {
+        let maximumSamples = max(1, Int((audio.sampleRate * maximumDuration).rounded(.down)))
+        guard audio.samples.count > maximumSamples else { return audio }
+        return CapturedAudio(
+            samples: Array(audio.samples.suffix(maximumSamples)),
+            sampleRate: audio.sampleRate
+        )
+    }
+
+    private func stopLiveTranscriptPreview(clearText: Bool) {
+        livePreviewTask?.cancel()
+        livePreviewTask = nil
+        if clearText {
+            livePreviewDismissTask?.cancel()
+            livePreviewDismissTask = nil
+            publishLiveTranscriptPreview(nil)
+        }
+    }
+
+    private func publishLiveTranscriptPreview(_ text: String?) {
+        liveTranscriptPreview = text
+        onLiveTranscriptPreview?(text)
+    }
+
+    private func scheduleLiveTranscriptPreviewDismissal() {
+        livePreviewTask?.cancel()
+        livePreviewTask = nil
+        guard liveTranscriptPreview != nil else { return }
+        livePreviewDismissTask?.cancel()
+        let visibility = livePreviewFinalVisibility
+        livePreviewDismissTask = Task { [weak self, visibility] in
+            do {
+                try await Task.sleep(for: visibility)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            self?.publishLiveTranscriptPreview(nil)
+            self?.livePreviewDismissTask = nil
         }
     }
 

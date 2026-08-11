@@ -1,6 +1,6 @@
 # Privacy
 
-VoxHearth 0.2 has one purpose: turn microphone audio into text on the same Mac.
+VoxHearth 0.3 has one purpose: turn microphone audio into text on the same Mac.
 There is no online mode.
 
 ## Runtime data flow
@@ -34,9 +34,9 @@ operations are not present in the installed runtime application.
 
 | Data | Processing and lifetime |
 | --- | --- |
-| Microphone audio | Captured into process memory only, capped at ten minutes per dictation, then released after transcription, cancellation, failure, or process exit. VoxHearth does not create an audio file. |
-| Transcript | Exists in process memory while it is being inserted. If insertion fails, VoxHearth may retain that transcript in memory for a Retry/Discard prompt for at most two minutes, then discards it automatically. Quitting or choosing Discard clears it sooner. VoxHearth does not save a transcript history. |
-| Preferences | Shortcut, selected microphone identifier, selected speech model, language, launch-at-login choice, clipboard-fallback choice, and onboarding completion are stored in macOS UserDefaults for bundle ID `com.stephansturges.voxhearth`. |
+| Microphone audio | Captured into process memory only, capped at ten minutes per dictation, then released after transcription, cancellation, failure, or process exit. If live preview is enabled, a bounded copy of the most recent audio is periodically passed to the same local model. VoxHearth does not create an audio file. |
+| Transcript | Exists in process memory while it is previewed or inserted. The optional preview panel is not a Notification Center notification and creates no notification history. If insertion fails, VoxHearth may retain the final transcript in memory for a Retry/Discard prompt for at most two minutes, then discards it automatically. Quitting or choosing Discard clears it sooner. VoxHearth does not save a transcript history. |
+| Preferences | Shortcut, selected microphone identifier, selected speech model, language, launch-at-login choice, live-preview choice, clipboard-fallback choice, and onboarding completion are stored in macOS UserDefaults for bundle ID `com.stephansturges.voxhearth`. |
 | Logs | Apple Unified Logging receives fixed operation identifiers and error type names. Log calls cannot accept audio, transcript text, clipboard contents, arbitrary paths, or free-form user text. |
 | Models | Two immutable model payloads are read from the application bundle. Only the selected model is loaded for inference; switching releases the previous manager. No model cache or runtime download is created by VoxHearth. |
 
@@ -63,6 +63,24 @@ or primary/secondary clicks.
 
 Launch at login is optional and off by default. It uses macOS
 `SMAppService.mainApp`; it does not install a privileged helper.
+
+## Live transcript overlay
+
+Live preview is optional and off by default. When enabled, VoxHearth
+periodically re-transcribes at most the latest eight seconds of the active
+in-memory recording and presents the newest ten recognized words in a passive,
+single-line top-right panel. Older words drop from the left. The panel does not
+take keyboard focus, write a notification, or become
+the source used for insertion. After recording stops, VoxHearth separately
+transcribes the complete recording and inserts only that final result. Preview
+text clears on cancellation and shortly after completion.
+
+The overlay makes dictated text visible on screen. People nearby, screen-sharing
+software, screenshots, or other software able to capture the display may see
+it. It requests another preview after a 600 ms pause, although model inference
+time determines the actual cadence. This can increase energy use and may slow
+final transcription on a smaller Mac. Leave it disabled when display privacy
+or minimum resource use is more important than immediate feedback.
 
 ## Clipboard compatibility
 

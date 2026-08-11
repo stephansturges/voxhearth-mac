@@ -106,6 +106,16 @@ private struct DictationSettingsView: View {
                 Toggle("Launch VoxHearth at login", isOn: launchAtLoginBinding)
             }
 
+            Section("Feedback") {
+                Toggle("Show live transcript overlay", isOn: liveTranscriptOverlayBinding)
+                Text("Shows an approximate, on-device transcript near the top-right of the active screen while you speak. The final full transcription is produced separately and may differ.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Visible text may be seen by people nearby or by screen-sharing and capture software. Preview also uses extra local inference.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section {
                 HStack(spacing: 8) {
                     Image(systemName: model.sessionState.symbolName)
@@ -155,6 +165,13 @@ private struct DictationSettingsView: View {
         Binding(
             get: { model.settings.launchAtLogin },
             set: { model.setLaunchAtLogin($0) }
+        )
+    }
+
+    private var liveTranscriptOverlayBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.liveTranscriptOverlayEnabled },
+            set: { model.setLiveTranscriptOverlay($0) }
         )
     }
 }

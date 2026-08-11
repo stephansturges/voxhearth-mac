@@ -11,6 +11,7 @@ import Testing
     #expect(settings.transcriptionModel == .multilingual)
     #expect(settings.language == .english)
     #expect(settings.launchAtLogin == false)
+    #expect(settings.liveTranscriptOverlayEnabled == false)
     #expect(settings.clipboardCompatibilityEnabled == false)
     #expect(settings.hotkey.displayName == "Control-Option-Space")
 }
@@ -26,6 +27,7 @@ import Testing
         transcriptionModel: .multilingual,
         language: .ukrainian,
         launchAtLogin: true,
+        liveTranscriptOverlayEnabled: true,
         clipboardCompatibilityEnabled: true
     )
 
@@ -33,6 +35,7 @@ import Testing
     let decoded = try JSONDecoder().decode(AppSettings.self, from: encoded)
     #expect(decoded == settings)
     #expect(decoded.pointerButton == 4)
+    #expect(decoded.liveTranscriptOverlayEnabled)
 }
 
 @Test func legacySettingsWithoutModelRetainMultilingualBehavior() throws {
@@ -40,6 +43,7 @@ import Testing
     let decoded = try JSONDecoder().decode(AppSettings.self, from: Data(legacy.utf8))
     #expect(decoded.transcriptionModel == .multilingual)
     #expect(decoded.language == .french)
+    #expect(!decoded.liveTranscriptOverlayEnabled)
 }
 
 @Test func compactModelForcesItsOnlySupportedLanguage() {

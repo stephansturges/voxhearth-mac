@@ -16,6 +16,16 @@ Developer ID-signed, Apple-notarized releases.
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
 
+## [0.3.0-dev.1] - 2026-08-11
+
+### Added
+
+- An off-by-default, non-activating live transcript subtitle strip that shows
+  only the latest approximate on-device words near the top-right of the active
+  screen. Preview audio and text remain in memory, Notification Center is not
+  used, and the complete final recording is still transcribed separately for
+  insertion.
+
 ## [0.2.1-dev.3] - 2026-08-11
 
 ### Fixed
@@ -105,7 +115,8 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.2.1-dev.3...HEAD
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.1...HEAD
+[0.3.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.1
 [0.2.1-dev.3]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.3
 [0.2.1-dev.2]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.2
 [0.2.1-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.1

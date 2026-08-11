@@ -42,6 +42,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var transcriptionModel: TranscriptionModel
     public var language: DictationLanguage
     public var launchAtLogin: Bool
+    public var liveTranscriptOverlayEnabled: Bool
     public var clipboardCompatibilityEnabled: Bool
 
     public init(
@@ -51,6 +52,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         transcriptionModel: TranscriptionModel = .multilingual,
         language: DictationLanguage = .english,
         launchAtLogin: Bool = false,
+        liveTranscriptOverlayEnabled: Bool = false,
         clipboardCompatibilityEnabled: Bool = false
     ) {
         self.hotkey = hotkey
@@ -59,6 +61,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.transcriptionModel = transcriptionModel
         self.language = transcriptionModel.supports(language) ? language : .english
         self.launchAtLogin = launchAtLogin
+        self.liveTranscriptOverlayEnabled = liveTranscriptOverlayEnabled
         self.clipboardCompatibilityEnabled = clipboardCompatibilityEnabled
     }
 
@@ -71,6 +74,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         case transcriptionModel
         case language
         case launchAtLogin
+        case liveTranscriptOverlayEnabled
         case clipboardCompatibilityEnabled
     }
 
@@ -91,6 +95,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
                 ?? .english,
             launchAtLogin: try values.decodeIfPresent(Bool.self, forKey: .launchAtLogin)
                 ?? false,
+            liveTranscriptOverlayEnabled: try values.decodeIfPresent(
+                Bool.self,
+                forKey: .liveTranscriptOverlayEnabled
+            ) ?? false,
             clipboardCompatibilityEnabled: try values.decodeIfPresent(
                 Bool.self,
                 forKey: .clipboardCompatibilityEnabled

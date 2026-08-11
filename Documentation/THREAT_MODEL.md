@@ -1,6 +1,6 @@
 # Threat model
 
-This threat model applies to any signed VoxHearth 0.2 release built from this
+This threat model applies to any signed VoxHearth 0.3 release built from this
 repository. It distinguishes the installed runtime, which is designed for
 offline operation, from the connected build and release system. Source on
 `main` is not an official release until matching signed assets are published.
@@ -45,6 +45,7 @@ privacy boundary.
 | Audio or transcripts are sent to a service | No runtime networking implementation; no network entitlement, updater, telemetry, or remote model API; the vendored ASR subset omits FluidAudio downloader/cache clients; source scans and the final binary gate reject networking APIs and linked CFNetwork/Network frameworks. | The app is deliberately not sandboxed because cross-app text insertion requires Accessibility. A malicious future change could restore networking unless review and CI controls catch it. Host firewall monitoring provides additional assurance. |
 | Sensitive content is left on disk | Audio capture and transcript state are memory-only; no history/database/audio-file path exists. A failed-insertion transcript is eligible for Retry/Discard for at most two minutes before automatic discard. | macOS may page process memory, capture diagnostics, or expose data to a privileged process. The destination app may persist inserted text. |
 | Logs leak content | Logger accepts only a closed enum of event identifiers plus error type names. | OS-level crash reports or diagnostics outside VoxHearth's implementation are governed by macOS settings. |
+| Live preview exposes or persists dictated text | Preview is opt-in and off by default; it uses a passive in-process panel rather than Notification Center, retains no history, and clears on cancellation or shortly after completion. Only the separately produced final transcript is inserted. | Nearby people and display-capture or screen-sharing software can observe visible preview text. Repeated local inference uses additional compute and can delay final transcription on slower Macs. |
 | Global activation becomes an input logger | Carbon receives only the configured keyboard shortcut. Optional pointer activation subscribes only to middle/extra-button down/up events and filters immediately to the selected button number; it does not observe keys, movement, scrolling, or primary/secondary clicks. | Accessibility permission is powerful; a compromised VoxHearth binary could misuse it. Signature and source verification matter. |
 | Clipboard leaks transcript | Clipboard path is off by default; when enabled, prior contents are snapshotted and conditionally restored. | Clipboard managers, Universal Clipboard, or other same-user processes can observe the temporary value. |
 | Model changes after review | Exact Hugging Face commit plus per-file sizes and SHA-256 values; fetch occurs only during build; verifier rejects missing and extra files. Model bytes are inside the signed app. | Model behavior itself is not formally verified and can make inaccurate or biased transcriptions. |

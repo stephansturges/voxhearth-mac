@@ -8,6 +8,10 @@ public protocol AudioCapturing: Sendable {
         maximumDurationReached: @escaping @Sendable () async -> Void
     ) async throws -> AudioInputSelection
 
+    /// Returns a copy of the active in-memory capture for an optional local
+    /// preview. Implementations must not persist the snapshot.
+    func snapshot() async -> CapturedAudio?
+
     func stop() async throws -> CapturedAudio
     func cancel() async
 }

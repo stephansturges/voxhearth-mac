@@ -29,6 +29,9 @@ microphone → in-memory audio → bundled Core ML model → in-memory text → 
 - Audio and transcripts are not written to a VoxHearth history or cache. If
   insertion fails, the transcript may remain in memory for up to two minutes so
   you can Retry or Discard it; it is then discarded automatically.
+- An optional live-preview overlay is off by default. When enabled, VoxHearth
+  periodically transcribes a bounded, in-memory snapshot and shows approximate
+  text in a passive panel; it does not create Notification Center history.
 - Both selectable models are part of the app and are loaded through a reviewed,
   network-free FluidAudio subset; downloader and cache clients are not linked.
 - The normal insertion paths use macOS Accessibility or Unicode keyboard
@@ -53,7 +56,7 @@ destination-app trust boundaries.
 ## Install
 
 The current downloadable build is
-[`v0.2.1-dev.3`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.3),
+[`v0.3.0-dev.1`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.1),
 an explicitly **unsigned and unnotarized development prerelease**. It includes
 the bundled model, checksums, complete source, SBOM, provenance, and GitHub
 attestations, but it has no trusted Apple publisher identity. macOS is expected
@@ -63,7 +66,7 @@ To install that development preview:
 
 1. If VoxHearth is already installed, choose **Quit VoxHearth** from its menu
    before replacing the app. Otherwise macOS may keep the old process running.
-2. Download `VoxHearth-v0.2.1-dev.3-unsigned.dmg` and `SHA256SUMS` from the same
+2. Download `VoxHearth-v0.3.0-dev.1-unsigned.dmg` and `SHA256SUMS` from the same
    release.
 3. Verify the checksum by following
    [VERIFY_RELEASE.md](Documentation/VERIFY_RELEASE.md).
@@ -83,7 +86,7 @@ current build for Accessibility. macOS may still require you to remove the old
 entry and add the current `/Applications/VoxHearth.app` with **+**; applications
 cannot modify or approve entries in the protected Accessibility list themselves.
 
-The future official `v0.2.1` release remains reserved for a DMG signed with a
+The future official `v0.3.0` release remains reserved for a DMG signed with a
 Developer ID Application certificate, notarized by Apple, and given a stapled
 ticket. No such official build exists yet because the project does not have the
 required Apple notarization credentials. VoxHearth has no automatic updater; install
@@ -99,6 +102,22 @@ current macOS system-default input and clears the unavailable selection.
 The multilingual 600M model remains the default and supports 25 European
 languages. The compact 110M model is English-only and is intended for faster
 startup and lower memory use on smaller Apple silicon Macs.
+
+The menu panel and **Settings → Dictation → Feedback** include an optional
+**Show live transcript overlay** checkbox. It displays recent approximate text
+near the top-right of the active screen while you speak, without taking focus
+from the app receiving your dictation. The single-line subtitle strip always
+shows the latest ten recognized words and drops older words from the left.
+Preview inference is entirely local and uses only in-memory audio. VoxHearth
+requests a new preview after a short 600 ms pause using at most the most recent
+eight seconds; actual updates are also limited by the selected model and Mac.
+Enabling it performs extra inference and may use more energy on smaller Macs.
+The final full recording is always transcribed
+separately; only that final result is inserted, and it may differ from the live
+preview. The overlay clears after cancellation or shortly after completion.
+You can keep speaking to add context or spell a term after noticing a preview
+error, but the speech model is not a conversational editor and is not
+guaranteed to revise an earlier word exactly as instructed.
 
 The menu panel exposes the shortcut editor directly. VoxHearth also accepts an
 unmodified F13-F20 key for USB macro buttons and device remapping utilities. In

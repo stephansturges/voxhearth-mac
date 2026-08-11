@@ -2,14 +2,14 @@
 
 ## Current development prerelease
 
-`v0.2.1-dev.3` is intentionally ad-hoc signed and not notarized. Download these
+`v0.3.0-dev.1` is intentionally ad-hoc signed and not notarized. Download these
 files from that exact prerelease:
 
 ```text
-VoxHearth-v0.2.1-dev.3-unsigned.dmg
-VoxHearth-v0.2.1-dev.3.spdx.json
-VoxHearth-v0.2.1-dev.3-provenance.json
-VoxHearth-v0.2.1-dev.3-source.tar.gz
+VoxHearth-v0.3.0-dev.1-unsigned.dmg
+VoxHearth-v0.3.0-dev.1.spdx.json
+VoxHearth-v0.3.0-dev.1-provenance.json
+VoxHearth-v0.3.0-dev.1-source.tar.gz
 SHA256SUMS
 ```
 
@@ -17,12 +17,12 @@ Run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-gh attestation verify VoxHearth-v0.2.1-dev.3-unsigned.dmg \
+gh attestation verify VoxHearth-v0.3.0-dev.1-unsigned.dmg \
   --repo stephansturges/voxhearth-mac
 ```
 
 Confirm the attestation identifies
-`.github/workflows/development-release.yml`, tag `v0.2.1-dev.3`, and the commit
+`.github/workflows/development-release.yml`, tag `v0.3.0-dev.1`, and the commit
 shown in the release notes. Inspect the provenance JSON and confirm it says
 `development-prerelease`, `anonymous ad-hoc signature`, and `notarization:
 absent`.
@@ -58,10 +58,10 @@ permissions.
 From the same GitHub release, download:
 
 ```text
-VoxHearth-v0.2.1.dmg
-VoxHearth-v0.2.1.spdx.json
-VoxHearth-v0.2.1-provenance.json
-VoxHearth-v0.2.1-source.tar.gz
+VoxHearth-v0.3.0.dmg
+VoxHearth-v0.3.0.spdx.json
+VoxHearth-v0.3.0-provenance.json
+VoxHearth-v0.3.0-source.tar.gz
 SHA256SUMS
 ```
 
@@ -81,28 +81,28 @@ matches the published file; repository compromise could replace both.
 Install the GitHub CLI, authenticate, and run from the download directory:
 
 ```sh
-gh attestation verify VoxHearth-v0.2.1.dmg --repo OWNER/voxhearth-mac
+gh attestation verify VoxHearth-v0.3.0.dmg --repo OWNER/voxhearth-mac
 ```
 
 Replace `OWNER` with the repository owner shown on the release page. Confirm
 that the returned provenance and SBOM attestations name
-`.github/workflows/release.yml`, the expected repository, and the v0.2.1 tag
+`.github/workflows/release.yml`, the expected repository, and the v0.3.0 tag
 commit. GitHub documents how to apply stricter
 workflow/ref/signing-repository policies with additional flags.
 
 ## Verify the Apple signature and notarization
 
 ```sh
-codesign --verify --strict --verbose=2 VoxHearth-v0.2.1.dmg
-xcrun stapler validate VoxHearth-v0.2.1.dmg
+codesign --verify --strict --verbose=2 VoxHearth-v0.3.0.dmg
+xcrun stapler validate VoxHearth-v0.3.0.dmg
 spctl --assess --type open --context context:primary-signature \
-  --verbose=2 VoxHearth-v0.2.1.dmg
+  --verbose=2 VoxHearth-v0.3.0.dmg
 ```
 
 Mount the DMG and inspect the app:
 
 ```sh
-hdiutil attach -readonly -nobrowse VoxHearth-v0.2.1.dmg
+hdiutil attach -readonly -nobrowse VoxHearth-v0.3.0.dmg
 codesign --verify --deep --strict --verbose=2 /Volumes/VoxHearth/VoxHearth.app
 xcrun stapler validate /Volumes/VoxHearth/VoxHearth.app
 spctl --assess --type execute --verbose=2 /Volumes/VoxHearth/VoxHearth.app
@@ -120,7 +120,7 @@ checks and rehashes all model files inside the mounted app:
 
 ```sh
 APPLE_TEAM_ID='EXPECTEDTEAM' ./scripts/verify-release.sh \
-  /path/to/VoxHearth-v0.2.1.dmg
+  /path/to/VoxHearth-v0.3.0.dmg
 ```
 
 ## Inspect the locked models
@@ -136,7 +136,7 @@ directories. Their immutable Hugging Face revisions are
 
 ## Inspect source and SBOM
 
-Extract `VoxHearth-v0.2.1-source.tar.gz`. It must contain:
+Extract `VoxHearth-v0.3.0-source.tar.gz`. It must contain:
 
 - the tagged VoxHearth source, both model manifests, workflows, and build scripts;
 - `Vendor/FluidAudioLocal`, including provenance from FluidAudio commit

@@ -68,7 +68,21 @@ struct FrontendPresentationTests {
         #expect(settings.transcriptionModel == .multilingual)
         #expect(settings.language == .english)
         #expect(!settings.launchAtLogin)
+        #expect(!settings.liveTranscriptOverlayEnabled)
         #expect(!settings.clipboardCompatibilityEnabled)
+    }
+
+    @Test("Live preview presentation is bounded and has a listening placeholder")
+    func livePreviewPresentation() {
+        #expect(
+            LiveTranscriptOverlayPresentation.displayText(for: "  ")
+                == "Listening for speech…"
+        )
+        let longTranscript = (1...30).map { "word\($0)" }.joined(separator: " ")
+        let displayed = LiveTranscriptOverlayPresentation.displayText(for: longTranscript)
+        #expect(displayed == "… word21 word22 word23 word24 word25 word26 word27 word28 word29 word30")
+        #expect(displayed.hasSuffix("word30"))
+        #expect(displayed.split(separator: " ").count == 11)
     }
 
     @Test("Onboarding appears once for every installed build")

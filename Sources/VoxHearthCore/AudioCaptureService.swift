@@ -147,6 +147,13 @@ public actor AudioCaptureService: AudioCapturing {
         return CapturedAudio(samples: samples, sampleRate: activeAccumulator.sampleRate)
     }
 
+    public func snapshot() async -> CapturedAudio? {
+        guard engine != nil, let activeAccumulator = accumulator else { return nil }
+        let samples = activeAccumulator.snapshot()
+        guard !samples.isEmpty else { return nil }
+        return CapturedAudio(samples: samples, sampleRate: activeAccumulator.sampleRate)
+    }
+
     public func cancel() async {
         guard let activeEngine = engine else { return }
         activeEngine.inputNode.removeTap(onBus: 0)
