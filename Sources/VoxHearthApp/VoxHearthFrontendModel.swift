@@ -34,6 +34,7 @@ final class VoxHearthFrontendModel {
     private enum DefaultsKey {
         static let appSettings = "VoxHearth.appSettings.v1"
         static let completedOnboarding = "VoxHearth.completedOnboarding.v1"
+        static let completedOnboardingBuild = "VoxHearth.completedOnboardingBuild.v1"
     }
 
     let controller: DictationController
@@ -45,23 +46,34 @@ final class VoxHearthFrontendModel {
     private(set) var microphoneFallbackNotice: String?
 
     var onboardingStep: OnboardingStep = .privacy
+    var onboardingLaunchReason: OnboardingLaunchReason
     var selectedSettingsSection: SettingsSection = .dictation
     var hasCompletedOnboarding: Bool
 
     private let defaults: UserDefaults
     private let audioCapture: AudioCaptureService
     private let startCuePlayer: DictationStartCuePlayer
+    private let currentBuildIdentity: String
+    @ObservationIgnored private var didRequestAccessibilityForUpdatedBuild = false
 
     init(
         controller: DictationController? = nil,
         defaults: UserDefaults = .standard,
-        audioCapture: AudioCaptureService = AudioCaptureService()
+        audioCapture: AudioCaptureService = AudioCaptureService(),
+        currentBuildIdentity: String = AppBuildIdentity.current
     ) {
         self.defaults = defaults
         self.audioCapture = audioCapture
+        self.currentBuildIdentity = currentBuildIdentity
         let startCuePlayer = DictationStartCuePlayer()
         self.startCuePlayer = startCuePlayer
-        hasCompletedOnboarding = defaults.bool(forKey: DefaultsKey.completedOnboarding)
+        let launchReason = LaunchPresentationPolicy.reason(
+            previouslyCompleted: defaults.bool(forKey: DefaultsKey.completedOnboarding),
+            completedBuildIdentity: defaults.string(forKey: DefaultsKey.completedOnboardingBuild),
+            currentBuildIdentity: currentBuildIdentity
+        )
+        onboardingLaunchReason = launchReason ?? .manualReview
+        hasCompletedOnboarding = launchReason == nil
 
         let settings = Self.loadSettings(from: defaults)
         if let controller {
@@ -182,10 +194,12 @@ final class VoxHearthFrontendModel {
     func completeOnboarding() {
         hasCompletedOnboarding = true
         defaults.set(true, forKey: DefaultsKey.completedOnboarding)
+        defaults.set(currentBuildIdentity, forKey: DefaultsKey.completedOnboardingBuild)
     }
 
     func restartOnboarding() {
         onboardingStep = .privacy
+        onboardingLaunchReason = .manualReview
         hasCompletedOnboarding = false
         defaults.set(false, forKey: DefaultsKey.completedOnboarding)
     }
@@ -208,6 +222,18 @@ final class VoxHearthFrontendModel {
             try? await Task.sleep(for: .seconds(1))
             refreshPermissionStatus()
         }
+    }
+
+    func requestAccessibilityForUpdatedBuildIfNeeded() {
+        guard onboardingLaunchReason == .updatedBuild,
+              accessibilityPermission != .granted,
+              !didRequestAccessibilityForUpdatedBuild else { return }
+        didRequestAccessibilityForUpdatedBuild = true
+        requestAccessibilityPermission()
+    }
+
+    func revealApplicationInFinder() {
+        ApplicationPresentation.revealApplicationInFinder()
     }
 
     func openAccessibilitySettings() {

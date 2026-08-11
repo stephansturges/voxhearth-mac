@@ -37,4 +37,30 @@ enum ApplicationPresentation {
     static func openAccessibilitySettings() -> Bool {
         NSWorkspace.shared.open(AccessibilityRecoveryGuidance.settingsURL)
     }
+
+    static func revealApplicationInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+    }
+
+    static func presentOnboardingAfterOpening() {
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        Task { @MainActor in
+            await bringOnboardingWindowForward()
+            try? await Task.sleep(for: .milliseconds(120))
+            await bringOnboardingWindowForward()
+        }
+    }
+
+    private static func bringOnboardingWindowForward() async {
+        await Task.yield()
+        let application = NSApplication.shared
+        application.activate(ignoringOtherApps: true)
+        let onboardingWindow = application.windows.first {
+            $0.isVisible
+                && $0.canBecomeKey
+                && $0.title == "Welcome to VoxHearth"
+        }
+        onboardingWindow?.makeKeyAndOrderFront(nil)
+        onboardingWindow?.orderFrontRegardless()
+    }
 }

@@ -71,10 +71,29 @@ struct FrontendPresentationTests {
         #expect(!settings.clipboardCompatibilityEnabled)
     }
 
-    @Test("First launch presents onboarding and later launches stay menu-bar only")
+    @Test("Onboarding appears once for every installed build")
     func launchPresentationPolicy() {
-        #expect(LaunchPresentationPolicy.shouldPresentOnboarding(hasCompletedOnboarding: false))
-        #expect(!LaunchPresentationPolicy.shouldPresentOnboarding(hasCompletedOnboarding: true))
+        #expect(
+            LaunchPresentationPolicy.reason(
+                previouslyCompleted: false,
+                completedBuildIdentity: nil,
+                currentBuildIdentity: "0.2.1 (10)"
+            ) == .firstInstall
+        )
+        #expect(
+            LaunchPresentationPolicy.reason(
+                previouslyCompleted: true,
+                completedBuildIdentity: "0.2.1 (9)",
+                currentBuildIdentity: "0.2.1 (10)"
+            ) == .updatedBuild
+        )
+        #expect(
+            LaunchPresentationPolicy.reason(
+                previouslyCompleted: true,
+                completedBuildIdentity: "0.2.1 (10)",
+                currentBuildIdentity: "0.2.1 (10)"
+            ) == nil
+        )
     }
 
     @Test("A second process yields to an older VoxHearth instance")
@@ -102,7 +121,9 @@ struct FrontendPresentationTests {
         )
         #expect(AccessibilityRecoveryGuidance.updateExplanation.contains("new build"))
         #expect(AccessibilityRecoveryGuidance.recoverySteps.count == 4)
+        #expect(AccessibilityRecoveryGuidance.updateExplanation.contains("cannot add"))
         #expect(AccessibilityRecoveryGuidance.recoverySteps.joined().contains("press −"))
+        #expect(AccessibilityRecoveryGuidance.recoverySteps.joined().contains("press +"))
         #expect(AccessibilityRecoveryGuidance.recoverySteps.joined().contains("Applications"))
     }
 }
