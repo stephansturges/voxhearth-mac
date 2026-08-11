@@ -53,7 +53,7 @@ destination-app trust boundaries.
 ## Install
 
 The current downloadable build is
-[`v0.2.0-dev.1`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.0-dev.1),
+[`v0.2.1-dev.1`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.1),
 an explicitly **unsigned and unnotarized development prerelease**. It includes
 the bundled model, checksums, complete source, SBOM, provenance, and GitHub
 attestations, but it has no trusted Apple publisher identity. macOS is expected
@@ -61,7 +61,7 @@ to block it on first launch.
 
 To install that development preview:
 
-1. Download `VoxHearth-v0.2.0-dev.1-unsigned.dmg` and `SHA256SUMS` from the same
+1. Download `VoxHearth-v0.2.1-dev.1-unsigned.dmg` and `SHA256SUMS` from the same
    release.
 2. Verify the checksum by following
    [VERIFY_RELEASE.md](Documentation/VERIFY_RELEASE.md).
@@ -75,10 +75,10 @@ The first launch opens a visible setup window. After setup, VoxHearth remains
 in the menu bar; launching it again reuses the existing instance instead of
 registering a second dictation listener.
 
-The future official `v0.2.0` release remains reserved for a DMG signed with a
+The future official `v0.2.1` release remains reserved for a DMG signed with a
 Developer ID Application certificate, notarized by Apple, and given a stapled
 ticket. No such official build exists yet because the project does not have the
-required Apple signing credentials. VoxHearth has no automatic updater; install
+required Apple notarization credentials. VoxHearth has no automatic updater; install
 future versions manually from GitHub Releases.
 
 ## Use
@@ -121,6 +121,12 @@ trusted public download; they are separate from the login-item mechanism.
 The Accessibility insertion path is preferred. Clipboard compatibility is an
 explicit opt-in for applications that reject the normal paths; clipboard
 managers and Universal Clipboard can observe that temporary value.
+
+If text insertion stops after replacing VoxHearth with a new build, open
+**Settings → Privacy → Set Up Accessibility**. In macOS Accessibility Settings,
+remove the old VoxHearth entry with **−**, add the current app from
+`/Applications` with **+**, enable it, then quit and reopen VoxHearth. macOS may
+retain the previous build's authorization instead of displaying a new prompt.
 
 ## Build from source
 

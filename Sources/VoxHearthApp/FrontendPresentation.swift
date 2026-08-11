@@ -160,6 +160,22 @@ enum SettingsSection: Hashable {
     case licenses
 }
 
+enum AccessibilityRecoveryGuidance {
+    static let settingsURL = URL(
+        string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+    )!
+
+    static let updateExplanation =
+        "After replacing VoxHearth with a new build, macOS may keep the previous build’s Accessibility record instead of asking again."
+
+    static let recoverySteps = [
+        "Open Accessibility Settings.",
+        "Select the old VoxHearth entry and press −.",
+        "Press +, choose VoxHearth from Applications, then turn it on.",
+        "Quit and reopen VoxHearth.",
+    ]
+}
+
 enum LaunchPresentationPolicy {
     static func shouldPresentOnboarding(hasCompletedOnboarding: Bool) -> Bool {
         !hasCompletedOnboarding

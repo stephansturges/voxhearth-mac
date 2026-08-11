@@ -206,6 +206,26 @@ final class VoxHearthFrontendModel {
         }
     }
 
+    func openAccessibilitySettings() {
+        // Ask macOS to register/prompt for the current executable if it has no
+        // TCC record, then show the only supported place where the user can
+        // remove a stale build and approve this one. VoxHearth never edits the
+        // TCC database directly.
+        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
+
+        guard ApplicationPresentation.openAccessibilitySettings() else {
+            interfaceError = "System Settings could not be opened. Go to Privacy & Security → Accessibility."
+            return
+        }
+        interfaceError = nil
+
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            refreshPermissionStatus()
+        }
+    }
+
     func refreshPermissionStatus() {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:

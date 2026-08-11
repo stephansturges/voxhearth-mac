@@ -87,7 +87,13 @@ defaults delete com.stephansturges.voxhearth
 ```
 
 Disable “Launch VoxHearth at login” before deleting the app. Microphone and
-Accessibility grants can be revoked in System Settings → Privacy & Security.
+Accessibility grants can be reviewed or revoked in System Settings → Privacy &
+Security → Accessibility. VoxHearth Settings includes a direct button to this
+pane. After replacing VoxHearth with a new build, macOS may retain the previous
+build's record; remove the old VoxHearth entry with −, add the current
+`/Applications/VoxHearth.app` with +, enable it, then quit and reopen VoxHearth.
+VoxHearth invokes only Apple's permission prompt and System Settings and never
+edits the macOS TCC permission database directly.
 
 ## Verification and changes
 

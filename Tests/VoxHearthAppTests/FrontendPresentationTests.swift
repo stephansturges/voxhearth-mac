@@ -92,4 +92,17 @@ struct FrontendPresentationTests {
             )
         )
     }
+
+    @Test("Accessibility recovery opens the precise privacy pane and explains replacement")
+    func accessibilityRecoveryGuidance() {
+        #expect(AccessibilityRecoveryGuidance.settingsURL.scheme == "x-apple.systempreferences")
+        #expect(
+            AccessibilityRecoveryGuidance.settingsURL.absoluteString
+                .contains("Privacy_Accessibility")
+        )
+        #expect(AccessibilityRecoveryGuidance.updateExplanation.contains("new build"))
+        #expect(AccessibilityRecoveryGuidance.recoverySteps.count == 4)
+        #expect(AccessibilityRecoveryGuidance.recoverySteps.joined().contains("press −"))
+        #expect(AccessibilityRecoveryGuidance.recoverySteps.joined().contains("Applications"))
+    }
 }

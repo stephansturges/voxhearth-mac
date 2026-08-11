@@ -25,6 +25,10 @@ struct SettingsRootView: View {
         }
         .padding(20)
         .frame(width: 650, height: 520)
+        .onAppear {
+            ApplicationPresentation.presentSettingsAfterOpening()
+            model.refreshPermissionStatus()
+        }
     }
 }
 
@@ -173,6 +177,8 @@ private struct PrivacySettingsView: View {
                     text: "The destination app receives the text you dictate. It may store or transmit that text according to its own settings and privacy policy."
                 )
 
+                accessibilityRecoveryCard
+
                 VStack(alignment: .leading, spacing: 9) {
                     Toggle("Allow clipboard compatibility fallback", isOn: clipboardBinding)
                         .fontWeight(.semibold)
@@ -216,6 +222,59 @@ private struct PrivacySettingsView: View {
             get: { model.settings.clipboardCompatibilityEnabled },
             set: { model.setClipboardCompatibility($0) }
         )
+    }
+
+    private var accessibilityRecoveryCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: model.accessibilityPermission.symbolName)
+                    .foregroundStyle(
+                        model.accessibilityPermission == .granted
+                            ? Color.green
+                            : Color.orange
+                    )
+                Text("Accessibility")
+                    .font(.headline)
+                Spacer()
+                Text(model.accessibilityPermission.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            Text("VoxHearth needs Accessibility permission to insert dictated text into the app you are using.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            Text(AccessibilityRecoveryGuidance.updateExplanation)
+                .font(.callout.weight(.medium))
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(
+                    Array(AccessibilityRecoveryGuidance.recoverySteps.enumerated()),
+                    id: \.offset
+                ) { index, step in
+                    Text("\(index + 1). \(step)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            HStack {
+                Button(
+                    model.accessibilityPermission == .granted
+                        ? "Open Accessibility Settings"
+                        : "Set Up Accessibility",
+                    action: model.openAccessibilitySettings
+                )
+                .buttonStyle(.borderedProminent)
+
+                Button("Refresh Status", action: model.refreshPermissionStatus)
+                    .buttonStyle(.bordered)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 11))
     }
 
     private func privacyCard(_ title: String, text: String) -> some View {

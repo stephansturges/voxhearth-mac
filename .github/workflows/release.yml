@@ -1,9 +1,9 @@
-name: Release v0.2.0
+name: Release v0.2.1
 
 on:
   push:
     tags:
-      - v0.2.0
+      - v0.2.1
   workflow_dispatch:
 
 permissions:
@@ -13,14 +13,14 @@ permissions:
   artifact-metadata: write
 
 concurrency:
-  group: release-v0.2.0
+  group: release-v0.2.1
   cancel-in-progress: false
 
 env:
   APP_NAME: VoxHearth
   APP_BUNDLE_ID: com.stephansturges.voxhearth
-  RELEASE_TAG: v0.2.0
-  VERSION: 0.2.0
+  RELEASE_TAG: v0.2.1
+  VERSION: 0.2.1
   FLUIDAUDIO_REVISION: 19600a485baa4998812e4654b70d2bab8f2c9949
   MODEL_REVISION: aed02740059203c4a87495924f685de3722ae9ce
   COMPACT_MODEL_REVISION: 9bc92ead6e8f17eca92a869fd578ae76842b82ba
@@ -36,7 +36,7 @@ jobs:
       - name: Check out the release tag
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: refs/tags/v0.2.0
+          ref: refs/tags/v0.2.1
           fetch-depth: 0
           persist-credentials: false
 
@@ -172,13 +172,13 @@ jobs:
       - name: Attest the final DMG
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
-          subject-path: ${{ runner.temp }}/voxhearth-release/VoxHearth-v0.2.0.dmg
+          subject-path: ${{ runner.temp }}/voxhearth-release/VoxHearth-v0.2.1.dmg
 
       - name: Attest the final DMG SBOM
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
-          subject-path: ${{ runner.temp }}/voxhearth-release/VoxHearth-v0.2.0.dmg
-          sbom-path: ${{ runner.temp }}/voxhearth-release/VoxHearth-v0.2.0.spdx.json
+          subject-path: ${{ runner.temp }}/voxhearth-release/VoxHearth-v0.2.1.dmg
+          sbom-path: ${{ runner.temp }}/voxhearth-release/VoxHearth-v0.2.1.spdx.json
 
       - name: Publish the GitHub release
         env:
@@ -189,7 +189,7 @@ jobs:
           sed \
             -e "s/{{APPLE_TEAM_ID}}/$APPLE_TEAM_ID/g" \
             -e "s/{{SOURCE_REVISION}}/$SOURCE_REVISION/g" \
-            .github/release-notes-v0.2.0.md > "$notes"
+            .github/release-notes-v0.2.1.md > "$notes"
 
           assets=(
             "$DIST_DIR/VoxHearth-v$VERSION.dmg"

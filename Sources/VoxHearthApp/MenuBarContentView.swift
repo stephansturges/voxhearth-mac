@@ -215,5 +215,6 @@ struct MenuBarContentView: View {
     private func showSettings(_ section: SettingsSection) {
         model.selectedSettingsSection = section
         openSettings()
+        ApplicationPresentation.presentSettingsAfterOpening()
     }
 }
