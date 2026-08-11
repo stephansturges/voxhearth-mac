@@ -57,20 +57,32 @@ public actor AudioCaptureService: AudioCapturing {
     public func start(
         inputDeviceUID: String?,
         maximumDurationReached: @escaping @Sendable () async -> Void
-    ) async throws {
+    ) async throws -> AudioInputSelection {
         guard engine == nil else { throw AudioCaptureError.alreadyRecording }
         guard await Self.requestMicrophonePermission() else {
             throw AudioCaptureError.microphonePermissionDenied
         }
 
-        let newEngine = AVAudioEngine()
-        let inputNode = newEngine.inputNode
+        var newEngine = AVAudioEngine()
+        var inputNode = newEngine.inputNode
+        var inputSelection = AudioInputSelection.systemDefault
 
         if let inputDeviceUID {
-            guard let deviceID = Self.audioDeviceID(forUID: inputDeviceUID) else {
-                throw AudioCaptureError.microphoneUnavailable
+            if let deviceID = Self.audioDeviceID(forUID: inputDeviceUID),
+               Self.hasInputStreams(deviceID) {
+                do {
+                    try Self.selectInputDevice(deviceID, on: inputNode)
+                    inputSelection = .requestedDevice
+                } catch {
+                    // Recreate the engine so a failed device selection cannot
+                    // leave partially configured Audio Unit state behind.
+                    newEngine = AVAudioEngine()
+                    inputNode = newEngine.inputNode
+                    inputSelection = .fellBackToSystemDefault
+                }
+            } else {
+                inputSelection = .fellBackToSystemDefault
             }
-            try Self.selectInputDevice(deviceID, on: inputNode)
         }
 
         let inputFormat = inputNode.outputFormat(forBus: 0)
@@ -116,6 +128,7 @@ public actor AudioCaptureService: AudioCapturing {
         engine = newEngine
         accumulator = newAccumulator
         logger.info(.audioCaptureStarted)
+        return inputSelection
     }
 
     public func stop() async throws -> CapturedAudio {

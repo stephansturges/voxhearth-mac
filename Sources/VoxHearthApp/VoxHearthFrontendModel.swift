@@ -42,6 +42,7 @@ final class VoxHearthFrontendModel {
     private(set) var microphonePermission: PermissionPresentation = .notDetermined
     private(set) var accessibilityPermission: PermissionPresentation = .notDetermined
     private(set) var interfaceError: String?
+    private(set) var microphoneFallbackNotice: String?
 
     var onboardingStep: OnboardingStep = .privacy
     var selectedSettingsSection: SettingsSection = .dictation
@@ -88,6 +89,9 @@ final class VoxHearthFrontendModel {
         }
         self.controller.onStartCue = { [weak startCuePlayer] in
             await startCuePlayer?.play()
+        }
+        self.controller.onInputDeviceFallback = { [weak self] in
+            self?.handleInputDeviceFallback()
         }
 
         do {
@@ -241,7 +245,15 @@ final class VoxHearthFrontendModel {
     }
 
     func refreshMicrophones() async {
-        availableMicrophones = await audioCapture.availableInputDevices()
+        let devices = await audioCapture.availableInputDevices()
+        availableMicrophones = devices
+        if let selectedUID = settings.inputDeviceUID,
+           !devices.contains(where: { $0.uid == selectedUID }) {
+            var next = settings
+            next.inputDeviceUID = nil
+            apply(next)
+            microphoneFallbackNotice = Self.microphoneFallbackMessage
+        }
     }
 
     func setHotkey(_ descriptor: HotkeyDescriptor) {
@@ -263,6 +275,7 @@ final class VoxHearthFrontendModel {
         var next = settings
         next.inputDeviceUID = uid
         apply(next)
+        microphoneFallbackNotice = nil
     }
 
     func setLanguage(_ language: DictationLanguage) {
@@ -333,6 +346,19 @@ final class VoxHearthFrontendModel {
             interfaceError = Self.userFacingMessage(for: error)
         }
     }
+
+    private func handleInputDeviceFallback() {
+        do {
+            try Self.persist(controller.settings, to: defaults)
+            microphoneFallbackNotice = Self.microphoneFallbackMessage
+            interfaceError = nil
+        } catch {
+            interfaceError = Self.userFacingMessage(for: error)
+        }
+    }
+
+    private static let microphoneFallbackMessage =
+        "The selected microphone became unavailable. VoxHearth switched to System Default."
 
     private static func loadSettings(from defaults: UserDefaults) -> AppSettings {
         guard let data = defaults.data(forKey: DefaultsKey.appSettings),

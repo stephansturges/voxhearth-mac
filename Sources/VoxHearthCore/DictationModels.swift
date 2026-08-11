@@ -112,6 +112,12 @@ public enum AudioCaptureError: Error, Equatable, Sendable {
     case noAudioCaptured
 }
 
+public enum AudioInputSelection: Equatable, Sendable {
+    case systemDefault
+    case requestedDevice
+    case fellBackToSystemDefault
+}
+
 public enum ParakeetEngineError: Error, Equatable, Sendable {
     case unsupportedArchitecture
     case missingModelAsset(String)

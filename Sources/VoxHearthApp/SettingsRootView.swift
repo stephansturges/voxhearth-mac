@@ -80,6 +80,12 @@ private struct DictationSettingsView: View {
                     }
                 }
 
+                if let microphoneFallbackNotice = model.microphoneFallbackNotice {
+                    Label(microphoneFallbackNotice, systemImage: "arrow.triangle.2.circlepath")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Picker("Language", selection: languageBinding) {
                     ForEach(model.settings.transcriptionModel.supportedLanguages) { language in
                         Text(language.displayName).tag(language)

@@ -61,7 +61,7 @@ for required_file in \
   Documentation/PEBBLE_INDEX.md \
   Documentation/MODEL_PROVENANCE.md Documentation/BUILDING.md \
   Documentation/VERIFY_RELEASE.md Documentation/RELEASE.md \
-  .github/release-notes-v0.2.1-dev.1.md \
+  .github/release-notes-v0.2.1-dev.2.md \
   .github/release-notes-v0.2.1.md; do
   [[ -f "$required_file" ]] || {
     printf 'error: required project document is missing: %s\n' "$required_file" >&2

@@ -5,18 +5,22 @@ import Testing
 private actor MockAudioCapture: AudioCapturing {
     var result = CapturedAudio(samples: [0.1, -0.1, 0.2], sampleRate: 16_000)
     var startError: AudioCaptureError?
+    var startSelection = AudioInputSelection.systemDefault
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var cancelCount = 0
+    private(set) var requestedInputDeviceUIDs: [String?] = []
 
     func availableInputDevices() async -> [AudioInputDevice] { [] }
 
     func start(
         inputDeviceUID: String?,
         maximumDurationReached: @escaping @Sendable () async -> Void
-    ) async throws {
+    ) async throws -> AudioInputSelection {
         startCount += 1
+        requestedInputDeviceUIDs.append(inputDeviceUID)
         if let startError { throw startError }
+        return startSelection
     }
 
     func stop() async throws -> CapturedAudio {
@@ -125,6 +129,11 @@ private final class OnboardingRecorder: @unchecked Sendable {
 
 @MainActor
 private final class StartCueRecorder: @unchecked Sendable {
+    var count = 0
+}
+
+@MainActor
+private final class InputFallbackRecorder: @unchecked Sendable {
     var count = 0
 }
 
@@ -278,6 +287,27 @@ private final class StartCueRecorder: @unchecked Sendable {
     #expect(recorder.requirements == [.microphone])
 }
 
+@Test @MainActor func unavailableSelectedMicrophoneFallsBackAndClearsSelection() async {
+    let audio = MockAudioCapture()
+    await audio.setStartSelection(.fellBackToSystemDefault)
+    let fallback = InputFallbackRecorder()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        settings: AppSettings(inputDeviceUID: "disconnected-device"),
+        audioCapture: audio,
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService()
+    )
+    controller.onInputDeviceFallback = { fallback.count += 1 }
+
+    await controller.startDictation()
+
+    #expect(controller.state == .recording)
+    #expect(controller.settings.inputDeviceUID == nil)
+    #expect(fallback.count == 1)
+    #expect(await audio.requestedInputDeviceUIDs == ["disconnected-device"])
+}
+
 @Test @MainActor func accessibilityFailureSurfacesOnboardingRequirement() async {
     let inserter = MockTextInserter()
     inserter.error = .accessibilityPermissionRequired
@@ -392,5 +422,9 @@ private func waitUntil(
 private extension MockAudioCapture {
     func setStartError(_ error: AudioCaptureError?) {
         startError = error
+    }
+
+    func setStartSelection(_ selection: AudioInputSelection) {
+        startSelection = selection
     }
 }

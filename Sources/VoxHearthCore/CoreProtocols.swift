@@ -6,7 +6,7 @@ public protocol AudioCapturing: Sendable {
     func start(
         inputDeviceUID: String?,
         maximumDurationReached: @escaping @Sendable () async -> Void
-    ) async throws
+    ) async throws -> AudioInputSelection
 
     func stop() async throws -> CapturedAudio
     func cancel() async
