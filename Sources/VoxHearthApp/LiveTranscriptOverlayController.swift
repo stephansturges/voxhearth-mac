@@ -1,31 +1,35 @@
 import AppKit
+import Observation
 import SwiftUI
 
 enum LiveTranscriptOverlayPresentation {
-    static let maximumVisibleCharacters = 260
+    static let maximumVisibleWords = 10
 
     static func displayText(for transcript: String) -> String {
         let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "Listening for speech…" }
-        guard trimmed.count > maximumVisibleCharacters else { return trimmed }
-
-        let suffix = String(trimmed.suffix(maximumVisibleCharacters))
-        guard let firstSpace = suffix.firstIndex(where: \.isWhitespace) else {
-            return "…" + suffix
-        }
-        return "…" + suffix[suffix.index(after: firstSpace)...]
+        let words = trimmed.split(whereSeparator: \.isWhitespace)
+        let latestWords = words.suffix(maximumVisibleWords).joined(separator: " ")
+        return words.count > maximumVisibleWords ? "… " + latestWords : latestWords
     }
+}
+
+@Observable
+@MainActor
+private final class LiveTranscriptOverlayState {
+    var text = "Listening for speech…"
 }
 
 /// A passive, memory-only overlay. Unlike Notification Center, this panel does
 /// not create notification history and never becomes the key window.
 @MainActor
 final class LiveTranscriptOverlayController {
+    private let state = LiveTranscriptOverlayState()
     private let panel: PassiveTranscriptPanel
 
     init() {
         panel = PassiveTranscriptPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 430, height: 154),
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 64),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -40,20 +44,16 @@ final class LiveTranscriptOverlayController {
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .utilityWindow
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+        panel.contentView = NSHostingView(rootView: LiveTranscriptOverlayView(state: state))
     }
 
     func update(transcript: String?) {
         guard let transcript else {
             panel.orderOut(nil)
-            panel.contentView = nil
             return
         }
 
-        panel.contentView = NSHostingView(
-            rootView: LiveTranscriptOverlayView(
-                text: LiveTranscriptOverlayPresentation.displayText(for: transcript)
-            )
-        )
+        state.text = LiveTranscriptOverlayPresentation.displayText(for: transcript)
         positionOnActiveScreen()
         panel.orderFrontRegardless()
     }
@@ -80,35 +80,32 @@ private final class PassiveTranscriptPanel: NSPanel {
 }
 
 private struct LiveTranscriptOverlayView: View {
-    let text: String
+    @Bindable var state: LiveTranscriptOverlayState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 7) {
-                Image(systemName: "waveform")
-                    .symbolEffect(.pulse)
-                Text("Live preview")
-                    .fontWeight(.semibold)
-                Spacer()
-                Label("On-device", systemImage: "house.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.voxHearthAmber)
-            }
+        HStack(spacing: 11) {
+            Image(systemName: "waveform")
+                .font(.system(size: 17, weight: .semibold))
+                .symbolEffect(.pulse)
+                .foregroundStyle(Color.voxHearthAmber)
 
-            Text(text)
-                .font(.system(size: 16, weight: .regular, design: .rounded))
-                .lineLimit(5)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            Text(state.text)
+                .font(.system(size: 18, weight: .medium, design: .rounded))
+                .lineLimit(1)
+                .truncationMode(.head)
+                .frame(maxWidth: .infinity, alignment: .trailing)
 
-            Text("Approximate preview — final inserted text may differ")
-                .font(.caption2)
-                .foregroundStyle(Color.voxWarmWhite.opacity(0.58))
+            Image(systemName: "house.fill")
+                .font(.caption)
+                .foregroundStyle(Color.voxHearthAmber.opacity(0.8))
+                .accessibilityLabel("On-device preview")
         }
-        .padding(15)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .foregroundStyle(Color.voxWarmWhite)
-        .background(Color.voxGraphite.opacity(0.96), in: RoundedRectangle(cornerRadius: 15))
+        .background(Color.voxGraphite.opacity(0.96), in: Capsule())
         .overlay {
-            RoundedRectangle(cornerRadius: 15)
+            Capsule()
                 .stroke(Color.voxHearthAmber.opacity(0.42), lineWidth: 1)
         }
         .padding(2)

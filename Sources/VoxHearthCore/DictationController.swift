@@ -5,8 +5,8 @@ import Observation
 @Observable
 public final class DictationController {
     public static let maximumExternalAudioDuration: TimeInterval = 10 * 60
-    public static let defaultLivePreviewInterval: Duration = .seconds(2)
-    public static let defaultLivePreviewWindow: TimeInterval = 30
+    public static let defaultLivePreviewInterval: Duration = .milliseconds(600)
+    public static let defaultLivePreviewWindow: TimeInterval = 8
 
     public private(set) var state: DictationSessionState = .idle
     public private(set) var settings: AppSettings
@@ -59,7 +59,7 @@ public final class DictationController {
         pointerButtonService: any GlobalPointerButtonRegistering = GlobalPointerButtonService(),
         pendingTranscriptLifetime: Duration = .seconds(120),
         livePreviewInterval: Duration = defaultLivePreviewInterval,
-        livePreviewMinimumDuration: TimeInterval = 0.8,
+        livePreviewMinimumDuration: TimeInterval = 0.6,
         livePreviewWindow: TimeInterval = defaultLivePreviewWindow,
         livePreviewFinalVisibility: Duration = .seconds(2)
     ) {

@@ -12,8 +12,9 @@ Developer ID-signed, Apple-notarized releases.
 
 ### Added
 
-- An off-by-default, non-activating live transcript overlay that shows
-  approximate on-device preview text near the top-right of the active screen.
+- An off-by-default, non-activating live transcript subtitle strip that shows
+  only the latest approximate on-device words near the top-right of the active
+  screen.
   Preview audio and text remain in memory, Notification Center is not used, and
   the complete final recording is still transcribed separately for insertion.
 

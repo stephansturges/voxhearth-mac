@@ -67,19 +67,20 @@ Launch at login is optional and off by default. It uses macOS
 ## Live transcript overlay
 
 Live preview is optional and off by default. When enabled, VoxHearth
-periodically re-transcribes at most the latest 30 seconds of the active
-in-memory recording and presents approximate text in a passive top-right
-panel. The panel does not take keyboard focus, write a notification, or become
+periodically re-transcribes at most the latest eight seconds of the active
+in-memory recording and presents the newest ten recognized words in a passive,
+single-line top-right panel. Older words drop from the left. The panel does not
+take keyboard focus, write a notification, or become
 the source used for insertion. After recording stops, VoxHearth separately
 transcribes the complete recording and inserts only that final result. Preview
 text clears on cancellation and shortly after completion.
 
 The overlay makes dictated text visible on screen. People nearby, screen-sharing
 software, screenshots, or other software able to capture the display may see
-it. It also performs additional local inference approximately every two
-seconds, which can increase energy use and may slow final transcription on a
-smaller Mac. Leave it disabled when display privacy or minimum resource use is
-more important than immediate feedback.
+it. It requests another preview after a 600 ms pause, although model inference
+time determines the actual cadence. This can increase energy use and may slow
+final transcription on a smaller Mac. Leave it disabled when display privacy
+or minimum resource use is more important than immediate feedback.
 
 ## Clipboard compatibility
 

@@ -106,10 +106,13 @@ startup and lower memory use on smaller Apple silicon Macs.
 The menu panel and **Settings → Dictation → Feedback** include an optional
 **Show live transcript overlay** checkbox. It displays recent approximate text
 near the top-right of the active screen while you speak, without taking focus
-from the app receiving your dictation. Preview inference is entirely local and
-uses only in-memory audio. It refreshes about every two seconds over at most the
-most recent 30 seconds, so enabling it performs extra inference and may use more
-energy on smaller Macs. The final full recording is always transcribed
+from the app receiving your dictation. The single-line subtitle strip always
+shows the latest ten recognized words and drops older words from the left.
+Preview inference is entirely local and uses only in-memory audio. VoxHearth
+requests a new preview after a short 600 ms pause using at most the most recent
+eight seconds; actual updates are also limited by the selected model and Mac.
+Enabling it performs extra inference and may use more energy on smaller Macs.
+The final full recording is always transcribed
 separately; only that final result is inserted, and it may differ from the live
 preview. The overlay clears after cancellation or shortly after completion.
 You can keep speaking to add context or spell a term after noticing a preview
