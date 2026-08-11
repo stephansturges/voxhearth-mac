@@ -53,7 +53,7 @@ destination-app trust boundaries.
 ## Install
 
 The current downloadable build is
-[`v0.2.1-dev.1`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.1),
+[`v0.2.1-dev.2`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.2),
 an explicitly **unsigned and unnotarized development prerelease**. It includes
 the bundled model, checksums, complete source, SBOM, provenance, and GitHub
 attestations, but it has no trusted Apple publisher identity. macOS is expected
@@ -61,7 +61,7 @@ to block it on first launch.
 
 To install that development preview:
 
-1. Download `VoxHearth-v0.2.1-dev.1-unsigned.dmg` and `SHA256SUMS` from the same
+1. Download `VoxHearth-v0.2.1-dev.2-unsigned.dmg` and `SHA256SUMS` from the same
    release.
 2. Verify the checksum by following
    [VERIFY_RELEASE.md](Documentation/VERIFY_RELEASE.md).
@@ -86,6 +86,8 @@ future versions manually from GitHub Releases.
 The default shortcut is **Control-Option-Space**. Hold it while speaking and
 release to transcribe and insert. You can also start and stop from the menu bar.
 Settings let you choose the shortcut, microphone, speech model, and language.
+If a chosen microphone disconnects, VoxHearth automatically returns to the
+current macOS system-default input and clears the unavailable selection.
 The multilingual 600M model remains the default and supports 25 European
 languages. The compact 110M model is English-only and is intended for faster
 startup and lower memory use on smaller Apple silicon Macs.

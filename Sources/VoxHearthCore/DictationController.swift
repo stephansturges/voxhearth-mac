@@ -20,6 +20,9 @@ public final class DictationController {
     @ObservationIgnored
     public var onStartCue: (@MainActor @Sendable () async -> Void)?
 
+    @ObservationIgnored
+    public var onInputDeviceFallback: (@MainActor @Sendable () -> Void)?
+
     @ObservationIgnored private let audioCapture: any AudioCapturing
     @ObservationIgnored private let transcriptionEngine: any LocalTranscriptionEngine
     @ObservationIgnored private let textInserter: any TextInserting
@@ -111,12 +114,16 @@ public final class DictationController {
             try Task.checkCancellation()
             try await transcriptionEngine.prepare(model: settings.transcriptionModel)
             try Task.checkCancellation()
-            try await audioCapture.start(
+            let inputSelection = try await audioCapture.start(
                 inputDeviceUID: settings.inputDeviceUID,
                 maximumDurationReached: { [weak self] in
                     await self?.stopDictation()
                 }
             )
+            if inputSelection == .fellBackToSystemDefault {
+                settings.inputDeviceUID = nil
+                onInputDeviceFallback?()
+            }
             recordingStartedAt = Date()
             state = .recording
         } catch is CancellationError {
