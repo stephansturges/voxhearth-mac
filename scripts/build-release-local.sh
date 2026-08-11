@@ -3,7 +3,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-version="${VERSION:-0.2.0}"
+version="${VERSION:-0.2.1}"
 build_number="${BUILD_NUMBER:-1}"
 distribution="$repo_root/.build/distribution"
 app="$distribution/VoxHearth.app"

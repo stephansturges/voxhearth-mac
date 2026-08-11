@@ -5,7 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app_name="VoxHearth"
 bundle_id="com.stephansturges.voxhearth"
-version="${VERSION:-0.2.0}"
+version="${VERSION:-0.2.1}"
 build_number="${BUILD_NUMBER:-1}"
 architecture="${ARCHITECTURE:-arm64}"
 model_dir="${MODEL_DIR:-$repo_root/.build/models/parakeet-tdt-0.6b-v3-coreml}"
@@ -17,7 +17,7 @@ usage() {
 Usage: scripts/build-app-bundle.sh [options]
 
 Options:
-  --version VERSION       Marketing version (default: VERSION or 0.2.0)
+  --version VERSION       Marketing version (default: VERSION or 0.2.1)
   --build NUMBER          Integer build number (default: BUILD_NUMBER or 1)
   --model-dir PATH        Verified model directory
   --compact-model-dir PATH  Verified compact English model directory
