@@ -92,8 +92,10 @@ Security → Accessibility. VoxHearth Settings includes a direct button to this
 pane. After replacing VoxHearth with a new build, macOS may retain the previous
 build's record; remove the old VoxHearth entry with −, add the current
 `/Applications/VoxHearth.app` with +, enable it, then quit and reopen VoxHearth.
-VoxHearth invokes only Apple's permission prompt and System Settings and never
-edits the macOS TCC permission database directly.
+Quit the old VoxHearth process before replacing the app so the new build can
+actually launch. VoxHearth invokes only Apple's permission prompt, Finder, and
+System Settings. macOS does not expose an API that lets an app add or approve
+itself in Accessibility, and VoxHearth never edits the TCC database directly.
 
 ## Verification and changes
 

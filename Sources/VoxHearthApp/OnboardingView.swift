@@ -25,7 +25,16 @@ struct OnboardingView: View {
             navigation
         }
         .padding(22)
-        .onAppear(perform: model.refreshPermissionStatus)
+        .onAppear {
+            model.refreshPermissionStatus()
+        }
+        .task {
+            // Let the setup window become key before macOS presents its own
+            // Accessibility prompt, so the two foreground requests do not race.
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            model.requestAccessibilityForUpdatedBuildIfNeeded()
+        }
     }
 
     private var onboardingHeader: some View {
@@ -57,6 +66,16 @@ struct OnboardingView: View {
 
     private var privacyStep: some View {
         VStack(alignment: .leading, spacing: 13) {
+            if model.onboardingLaunchReason == .updatedBuild {
+                Label("A new VoxHearth build is installed", systemImage: "arrow.down.app.fill")
+                    .font(.headline)
+                    .foregroundStyle(Color.voxHearthAmber)
+                Text("Please review permissions for this build. Unsigned development updates may need Accessibility authorization again even when the previous version was allowed.")
+                    .font(.callout)
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.82))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Text("The speech model ships inside VoxHearth. Dictation does not need an account, API key, cloud service, telemetry service, or update connection.")
                 .foregroundStyle(Color.voxWarmWhite.opacity(0.82))
                 .fixedSize(horizontal: false, vertical: true)
@@ -94,12 +113,26 @@ struct OnboardingView: View {
             )
             permissionRow(
                 title: "Accessibility",
-                detail: "Inserts the transcript into the focused text field.",
+                detail: model.onboardingLaunchReason == .updatedBuild
+                    ? "Reauthorize this build so it can insert text. Remove the old entry first if macOS kept it."
+                    : "Inserts the transcript into the focused text field.",
                 symbol: "accessibility",
                 status: model.accessibilityPermission,
-                requestTitle: "Allow Accessibility",
-                action: model.requestAccessibilityPermission
+                requestTitle: "Set Up Accessibility",
+                action: model.openAccessibilitySettings
             )
+
+            if model.accessibilityPermission != .granted {
+                Text("macOS does not let an app add or approve itself in Accessibility. If VoxHearth does not appear after the system prompt, press + in Accessibility Settings and choose it from Applications.")
+                    .font(.caption)
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.68))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button("Show VoxHearth in Finder", action: model.revealApplicationInFinder)
+                    .buttonStyle(.plain)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.voxHearthAmber)
+            }
 
             if !model.onboardingCanAdvance {
                 Button("Refresh permission status", action: model.refreshPermissionStatus)

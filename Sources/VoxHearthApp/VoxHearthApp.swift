@@ -36,15 +36,13 @@ private struct OnboardingWindowView: View {
 
     var body: some View {
         Group {
-            if LaunchPresentationPolicy.shouldPresentOnboarding(
-                hasCompletedOnboarding: model.hasCompletedOnboarding
-            ) {
+            if !model.hasCompletedOnboarding {
                 OnboardingView(model: model)
                     .frame(width: 520)
                     .background(Color.voxGraphite)
                     .foregroundStyle(Color.voxWarmWhite)
                     .onAppear {
-                        NSApplication.shared.activate(ignoringOtherApps: true)
+                        ApplicationPresentation.presentOnboardingAfterOpening()
                     }
             } else {
                 Color.clear

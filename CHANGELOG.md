@@ -16,6 +16,16 @@ Developer ID-signed, Apple-notarized releases.
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
 
+## [0.2.1-dev.3] - 2026-08-11
+
+### Fixed
+
+- Setup now opens and comes to the foreground once for every newly installed
+  app build, with update-specific Accessibility reauthorization guidance.
+- Updated builds automatically invoke Apple's Accessibility request. Setup and
+  Settings also expose the required manual `+` flow and reveal the current app
+  in Finder when macOS does not relist an unsigned replacement.
+
 ## [0.2.1-dev.2] - 2026-08-11
 
 ### Fixed
@@ -95,7 +105,8 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.2.1-dev.2...HEAD
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.2.1-dev.3...HEAD
+[0.2.1-dev.3]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.3
 [0.2.1-dev.2]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.2
 [0.2.1-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.1
 [0.2.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.0-dev.1

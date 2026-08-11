@@ -276,6 +276,9 @@ private struct PrivacySettingsView: View {
 
                 Button("Refresh Status", action: model.refreshPermissionStatus)
                     .buttonStyle(.bordered)
+
+                Button("Show App in Finder", action: model.revealApplicationInFinder)
+                    .buttonStyle(.bordered)
             }
         }
         .padding(14)

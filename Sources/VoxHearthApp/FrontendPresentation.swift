@@ -166,19 +166,40 @@ enum AccessibilityRecoveryGuidance {
     )!
 
     static let updateExplanation =
-        "After replacing VoxHearth with a new build, macOS may keep the previous build’s Accessibility record instead of asking again."
+        "After replacing VoxHearth with a new build, macOS may keep the previous build’s Accessibility record instead of asking again. Apps cannot add or approve themselves in this protected list."
 
     static let recoverySteps = [
-        "Open Accessibility Settings.",
-        "Select the old VoxHearth entry and press −.",
-        "Press +, choose VoxHearth from Applications, then turn it on.",
+        "Click Set Up Accessibility to request access and open macOS Settings.",
+        "If an old VoxHearth entry remains, select it and press −.",
+        "If VoxHearth is not listed, press +, choose VoxHearth from Applications, then turn it on.",
         "Quit and reopen VoxHearth.",
     ]
 }
 
+enum OnboardingLaunchReason: Equatable {
+    case firstInstall
+    case updatedBuild
+    case manualReview
+}
+
 enum LaunchPresentationPolicy {
-    static func shouldPresentOnboarding(hasCompletedOnboarding: Bool) -> Bool {
-        !hasCompletedOnboarding
+    static func reason(
+        previouslyCompleted: Bool,
+        completedBuildIdentity: String?,
+        currentBuildIdentity: String
+    ) -> OnboardingLaunchReason? {
+        guard previouslyCompleted else { return .firstInstall }
+        guard completedBuildIdentity == currentBuildIdentity else { return .updatedBuild }
+        return nil
+    }
+}
+
+enum AppBuildIdentity {
+    static var current: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "development"
+        let build = info?["CFBundleVersion"] as? String ?? "unversioned"
+        return "\(version) (\(build))"
     }
 }
 

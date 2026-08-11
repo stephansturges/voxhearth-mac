@@ -53,7 +53,7 @@ destination-app trust boundaries.
 ## Install
 
 The current downloadable build is
-[`v0.2.1-dev.2`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.2),
+[`v0.2.1-dev.3`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.3),
 an explicitly **unsigned and unnotarized development prerelease**. It includes
 the bundled model, checksums, complete source, SBOM, provenance, and GitHub
 attestations, but it has no trusted Apple publisher identity. macOS is expected
@@ -61,19 +61,27 @@ to block it on first launch.
 
 To install that development preview:
 
-1. Download `VoxHearth-v0.2.1-dev.2-unsigned.dmg` and `SHA256SUMS` from the same
+1. If VoxHearth is already installed, choose **Quit VoxHearth** from its menu
+   before replacing the app. Otherwise macOS may keep the old process running.
+2. Download `VoxHearth-v0.2.1-dev.3-unsigned.dmg` and `SHA256SUMS` from the same
    release.
-2. Verify the checksum by following
+3. Verify the checksum by following
    [VERIFY_RELEASE.md](Documentation/VERIFY_RELEASE.md).
-3. Open the DMG and drag VoxHearth to Applications.
-4. Try to launch it. If macOS blocks it and you accept the development-build
+4. Open the DMG and drag VoxHearth to Applications.
+5. Try to launch it. If macOS blocks it and you accept the development-build
    risk after verification, use the per-app **Open Anyway** control in
    **System Settings → Privacy & Security**. Never disable Gatekeeper globally.
-5. Complete the microphone and Accessibility permission steps.
+6. Complete the microphone and Accessibility permission steps.
 
 The first launch opens a visible setup window. After setup, VoxHearth remains
 in the menu bar; launching it again reuses the existing instance instead of
 registering a second dictation listener.
+
+The first launch of each newly installed build also reopens setup once. For an
+unsigned development update, VoxHearth automatically asks macOS to register the
+current build for Accessibility. macOS may still require you to remove the old
+entry and add the current `/Applications/VoxHearth.app` with **+**; applications
+cannot modify or approve entries in the protected Accessibility list themselves.
 
 The future official `v0.2.1` release remains reserved for a DMG signed with a
 Developer ID Application certificate, notarized by Apple, and given a stapled
