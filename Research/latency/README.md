@@ -68,9 +68,10 @@ baseline score - candidate score
 
 No component may regress beyond its component noise. Cold launch and switch
 may not regress beyond cold noise. CPU time and peak resident memory may not
-regress beyond the larger of measured noise and 5%. Start/stop counts must be
-balanced, transcriptions must not overlap, and no extra model instance, idle
-audio engine, microphone persistence or polling may be introduced.
+regress beyond measured noise and also have a hard 5% ceiling; the smaller
+allowance applies. Start/stop counts must be balanced, transcriptions must not
+overlap, and no extra model instance, idle audio engine, microphone persistence
+or polling may be introduced.
 
 ## Immutable inputs
 
@@ -116,7 +117,13 @@ export VOXHEARTH_LATENCY_MULTILINGUAL_MODEL_ROOT=/verified/local/multilingual
 export VOXHEARTH_LATENCY_COMPACT_MODEL_ROOT=/verified/local/compact
 scripts/latency-eval.sh run /absolute/result.json P0 3
 scripts/latency-eval.sh compare baseline-a.json candidate.json baseline-b.json
+scripts/latency-eval.sh score baseline-p0-a.json baseline-p0-b.json \
+  baseline-p5-a.json baseline-p5-b.json
 ```
+
+`score` performs three fresh P0 and P5 processes, applies every automated
+promotion gate, writes diagnostics to stderr, and emits exactly one JSON metric
+object on stdout for the bounded autoresearch controller.
 
 Results are written atomically and existing result files are never
 overwritten.

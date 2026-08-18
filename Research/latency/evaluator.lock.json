@@ -3,7 +3,7 @@
   "hashAlgorithm": "sha256",
   "files": [
     {"path": "Package.swift", "sha256": "12c19dfc4e38c2cfa942d0e671a41766d04597ff6d52b64cf7d9beb5ccf6edc7"},
-    {"path": "Research/latency/README.md", "sha256": "f5e1988bb501ecbc9180d037b28831de1789d44c05a10b1d7e0c8becc383c30e"},
+    {"path": "Research/latency/README.md", "sha256": "744afc96f8e12574057b0c1bb52c464500bbc43c0ca7188ed658ccf5bed372c4"},
     {"path": "Research/latency/fixtures.manifest.json", "sha256": "cad221a5d56555ae0a2a923d1df0ed38120244c9764e32c4a87ee4aa6bcf0fe5"},
     {"path": "Research/latency/fixtures/guardrail-chunked.aiff", "sha256": "bed2769f96079748cbbe563bd9c138dc08b40635b28ea8bc08c14caefae6edb9"},
     {"path": "Research/latency/fixtures/guardrail-french.aiff", "sha256": "f199af07d38fb4afb2bdd7520807a8700e5e02327d51dd9f81320c28fd7593d9"},
@@ -22,7 +22,7 @@
     {"path": "Research/latency/model-capabilities.json", "sha256": "597ed76b502762a919b359fbfa42eba7f7d68dd4b671cb340124466e472ef3ca"},
     {"path": "Tests/VoxHearthLatencyEval/EvaluatorFakes.swift", "sha256": "d7bad74a942cbc727e921ada66653d7ee491661314be8d375ec47f14b26b81d2"},
     {"path": "Tests/VoxHearthLatencyEval/LatencyEvaluator.swift", "sha256": "439535794324e1d1add3ecbf14b470cea998939e6f02ff6dafb4358e98a2267d"},
-    {"path": "docs/ai/plans/ux-latency-autoresearch.md", "sha256": "edde06fde7624b0e6f72d021b1256079257a05cc10360cb34e9398c716c54f1c"},
-    {"path": "scripts/latency-eval.sh", "sha256": "f24f904456af6c2c6f176237ed71551fc3f9e206fd04a4e8cda9beaa0ff307ab"}
+    {"path": "docs/ai/plans/ux-latency-autoresearch.md", "sha256": "bea7a15491a8c4b36e288c2eea0738d1f148085bdc872144e83fdc6240ceacc2"},
+    {"path": "scripts/latency-eval.sh", "sha256": "ee9d43208233946e49d2e4695df0976501b24b4f081522518de0db931274f083"}
   ]
 }

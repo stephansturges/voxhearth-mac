@@ -17,6 +17,7 @@ Usage:
   scripts/latency-eval.sh verify
   scripts/latency-eval.sh run OUTPUT.json [P0|P1|P2|P3|P4|P5] [REPEATS]
   scripts/latency-eval.sh compare BASE.json CANDIDATE.json [NOISE.json]
+  scripts/latency-eval.sh score BASELINE_P0.json NOISE_P0.json BASELINE_P5.json NOISE_P5.json
 
 run requires externally supplied, already-local model roots:
   VOXHEARTH_LATENCY_MULTILINGUAL_MODEL_ROOT
@@ -371,6 +372,8 @@ run_evaluator() {
     }
   done
   aggregate_partials "$output_path" "$profile" "$repeats" "${partials[@]}"
+  /bin/rm -rf -- "$run_root"
+  trap - EXIT
 }
 
 compare_results() {
@@ -406,9 +409,24 @@ component_ok = all(
     for key in noise_components
 )
 transcripts_ok = baseline["transcriptDigests"] == candidate["transcriptDigests"]
-resource_limit = 1.05
-cpu_ok = candidate["resources"]["cpuSeconds"] <= baseline["resources"]["cpuSeconds"] * resource_limit
-memory_ok = candidate["resources"]["peakResidentBytes"] <= baseline["resources"]["peakResidentBytes"] * resource_limit
+cpu_noise = (
+    abs(baseline["resources"]["cpuSeconds"] - noise["resources"]["cpuSeconds"])
+    if noise is not None else 0.0
+)
+memory_noise = (
+    abs(baseline["resources"]["peakResidentBytes"] - noise["resources"]["peakResidentBytes"])
+    if noise is not None else 0.0
+)
+cpu_allowance = min(cpu_noise, baseline["resources"]["cpuSeconds"] * 0.05)
+memory_allowance = min(memory_noise, baseline["resources"]["peakResidentBytes"] * 0.05)
+cpu_ok = (
+    candidate["resources"]["cpuSeconds"]
+    <= baseline["resources"]["cpuSeconds"] + cpu_allowance
+)
+memory_ok = (
+    candidate["resources"]["peakResidentBytes"]
+    <= baseline["resources"]["peakResidentBytes"] + memory_allowance
+)
 promote = improvement >= threshold and component_ok and transcripts_ok and cpu_ok and memory_ok
 print(f"weighted improvement: {improvement:.3f} ms; required: {threshold:.3f} ms")
 print(f"components: {'PASS' if component_ok else 'FAIL'}")
@@ -417,6 +435,104 @@ print(f"resources: {'PASS' if cpu_ok and memory_ok else 'FAIL'}")
 print("PROMOTE" if promote else "REJECT")
 raise SystemExit(0 if promote else 1)
 PY
+}
+
+score_candidate() {
+  [[ $# -eq 4 ]] || usage
+  local baseline_p0="$1"
+  local noise_p0="$2"
+  local baseline_p5="$3"
+  local noise_p5="$4"
+  local score_root
+  score_root="$(mktemp -d "${TMPDIR:-/private/tmp}/voxhearth-latency-score.XXXXXX")"
+  local candidate_p0="$score_root/candidate-p0.json"
+  local candidate_p5="$score_root/candidate-p5.json"
+
+  run_evaluator "$candidate_p0" P0 3 >&2
+  run_evaluator "$candidate_p5" P5 3 >&2
+
+  python3 - \
+    "$baseline_p0" "$noise_p0" "$candidate_p0" \
+    "$baseline_p5" "$noise_p5" "$candidate_p5" <<'PY'
+import json
+import math
+from pathlib import Path
+import sys
+
+baseline_p0, noise_p0, candidate_p0, baseline_p5, noise_p5, candidate_p5 = [
+    json.loads(Path(item).read_text(encoding="utf-8")) for item in sys.argv[1:]
+]
+
+def reject(message):
+    print(f"REJECT: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+def percentile(values, probability=0.95):
+    ordered = sorted(values)
+    if not ordered:
+        reject("empty gate distribution")
+    position = (len(ordered) - 1) * probability
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return ordered[lower]
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower)
+
+for baseline, noise, candidate, label in (
+    (baseline_p0, noise_p0, candidate_p0, "P0"),
+    (baseline_p5, noise_p5, candidate_p5, "P5"),
+):
+    if baseline["digests"] != noise["digests"] or baseline["digests"] != candidate["digests"]:
+        reject(f"{label} evaluator, fixture, or model digest differs")
+    if baseline["transcriptDigests"] != candidate["transcriptDigests"]:
+        reject(f"{label} transcript bytes changed")
+
+baseline_score = baseline_p0["weightedScoreMs"]
+candidate_score = candidate_p0["weightedScoreMs"]
+score_noise = abs(baseline_score - noise_p0["weightedScoreMs"])
+required = max(score_noise, min(0.10 * baseline_score, 100.0))
+improvement = baseline_score - candidate_score
+if improvement < required:
+    reject(f"weighted improvement {improvement:.3f} ms is below {required:.3f} ms")
+
+for component, baseline_values in baseline_p0["components"].items():
+    baseline_value = baseline_values["p95"]
+    noise = abs(baseline_value - noise_p0["components"][component]["p95"])
+    candidate_value = candidate_p0["components"][component]["p95"]
+    if candidate_value > baseline_value + noise:
+        reject(f"{component} regressed beyond noise")
+
+for resource in ("cpuSeconds", "peakResidentBytes"):
+    baseline_value = baseline_p0["resources"][resource]
+    measured_noise = abs(baseline_value - noise_p0["resources"][resource])
+    allowance = min(measured_noise, baseline_value * 0.05)
+    if candidate_p0["resources"][resource] > baseline_value + allowance:
+        reject(f"{resource} regressed beyond noise or the 5 percent ceiling")
+
+def cold_p95(result, classification):
+    return percentile([
+        sample["visibleTextDispatchMs"]
+        for sample in result["coldSamples"]
+        if sample["classification"] == classification
+    ])
+
+cold = {}
+for classification in ("cold-launch", "cold-model-switch"):
+    baseline_value = cold_p95(baseline_p5, classification)
+    noise = abs(baseline_value - cold_p95(noise_p5, classification))
+    candidate_value = cold_p95(candidate_p5, classification)
+    cold[classification] = candidate_value
+    if candidate_value > baseline_value + noise:
+        reject(f"{classification} regressed beyond cold noise")
+
+print(json.dumps({
+    "weighted_p95_ms": candidate_score,
+    "improvement_ms": improvement,
+    "required_improvement_ms": required,
+    "cold_visible_text_p95_ms": cold,
+}, sort_keys=True))
+PY
+  /bin/rm -rf -- "$score_root"
 }
 
 case "${1:-}" in
@@ -438,6 +554,10 @@ run)
 compare)
   shift
   compare_results "$@"
+  ;;
+score)
+  shift
+  score_candidate "$@"
   ;;
 *)
   usage

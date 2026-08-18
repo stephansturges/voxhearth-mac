@@ -34,6 +34,10 @@ fixed `[1, 240000]` preprocessor input with no shape flexibility, so the C1
 dynamic-right-sizing path is recorded as capability-gated/no-op rather than
 forcing an invalid model shape.
 
+Each candidate's scalar evaluator runs three fresh P0 and P5 processes. It
+emits the P0 weighted p95 only after transcript, component, cold, CPU, and peak
+RSS gates pass; a gate failure exits nonzero and cannot enter the retained beam.
+
 Generation 1 remains bounded to three independently measurable candidates:
 
 1. The authorized FluidAudio input-right-sizing candidate only if a future
