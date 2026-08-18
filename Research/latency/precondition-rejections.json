@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "baselineWeightedP95Ms": 48.088961579999996,
+  "baselineNoiseMs": 0.26096576999999144,
+  "promotionThresholdMs": 4.808896158,
+  "rejections": [
+    {
+      "id": "c1-dynamic-input-right-sizing",
+      "verdict": "rejected-before-mutation",
+      "evidence": "Both verified preprocessors declare audio_signal [1, 240000], hasShapeFlexibility false, and a matching fixed-shape MIL entry point.",
+      "reason": "The authorized capability gate resolves to a no-op for the shipped payloads; forcing a shorter tensor would violate the model contract."
+    },
+    {
+      "id": "c3-activation-task-restructure",
+      "verdict": "rejected-before-mutation",
+      "evidence": "Generation-zero p95 is 0.0203206 ms press-to-cue, 0.1521124 ms press-to-capture completion, and 0.0597671 ms release-to-stop entry.",
+      "reason": "Even reducing all three dispatch components to zero can improve the weighted objective by only 0.029196 ms, far below the frozen 4.808896 ms promotion threshold; it cannot affect the real-model inference segment."
+    }
+  ]
+}

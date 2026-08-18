@@ -1,0 +1,165 @@
+{
+  "session_id": "voxhearth-ux-latency-20260818",
+  "generation": 0,
+  "objective": "Minimize VoxHearth warm weighted p95 dictation latency while preserving transcripts, cold behavior, privacy, resource bounds, and offline-only execution.",
+  "beam_width": 2,
+  "evaluation_repeats": 1,
+  "metric": {"name": "weighted_p95_ms", "direction": "minimize"},
+  "baseline": {"mean": 48.088961579999996, "sigma": 0.26096576999999144},
+  "rubric": {"key": "ux-latency-promotion", "version": 1},
+  "evaluator": {
+    "command": [
+      "scripts/latency-eval.sh",
+      "score",
+      "Research/latency/baselines/p0-a.json",
+      "Research/latency/baselines/p0-b.json",
+      "Research/latency/baselines/p5-a.json",
+      "Research/latency/baselines/p5-b.json"
+    ],
+    "files": [
+      "Package.swift",
+      "Models/parakeet-tdt-0.6b-v3-coreml.json",
+      "Models/parakeet-tdt-ctc-110m-coreml.json",
+      "Research/latency/README.md",
+      "Research/latency/evaluator.lock.json",
+      "Research/latency/model-capabilities.json",
+      "Research/latency/precondition-rejections.json",
+      "Tests/VoxHearthLatencyEval/EvaluatorFakes.swift",
+      "Tests/VoxHearthLatencyEval/LatencyEvaluator.swift",
+      "docs/ai/plans/ux-latency-autoresearch.md",
+      "scripts/latency-eval.sh",
+      "scripts/verify-model.py"
+    ],
+    "datasets": [
+      "Research/latency/fixtures.manifest.json",
+      "Research/latency/fixtures/guardrail-chunked.aiff",
+      "Research/latency/fixtures/guardrail-french.aiff",
+      "Research/latency/fixtures/guardrail-long.aiff",
+      "Research/latency/fixtures/guardrail-short.aiff",
+      "Research/latency/fixtures/scored-01.aiff",
+      "Research/latency/fixtures/scored-02.aiff",
+      "Research/latency/fixtures/scored-03.aiff",
+      "Research/latency/fixtures/scored-04.aiff",
+      "Research/latency/fixtures/scored-05.aiff",
+      "Research/latency/fixtures/scored-06.aiff",
+      "Research/latency/fixtures/scored-07.aiff",
+      "Research/latency/fixtures/scored-08.aiff",
+      "Research/latency/fixtures/scored-09.aiff",
+      "Research/latency/fixtures/scored-10.aiff",
+      "Research/latency/baselines/README.md",
+      "Research/latency/baselines/p0-a.json",
+      "Research/latency/baselines/p0-b.json",
+      "Research/latency/baselines/p5-a.json",
+      "Research/latency/baselines/p5-b.json"
+    ]
+  },
+  "candidates": [
+    {
+      "id": "preprocessor-cpu-gpu",
+      "hypothesis": "Allowing the multilingual Core ML preprocessor to use CPU and GPU will reduce the dominant warm final-transcription segment without changing model bytes or decoded text.",
+      "command": ["/usr/bin/true"],
+      "writes": ["Sources/VoxHearthCore/ParakeetEngine.swift"],
+      "checks": [
+        {
+          "id": "parakeet-engine-tests",
+          "command": ["swift", "test", "--filter", "ParakeetEngine"],
+          "tier": "probe",
+          "always_on": true,
+          "reuse": "never",
+          "inputs": ["Package.swift", "Sources/VoxHearthCore/ParakeetEngine.swift", "Tests/VoxHearthCoreTests/ParakeetEngineTests.swift"],
+          "timeout_seconds": 300,
+          "expected_seconds": 20
+        },
+        {
+          "id": "candidate-promotion-tests",
+          "command": ["swift", "test", "--filter", "latencyEvaluator"],
+          "tier": "promotion",
+          "reuse": "never",
+          "inputs": ["Package.swift", "Sources/**", "Tests/**", "Vendor/**"],
+          "timeout_seconds": 900,
+          "expected_seconds": 30
+        }
+      ],
+      "success": "The configuration is exactly cpuAndGPU for the multilingual preprocessor, focused tests pass, and the frozen evaluator decides promotion.",
+      "retries": 0
+    },
+    {
+      "id": "preprocessor-cpu-ne",
+      "hypothesis": "Allowing the multilingual Core ML preprocessor to use CPU and Neural Engine will reduce the dominant warm final-transcription segment without changing model bytes or decoded text.",
+      "command": ["/usr/bin/true"],
+      "writes": ["Sources/VoxHearthCore/ParakeetEngine.swift"],
+      "checks": [
+        {
+          "id": "parakeet-engine-tests",
+          "command": ["swift", "test", "--filter", "ParakeetEngine"],
+          "tier": "probe",
+          "always_on": true,
+          "reuse": "never",
+          "inputs": ["Package.swift", "Sources/VoxHearthCore/ParakeetEngine.swift", "Tests/VoxHearthCoreTests/ParakeetEngineTests.swift"],
+          "timeout_seconds": 300,
+          "expected_seconds": 20
+        },
+        {
+          "id": "candidate-promotion-tests",
+          "command": ["swift", "test", "--filter", "latencyEvaluator"],
+          "tier": "promotion",
+          "reuse": "never",
+          "inputs": ["Package.swift", "Sources/**", "Tests/**", "Vendor/**"],
+          "timeout_seconds": 900,
+          "expected_seconds": 30
+        }
+      ],
+      "success": "The configuration is exactly cpuAndNeuralEngine for the multilingual preprocessor, focused tests pass, and the frozen evaluator decides promotion.",
+      "retries": 0
+    },
+    {
+      "id": "preprocessor-all",
+      "hypothesis": "Allowing all Core ML compute units for the multilingual preprocessor will let Core ML choose the fastest warm placement without changing model bytes or decoded text.",
+      "command": ["/usr/bin/true"],
+      "writes": ["Sources/VoxHearthCore/ParakeetEngine.swift"],
+      "checks": [
+        {
+          "id": "parakeet-engine-tests",
+          "command": ["swift", "test", "--filter", "ParakeetEngine"],
+          "tier": "probe",
+          "always_on": true,
+          "reuse": "never",
+          "inputs": ["Package.swift", "Sources/VoxHearthCore/ParakeetEngine.swift", "Tests/VoxHearthCoreTests/ParakeetEngineTests.swift"],
+          "timeout_seconds": 300,
+          "expected_seconds": 20
+        },
+        {
+          "id": "candidate-promotion-tests",
+          "command": ["swift", "test", "--filter", "latencyEvaluator"],
+          "tier": "promotion",
+          "reuse": "never",
+          "inputs": ["Package.swift", "Sources/**", "Tests/**", "Vendor/**"],
+          "timeout_seconds": 900,
+          "expected_seconds": 30
+        }
+      ],
+      "success": "The configuration is exactly all for the multilingual preprocessor, focused tests pass, and the frozen evaluator decides promotion.",
+      "retries": 0
+    }
+  ],
+  "final_checks": [
+    {
+      "id": "final-swift-tests",
+      "command": ["swift", "test"],
+      "tier": "final",
+      "reuse": "never",
+      "inputs": ["Package.swift", "Sources/**", "Tests/**", "Vendor/**"],
+      "timeout_seconds": 900,
+      "expected_seconds": 120
+    },
+    {
+      "id": "final-evaluator-verification",
+      "command": ["bash", "scripts/latency-eval.sh", "verify"],
+      "tier": "final",
+      "reuse": "never",
+      "inputs": ["Models/**", "Research/latency/**", "Tests/VoxHearthLatencyEval/**", "scripts/latency-eval.sh", "scripts/verify-model.py"],
+      "timeout_seconds": 120,
+      "expected_seconds": 2
+    }
+  ]
+}
