@@ -38,6 +38,12 @@ final class AudioSampleAccumulator: @unchecked Sendable {
     func snapshot() -> [Float] {
         state.withLock { $0.samples }
     }
+
+    func trailingSnapshot(maximumSampleCount: Int) -> [Float] {
+        state.withLock { state in
+            Array(state.samples.suffix(max(1, maximumSampleCount)))
+        }
+    }
 }
 
 public actor AudioCaptureService: AudioCapturing {
@@ -147,9 +153,20 @@ public actor AudioCaptureService: AudioCapturing {
         return CapturedAudio(samples: samples, sampleRate: activeAccumulator.sampleRate)
     }
 
-    public func snapshot() async -> CapturedAudio? {
+    public func snapshot(maximumDuration: TimeInterval) async -> CapturedAudio? {
         guard engine != nil, let activeAccumulator = accumulator else { return nil }
-        let samples = activeAccumulator.snapshot()
+        guard maximumDuration.isFinite, maximumDuration > 0 else { return nil }
+        let boundedSampleCount = min(
+            Double(activeAccumulator.maximumSampleCount),
+            activeAccumulator.sampleRate * maximumDuration
+        )
+        let maximumSampleCount = max(
+            1,
+            Int(boundedSampleCount.rounded(.down))
+        )
+        let samples = activeAccumulator.trailingSnapshot(
+            maximumSampleCount: maximumSampleCount
+        )
         guard !samples.isEmpty else { return nil }
         return CapturedAudio(samples: samples, sampleRate: activeAccumulator.sampleRate)
     }

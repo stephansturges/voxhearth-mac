@@ -10,6 +10,7 @@ private actor MockAudioCapture: AudioCapturing {
     private(set) var stopCount = 0
     private(set) var cancelCount = 0
     private(set) var snapshotCount = 0
+    private(set) var snapshotMaximumDurations: [TimeInterval] = []
     private(set) var requestedInputDeviceUIDs: [String?] = []
 
     func availableInputDevices() async -> [AudioInputDevice] { [] }
@@ -29,9 +30,17 @@ private actor MockAudioCapture: AudioCapturing {
         return result
     }
 
-    func snapshot() async -> CapturedAudio? {
+    func snapshot(maximumDuration: TimeInterval) async -> CapturedAudio? {
         snapshotCount += 1
-        return result
+        snapshotMaximumDurations.append(maximumDuration)
+        let maximumSampleCount = max(
+            1,
+            Int((result.sampleRate * maximumDuration).rounded(.down))
+        )
+        return CapturedAudio(
+            samples: Array(result.samples.suffix(maximumSampleCount)),
+            sampleRate: result.sampleRate
+        )
     }
 
     func cancel() async {
@@ -62,6 +71,39 @@ private actor MockTranscriptionEngine: LocalTranscriptionEngine {
         languages.append(language)
         models.append(model)
         return transcript
+    }
+}
+
+/// Deliberately ignores cancellation during its first inference so the test
+/// can detect actor reentrancy between a live preview and final transcription.
+private actor NonCooperativePreviewEngine: LocalTranscriptionEngine {
+    private(set) var transcribeCount = 0
+    private(set) var maximumActiveTranscriptions = 0
+    private var activeTranscriptions = 0
+
+    func prepare(model: TranscriptionModel) async throws {}
+
+    func transcribe(
+        _ audio: CapturedAudio,
+        language: DictationLanguage,
+        model: TranscriptionModel
+    ) async throws -> String {
+        transcribeCount += 1
+        let callNumber = transcribeCount
+        activeTranscriptions += 1
+        maximumActiveTranscriptions = max(
+            maximumActiveTranscriptions,
+            activeTranscriptions
+        )
+
+        if callNumber == 1 {
+            await Task.detached {
+                try? await Task.sleep(for: .milliseconds(30))
+            }.value
+        }
+
+        activeTranscriptions -= 1
+        return callNumber == 1 ? "preview" : "final"
     }
 }
 
@@ -200,6 +242,9 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(controller.state == .recording)
     #expect(controller.liveTranscriptPreview == "dictated locally")
     #expect(await audio.snapshotCount > 0)
+    #expect(await audio.snapshotMaximumDurations.allSatisfy {
+        $0 == DictationController.defaultLivePreviewWindow
+    })
     #expect(await engine.transcribeCount > 0)
     #expect(recorder.values.first == "")
 
@@ -226,6 +271,35 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(controller.liveTranscriptPreview == nil)
     #expect(await audio.snapshotCount == 0)
     await controller.cancelDictation()
+}
+
+@Test @MainActor func finalTranscriptionDoesNotOverlapCancelledPreview() async {
+    let audio = MockAudioCapture()
+    let engine = NonCooperativePreviewEngine()
+    let inserter = MockTextInserter()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: AppSettings(liveTranscriptOverlayEnabled: true),
+        audioCapture: audio,
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        livePreviewInterval: .milliseconds(1),
+        livePreviewMinimumDuration: 0
+    )
+
+    await controller.startDictation()
+    for _ in 0..<500 {
+        if await engine.transcribeCount == 1 { break }
+        try? await Task.sleep(for: .milliseconds(1))
+    }
+    #expect(await engine.transcribeCount == 1)
+
+    await controller.stopDictation()
+
+    #expect(await audio.stopCount == 1)
+    #expect(await engine.transcribeCount == 2)
+    #expect(await engine.maximumActiveTranscriptions == 1)
+    #expect(inserter.insertedTexts == ["final"])
 }
 
 @Test @MainActor func controllerPreparesSelectedCompactModelInEnglish() async {

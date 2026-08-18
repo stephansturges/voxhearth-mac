@@ -56,7 +56,7 @@ destination-app trust boundaries.
 ## Install
 
 The current downloadable build is
-[`v0.3.0-dev.1`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.1),
+[`v0.3.0-dev.2`](https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.2),
 an explicitly **unsigned and unnotarized development prerelease**. It includes
 the bundled model, checksums, complete source, SBOM, provenance, and GitHub
 attestations, but it has no trusted Apple publisher identity. macOS is expected
@@ -66,7 +66,7 @@ To install that development preview:
 
 1. If VoxHearth is already installed, choose **Quit VoxHearth** from its menu
    before replacing the app. Otherwise macOS may keep the old process running.
-2. Download `VoxHearth-v0.3.0-dev.1-unsigned.dmg` and `SHA256SUMS` from the same
+2. Download `VoxHearth-v0.3.0-dev.2-unsigned.dmg` and `SHA256SUMS` from the same
    release.
 3. Verify the checksum by following
    [VERIFY_RELEASE.md](Documentation/VERIFY_RELEASE.md).

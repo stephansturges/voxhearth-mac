@@ -18,6 +18,7 @@ enum LiveTranscriptOverlayPresentation {
 @MainActor
 private final class LiveTranscriptOverlayState {
     var text = "Listening for speech…"
+    var isVisible = false
 }
 
 /// A passive, memory-only overlay. Unlike Notification Center, this panel does
@@ -49,11 +50,16 @@ final class LiveTranscriptOverlayController {
 
     func update(transcript: String?) {
         guard let transcript else {
+            // A hidden NSHostingView remains mounted. Explicitly stop the
+            // symbol effect before ordering the panel out so it cannot keep
+            // SwiftUI's render loop and the main actor busy between sessions.
+            state.isVisible = false
             panel.orderOut(nil)
             return
         }
 
         state.text = LiveTranscriptOverlayPresentation.displayText(for: transcript)
+        state.isVisible = true
         positionOnActiveScreen()
         panel.orderFrontRegardless()
     }
@@ -86,7 +92,7 @@ private struct LiveTranscriptOverlayView: View {
         HStack(spacing: 11) {
             Image(systemName: "waveform")
                 .font(.system(size: 17, weight: .semibold))
-                .symbolEffect(.pulse)
+                .symbolEffect(.pulse, isActive: state.isVisible)
                 .foregroundStyle(Color.voxHearthAmber)
 
             Text(state.text)
