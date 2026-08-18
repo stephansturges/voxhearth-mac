@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "hashAlgorithm": "sha256",
+  "files": [
+    {"path": "baseline/p0-a-full.json", "size": 30731, "sha256": "b340cef34eea0cefeb2640cf83af1320f7b0ceead36fe92b0a5afd4ae579e580"},
+    {"path": "baseline/p0-b-full.json", "size": 30743, "sha256": "f825da7c348392d9c5a722a790f17769f5d7c8c6836215f22093ad01f25549f8"},
+    {"path": "baseline/p5-a-full.json", "size": 13072, "sha256": "6ca628acf2e2c7d64e28f9a191e0f2d7ef1179ed95895a2a8253a0b353301af1"},
+    {"path": "baseline/p5-b-full.json", "size": 13078, "sha256": "4b2c398894831343d83014d6bbf8d9ff0be66a74f7219bff11173a309a1bcb09"},
+    {"path": "candidates/all-p0.json", "size": 30774, "sha256": "e0693182a82685f6d8a5b17c609837f567ecb05482e4c78a658cdc21d83ca398"},
+    {"path": "candidates/all-p5.json", "size": 13080, "sha256": "41e9713d2d9274c5c1c0d2433ec908d3e7e0a7d9884b651aff572ada56e56cb3"},
+    {"path": "candidates/cpu-gpu-p0.json", "size": 30733, "sha256": "09b2b540630298dd0133c67dfcd2aea763720e0a0de2c04795c9bb1908d95921"},
+    {"path": "candidates/cpu-gpu-p5.json", "size": 13073, "sha256": "aa50e0cf0acdbe77ff56723575d401940e84df2871f669416bd2e114f19f6d7b"},
+    {"path": "candidates/cpu-ne-p0.json", "size": 30707, "sha256": "4ec695a99a4ad9bb6eecbce6aab9fd046f8e086eb8dd7267406dc2ad6a373678"},
+    {"path": "candidates/cpu-ne-p5.json", "size": 13111, "sha256": "b2e3339f911437299be0f0eee93a530d8753881807c15a5463e0481c36f28bbf"},
+    {"path": "guardrails/p1.json", "size": 28359, "sha256": "2a3e04a5584fcf447e08a662556712d181b921bb76cba43abe614992c2c3121e"},
+    {"path": "guardrails/p2.json", "size": 28379, "sha256": "7941f45b4abdf8dc6e61d215ed523bf6cda8121491d6ec6addeea245b4952fa9"},
+    {"path": "guardrails/p3.json", "size": 28339, "sha256": "e7e0ae946dfe716e543341135b435008dc8989dffc006a14ad2bc714be8c1c88"},
+    {"path": "guardrails/p4.json", "size": 14988, "sha256": "420c6f344ff7db3ee9b997631d94d0fdf59863c1e26bae7005392c776cb4796a"}
+  ]
+}

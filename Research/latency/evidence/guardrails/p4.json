@@ -1,0 +1,408 @@
+{
+  "coldSamples": [],
+  "components": {},
+  "counts": [
+    {
+      "captureCancel": 2,
+      "captureSnapshot": 0,
+      "captureStart": 4,
+      "captureStop": 4,
+      "enginePrepare": 5,
+      "engineTranscribe": 4,
+      "insert": 4
+    },
+    {
+      "captureCancel": 2,
+      "captureSnapshot": 0,
+      "captureStart": 4,
+      "captureStop": 4,
+      "enginePrepare": 5,
+      "engineTranscribe": 4,
+      "insert": 4
+    },
+    {
+      "captureCancel": 2,
+      "captureSnapshot": 0,
+      "captureStart": 4,
+      "captureStop": 4,
+      "enginePrepare": 5,
+      "engineTranscribe": 4,
+      "insert": 4
+    }
+  ],
+  "digests": {
+    "compactManifest": "e2fd13844503f8d73a5faf64136c9110eec9e06e560a3a27c4b967339a889607",
+    "evaluatorLock": "873dfe44838d38b49f7064ef89a577e1c6d73400569baeda7eed76f723a5de28",
+    "fixtureManifest": "cad221a5d56555ae0a2a923d1df0ed38120244c9764e32c4a87ee4aa6bcf0fe5",
+    "multilingualManifest": "25181f6e38da6262f3d3598061e0932558f2990e323407f038e1d93ed6307f51"
+  },
+  "dirty": false,
+  "environment": [
+    {
+      "architecture": "arm64",
+      "lowPowerMode": "false",
+      "operatingSystem": "Version 26.4 (Build 25E246)",
+      "thermalState": "NSProcessInfoThermalState(rawValue: 0)"
+    },
+    {
+      "architecture": "arm64",
+      "lowPowerMode": "false",
+      "operatingSystem": "Version 26.4 (Build 25E246)",
+      "thermalState": "NSProcessInfoThermalState(rawValue: 0)"
+    },
+    {
+      "architecture": "arm64",
+      "lowPowerMode": "false",
+      "operatingSystem": "Version 26.4 (Build 25E246)",
+      "thermalState": "NSProcessInfoThermalState(rawValue: 0)"
+    }
+  ],
+  "gitCommit": "e102c5dfb13ff93f9a798699a24575a923b98528",
+  "modelCapabilities": {
+    "models": {
+      "parakeet-tdt-0.6b-v3-coreml": {
+        "preprocessor": {
+          "audioInputName": "audio_signal",
+          "audioInputShape": [
+            1,
+            240000
+          ],
+          "hasShapeFlexibility": false,
+          "milMainType": "tensor<fp32, [1, 240000]>"
+        },
+        "rightSizingVerdict": "unsupported-no-op"
+      },
+      "parakeet-tdt-ctc-110m-coreml": {
+        "preprocessor": {
+          "audioInputName": "audio_signal",
+          "audioInputShape": [
+            1,
+            240000
+          ],
+          "hasShapeFlexibility": false,
+          "milMainType": "tensor<fp32, [1, 240000]>"
+        },
+        "rightSizingVerdict": "unsupported-no-op"
+      }
+    },
+    "schemaVersion": 1,
+    "source": "Verified compiled model metadata.json and model.mil from the locked payloads"
+  },
+  "objective": {
+    "p95Method": "R-7 linear interpolation",
+    "scoredProfile": "P0",
+    "warmOnly": true,
+    "weights": {
+      "audioStopEntryMs": 0.2,
+      "captureStartCompletionMs": 0.1,
+      "cueDispatchMs": 0.1,
+      "visibleTextDispatchMs": 0.6
+    }
+  },
+  "profile": "P4",
+  "repeatCount": 3,
+  "resources": {
+    "cpuSeconds": 3.3319860000000006,
+    "peakResidentBytes": 157007872,
+    "processes": [
+      {
+        "cpuSeconds": 1.1146500000000001,
+        "peakResidentBytes": 156499968
+      },
+      {
+        "cpuSeconds": 1.1069170000000002,
+        "peakResidentBytes": 157007872
+      },
+      {
+        "cpuSeconds": 1.110419,
+        "peakResidentBytes": 156467200
+      }
+    ]
+  },
+  "samples": [
+    {
+      "audioStopEntryMs": 0.083083,
+      "captureStartCompletionMs": 0.05675,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.020708,
+      "fixtureID": "guardrail-short",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.034333,
+        "insertEntryToExit": 0.013334,
+        "insertExitToIdle": 0.035041,
+        "stopEntryToExit": 0.002625,
+        "stopExitToTranscribeEntry": 0.024042,
+        "transcribeEntryToExit": 87.442125,
+        "transcribeExitToInsertEntry": 0.026708
+      },
+      "transcript": "Short local test.",
+      "visibleTextDispatchMs": 87.578583
+    },
+    {
+      "audioStopEntryMs": 0.069166,
+      "captureStartCompletionMs": 0.052667,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.02525,
+      "fixtureID": "guardrail-long",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.009833,
+        "insertEntryToExit": 0.010792,
+        "insertExitToIdle": 0.015,
+        "stopEntryToExit": 0.001834,
+        "stopExitToTranscribeEntry": 0.023458,
+        "transcribeEntryToExit": 114.723708,
+        "transcribeExitToInsertEntry": 0.021625
+      },
+      "transcript": "This longer guardrail sentence checks that a sustained dictation remains complete while the evaluator records every boundary and preserves the final local transcript without trimming any spoken audio from the beginning, middle or end.",
+      "visibleTextDispatchMs": 114.839791
+    },
+    {
+      "audioStopEntryMs": 0.06475,
+      "captureStartCompletionMs": 0.129125,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.01825,
+      "fixtureID": "guardrail-chunked",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.011042,
+        "insertEntryToExit": 0.014542,
+        "insertExitToIdle": 0.013458,
+        "stopEntryToExit": 0.000959,
+        "stopExitToTranscribeEntry": 0.027708,
+        "transcribeEntryToExit": 170.997375,
+        "transcribeExitToInsertEntry": 0.028958
+      },
+      "transcript": "This deliberately extended fixture crosses the long audio chunk boundary and continues with enough ordinary language to exercise segmentation decoder state and final transcript assembly. It must remain fully local and it must use the complete recording. Candidate improvements may reduce waiting time but they may never remove words shorten the audio coverage at a model instance or change the selected transcription model.",
+      "visibleTextDispatchMs": 171.11975
+    },
+    {
+      "audioStopEntryMs": 0.057834,
+      "captureStartCompletionMs": 0.047292,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.017833,
+      "fixtureID": "guardrail-french",
+      "language": "fr",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.011125,
+        "insertEntryToExit": 0.012208,
+        "insertExitToIdle": 0.014625,
+        "stopEntryToExit": 0.002083,
+        "stopExitToTranscribeEntry": 0.032083,
+        "transcribeEntryToExit": 83.156792,
+        "transcribeExitToInsertEntry": 0.028875
+      },
+      "transcript": "La reconnaissance vocale reste locale et prot\u00e8ge chaque phrase dict\u00e9e.",
+      "visibleTextDispatchMs": 83.277667
+    },
+    {
+      "audioStopEntryMs": 0.074958,
+      "captureStartCompletionMs": 0.047875,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.020583,
+      "fixtureID": "guardrail-short",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.032708,
+        "insertEntryToExit": 0.012042,
+        "insertExitToIdle": 0.032958,
+        "stopEntryToExit": 0.002333,
+        "stopExitToTranscribeEntry": 0.024834,
+        "transcribeEntryToExit": 87.295291,
+        "transcribeExitToInsertEntry": 0.030417
+      },
+      "transcript": "Short local test.",
+      "visibleTextDispatchMs": 87.427833
+    },
+    {
+      "audioStopEntryMs": 0.060959,
+      "captureStartCompletionMs": 0.040458,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.018916,
+      "fixtureID": "guardrail-long",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.013042,
+        "insertEntryToExit": 0.013208,
+        "insertExitToIdle": 0.014834,
+        "stopEntryToExit": 0.002208,
+        "stopExitToTranscribeEntry": 0.027792,
+        "transcribeEntryToExit": 116.308166,
+        "transcribeExitToInsertEntry": 0.020792
+      },
+      "transcript": "This longer guardrail sentence checks that a sustained dictation remains complete while the evaluator records every boundary and preserves the final local transcript without trimming any spoken audio from the beginning, middle or end.",
+      "visibleTextDispatchMs": 116.419917
+    },
+    {
+      "audioStopEntryMs": 0.0715,
+      "captureStartCompletionMs": 0.108375,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.02325,
+      "fixtureID": "guardrail-chunked",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.014417,
+        "insertEntryToExit": 0.011583,
+        "insertExitToIdle": 0.014209,
+        "stopEntryToExit": 0.002916,
+        "stopExitToTranscribeEntry": 0.042792,
+        "transcribeEntryToExit": 170.272333,
+        "transcribeExitToInsertEntry": 0.027042
+      },
+      "transcript": "This deliberately extended fixture crosses the long audio chunk boundary and continues with enough ordinary language to exercise segmentation decoder state and final transcript assembly. It must remain fully local and it must use the complete recording. Candidate improvements may reduce waiting time but they may never remove words shorten the audio coverage at a model instance or change the selected transcription model.",
+      "visibleTextDispatchMs": 170.416583
+    },
+    {
+      "audioStopEntryMs": 0.053917,
+      "captureStartCompletionMs": 0.044083,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.016791,
+      "fixtureID": "guardrail-french",
+      "language": "fr",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.012167,
+        "insertEntryToExit": 0.011916,
+        "insertExitToIdle": 0.01575,
+        "stopEntryToExit": 0.000917,
+        "stopExitToTranscribeEntry": 0.028083,
+        "transcribeEntryToExit": 80.6525,
+        "transcribeExitToInsertEntry": 0.019292
+      },
+      "transcript": "La reconnaissance vocale reste locale et prot\u00e8ge chaque phrase dict\u00e9e.",
+      "visibleTextDispatchMs": 80.754709
+    },
+    {
+      "audioStopEntryMs": 0.166125,
+      "captureStartCompletionMs": 0.056208,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.024166,
+      "fixtureID": "guardrail-short",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.032375,
+        "insertEntryToExit": 0.015625,
+        "insertExitToIdle": 0.03525,
+        "stopEntryToExit": 0.002833,
+        "stopExitToTranscribeEntry": 0.048625,
+        "transcribeEntryToExit": 89.891333,
+        "transcribeExitToInsertEntry": 0.027792
+      },
+      "transcript": "Short local test.",
+      "visibleTextDispatchMs": 90.136708
+    },
+    {
+      "audioStopEntryMs": 0.067167,
+      "captureStartCompletionMs": 0.038917,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.01625,
+      "fixtureID": "guardrail-long",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.012458,
+        "insertEntryToExit": 0.018584,
+        "insertExitToIdle": 0.018083,
+        "stopEntryToExit": 0.001875,
+        "stopExitToTranscribeEntry": 0.040041,
+        "transcribeEntryToExit": 115.5945,
+        "transcribeExitToInsertEntry": 0.05625
+      },
+      "transcript": "This longer guardrail sentence checks that a sustained dictation remains complete while the evaluator records every boundary and preserves the final local transcript without trimming any spoken audio from the beginning, middle or end.",
+      "visibleTextDispatchMs": 115.759833
+    },
+    {
+      "audioStopEntryMs": 0.058708,
+      "captureStartCompletionMs": 0.241875,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.016708,
+      "fixtureID": "guardrail-chunked",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.01225,
+        "insertEntryToExit": 0.012334,
+        "insertExitToIdle": 0.019375,
+        "stopEntryToExit": 0.00275,
+        "stopExitToTranscribeEntry": 0.034667,
+        "transcribeEntryToExit": 164.104583,
+        "transcribeExitToInsertEntry": 0.06525
+      },
+      "transcript": "This deliberately extended fixture crosses the long audio chunk boundary and continues with enough ordinary language to exercise segmentation decoder state and final transcript assembly. It must remain fully local and it must use the complete recording. Candidate improvements may reduce waiting time but they may never remove words shorten the audio coverage at a model instance or change the selected transcription model.",
+      "visibleTextDispatchMs": 164.265958
+    },
+    {
+      "audioStopEntryMs": 0.06,
+      "captureStartCompletionMs": 0.051625,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.024583,
+      "fixtureID": "guardrail-french",
+      "language": "fr",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P4",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.01025,
+        "insertEntryToExit": 0.010875,
+        "insertExitToIdle": 0.01925,
+        "stopEntryToExit": 0.002458,
+        "stopExitToTranscribeEntry": 0.03525,
+        "transcribeEntryToExit": 82.328125,
+        "transcribeExitToInsertEntry": 0.023375
+      },
+      "transcript": "La reconnaissance vocale reste locale et prot\u00e8ge chaque phrase dict\u00e9e.",
+      "visibleTextDispatchMs": 82.449208
+    }
+  ],
+  "schemaVersion": 1,
+  "transcriptDigests": {
+    "guardrail-chunked:parakeet-tdt-0.6b-v3-coreml:en": "f98904c8e64a73fd19b78515e5fd6f3c60412257b6e033338a7e007f27decc65",
+    "guardrail-french:parakeet-tdt-0.6b-v3-coreml:fr": "78244b29ba4985cb463fb48ceacc5c1b7fb47b785587e0e35c73b7d9fdab418e",
+    "guardrail-long:parakeet-tdt-0.6b-v3-coreml:en": "b6bfffd2d4819225bfa1b6ae712d5ec6b992c7d187bdbc26e8c1a3a868bed894",
+    "guardrail-short:parakeet-tdt-0.6b-v3-coreml:en": "50fb14f8f6d08e8e9d1ab3c4ebf0c5ee0d3cc4db9e23b5d0b540b5faff9c8b31"
+  },
+  "weightedScoreMs": null
+}

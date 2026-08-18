@@ -1,0 +1,407 @@
+{
+  "coldSamples": [
+    {
+      "audioStopEntryMs": 0.066042,
+      "captureStartCompletionMs": 101.701375,
+      "classification": "cold-launch",
+      "cueDispatchMs": 0.075625,
+      "fixtureID": "scored-01",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P5",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.037583,
+        "insertEntryToExit": 0.014459,
+        "insertExitToIdle": 0.035333,
+        "stopEntryToExit": 0.002167,
+        "stopExitToTranscribeEntry": 0.040208,
+        "transcribeEntryToExit": 126.560125,
+        "transcribeExitToInsertEntry": 0.024458
+      },
+      "transcript": "Box Hearth keeps every spoken word private and local.",
+      "visibleTextDispatchMs": 126.693
+    },
+    {
+      "audioStopEntryMs": 0.083958,
+      "captureStartCompletionMs": 61.868,
+      "classification": "cold-model-switch",
+      "cueDispatchMs": 0.025208,
+      "fixtureID": "scored-02",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P5",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.016416,
+        "insertEntryToExit": 0.011166,
+        "insertExitToIdle": 0.015792,
+        "stopEntryToExit": 0.001167,
+        "stopExitToTranscribeEntry": 0.033833,
+        "transcribeEntryToExit": 58.785458,
+        "transcribeExitToInsertEntry": 0.028459
+      },
+      "transcript": "The quick brown fox records a concise note for tomorrow.",
+      "visibleTextDispatchMs": 58.932875
+    },
+    {
+      "audioStopEntryMs": 0.072667,
+      "captureStartCompletionMs": 99.053333,
+      "classification": "cold-launch",
+      "cueDispatchMs": 0.077167,
+      "fixtureID": "scored-01",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P5",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.034959,
+        "insertEntryToExit": 0.017625,
+        "insertExitToIdle": 0.0345,
+        "stopEntryToExit": 0.003,
+        "stopExitToTranscribeEntry": 0.050208,
+        "transcribeEntryToExit": 130.684459,
+        "transcribeExitToInsertEntry": 0.022625
+      },
+      "transcript": "Box Hearth keeps every spoken word private and local.",
+      "visibleTextDispatchMs": 130.832959
+    },
+    {
+      "audioStopEntryMs": 0.0585,
+      "captureStartCompletionMs": 67.064792,
+      "classification": "cold-model-switch",
+      "cueDispatchMs": 0.016375,
+      "fixtureID": "scored-02",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P5",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.020542,
+        "insertEntryToExit": 0.009459,
+        "insertExitToIdle": 0.015958,
+        "stopEntryToExit": 0.001917,
+        "stopExitToTranscribeEntry": 0.029541,
+        "transcribeEntryToExit": 57.080459,
+        "transcribeExitToInsertEntry": 0.050666
+      },
+      "transcript": "The quick brown fox records a concise note for tomorrow.",
+      "visibleTextDispatchMs": 57.221083
+    },
+    {
+      "audioStopEntryMs": 0.075041,
+      "captureStartCompletionMs": 98.450416,
+      "classification": "cold-launch",
+      "cueDispatchMs": 0.0725,
+      "fixtureID": "scored-01",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P5",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.03775,
+        "insertEntryToExit": 0.026625,
+        "insertExitToIdle": 0.042292,
+        "stopEntryToExit": 0.002375,
+        "stopExitToTranscribeEntry": 0.047709,
+        "transcribeEntryToExit": 129.635333,
+        "transcribeExitToInsertEntry": 0.04525
+      },
+      "transcript": "Box Hearth keeps every spoken word private and local.",
+      "visibleTextDispatchMs": 129.805708
+    },
+    {
+      "audioStopEntryMs": 0.091417,
+      "captureStartCompletionMs": 64.926375,
+      "classification": "cold-model-switch",
+      "cueDispatchMs": 0.017791,
+      "fixtureID": "scored-02",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P5",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.016416,
+        "insertEntryToExit": 0.015,
+        "insertExitToIdle": 0.074333,
+        "stopEntryToExit": 0.001625,
+        "stopExitToTranscribeEntry": 0.0285,
+        "transcribeEntryToExit": 59.345917,
+        "transcribeExitToInsertEntry": 0.03225
+      },
+      "transcript": "The quick brown fox records a concise note for tomorrow.",
+      "visibleTextDispatchMs": 59.499709
+    }
+  ],
+  "components": {},
+  "counts": [
+    {
+      "captureCancel": 0,
+      "captureSnapshot": 0,
+      "captureStart": 2,
+      "captureStop": 2,
+      "enginePrepare": 2,
+      "engineTranscribe": 2,
+      "insert": 2
+    },
+    {
+      "captureCancel": 0,
+      "captureSnapshot": 0,
+      "captureStart": 2,
+      "captureStop": 2,
+      "enginePrepare": 2,
+      "engineTranscribe": 2,
+      "insert": 2
+    },
+    {
+      "captureCancel": 0,
+      "captureSnapshot": 0,
+      "captureStart": 2,
+      "captureStop": 2,
+      "enginePrepare": 2,
+      "engineTranscribe": 2,
+      "insert": 2
+    }
+  ],
+  "digests": {
+    "compactManifest": "e2fd13844503f8d73a5faf64136c9110eec9e06e560a3a27c4b967339a889607",
+    "evaluatorLock": "873dfe44838d38b49f7064ef89a577e1c6d73400569baeda7eed76f723a5de28",
+    "fixtureManifest": "cad221a5d56555ae0a2a923d1df0ed38120244c9764e32c4a87ee4aa6bcf0fe5",
+    "multilingualManifest": "25181f6e38da6262f3d3598061e0932558f2990e323407f038e1d93ed6307f51"
+  },
+  "dirty": false,
+  "environment": [
+    {
+      "architecture": "arm64",
+      "lowPowerMode": "false",
+      "operatingSystem": "Version 26.4 (Build 25E246)",
+      "thermalState": "NSProcessInfoThermalState(rawValue: 0)"
+    },
+    {
+      "architecture": "arm64",
+      "lowPowerMode": "false",
+      "operatingSystem": "Version 26.4 (Build 25E246)",
+      "thermalState": "NSProcessInfoThermalState(rawValue: 0)"
+    },
+    {
+      "architecture": "arm64",
+      "lowPowerMode": "false",
+      "operatingSystem": "Version 26.4 (Build 25E246)",
+      "thermalState": "NSProcessInfoThermalState(rawValue: 0)"
+    }
+  ],
+  "gitCommit": "ec2b19306d7978ae8c64a4869cebf6f4deb0f7a7",
+  "modelCapabilities": {
+    "models": {
+      "parakeet-tdt-0.6b-v3-coreml": {
+        "preprocessor": {
+          "audioInputName": "audio_signal",
+          "audioInputShape": [
+            1,
+            240000
+          ],
+          "hasShapeFlexibility": false,
+          "milMainType": "tensor<fp32, [1, 240000]>"
+        },
+        "rightSizingVerdict": "unsupported-no-op"
+      },
+      "parakeet-tdt-ctc-110m-coreml": {
+        "preprocessor": {
+          "audioInputName": "audio_signal",
+          "audioInputShape": [
+            1,
+            240000
+          ],
+          "hasShapeFlexibility": false,
+          "milMainType": "tensor<fp32, [1, 240000]>"
+        },
+        "rightSizingVerdict": "unsupported-no-op"
+      }
+    },
+    "schemaVersion": 1,
+    "source": "Verified compiled model metadata.json and model.mil from the locked payloads"
+  },
+  "objective": {
+    "p95Method": "R-7 linear interpolation",
+    "scoredProfile": "P0",
+    "warmOnly": true,
+    "weights": {
+      "audioStopEntryMs": 0.2,
+      "captureStartCompletionMs": 0.1,
+      "cueDispatchMs": 0.1,
+      "visibleTextDispatchMs": 0.6
+    }
+  },
+  "profile": "P5",
+  "repeatCount": 3,
+  "resources": {
+    "cpuSeconds": 2.239522,
+    "peakResidentBytes": 127451136,
+    "processes": [
+      {
+        "cpuSeconds": 0.741044,
+        "peakResidentBytes": 127188992
+      },
+      {
+        "cpuSeconds": 0.749145,
+        "peakResidentBytes": 127451136
+      },
+      {
+        "cpuSeconds": 0.749333,
+        "peakResidentBytes": 127352832
+      }
+    ]
+  },
+  "samples": [
+    {
+      "audioStopEntryMs": 0.066042,
+      "captureStartCompletionMs": 101.701375,
+      "classification": "cold-launch",
+      "cueDispatchMs": 0.075625,
+      "fixtureID": "scored-01",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P5",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.037583,
+        "insertEntryToExit": 0.014459,
+        "insertExitToIdle": 0.035333,
+        "stopEntryToExit": 0.002167,
+        "stopExitToTranscribeEntry": 0.040208,
+        "transcribeEntryToExit": 126.560125,
+        "transcribeExitToInsertEntry": 0.024458
+      },
+      "transcript": "Box Hearth keeps every spoken word private and local.",
+      "visibleTextDispatchMs": 126.693
+    },
+    {
+      "audioStopEntryMs": 0.083958,
+      "captureStartCompletionMs": 61.868,
+      "classification": "cold-model-switch",
+      "cueDispatchMs": 0.025208,
+      "fixtureID": "scored-02",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P5",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.016416,
+        "insertEntryToExit": 0.011166,
+        "insertExitToIdle": 0.015792,
+        "stopEntryToExit": 0.001167,
+        "stopExitToTranscribeEntry": 0.033833,
+        "transcribeEntryToExit": 58.785458,
+        "transcribeExitToInsertEntry": 0.028459
+      },
+      "transcript": "The quick brown fox records a concise note for tomorrow.",
+      "visibleTextDispatchMs": 58.932875
+    },
+    {
+      "audioStopEntryMs": 0.072667,
+      "captureStartCompletionMs": 99.053333,
+      "classification": "cold-launch",
+      "cueDispatchMs": 0.077167,
+      "fixtureID": "scored-01",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P5",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.034959,
+        "insertEntryToExit": 0.017625,
+        "insertExitToIdle": 0.0345,
+        "stopEntryToExit": 0.003,
+        "stopExitToTranscribeEntry": 0.050208,
+        "transcribeEntryToExit": 130.684459,
+        "transcribeExitToInsertEntry": 0.022625
+      },
+      "transcript": "Box Hearth keeps every spoken word private and local.",
+      "visibleTextDispatchMs": 130.832959
+    },
+    {
+      "audioStopEntryMs": 0.0585,
+      "captureStartCompletionMs": 67.064792,
+      "classification": "cold-model-switch",
+      "cueDispatchMs": 0.016375,
+      "fixtureID": "scored-02",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P5",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.020542,
+        "insertEntryToExit": 0.009459,
+        "insertExitToIdle": 0.015958,
+        "stopEntryToExit": 0.001917,
+        "stopExitToTranscribeEntry": 0.029541,
+        "transcribeEntryToExit": 57.080459,
+        "transcribeExitToInsertEntry": 0.050666
+      },
+      "transcript": "The quick brown fox records a concise note for tomorrow.",
+      "visibleTextDispatchMs": 57.221083
+    },
+    {
+      "audioStopEntryMs": 0.075041,
+      "captureStartCompletionMs": 98.450416,
+      "classification": "cold-launch",
+      "cueDispatchMs": 0.0725,
+      "fixtureID": "scored-01",
+      "language": "en",
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "profile": "P5",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.03775,
+        "insertEntryToExit": 0.026625,
+        "insertExitToIdle": 0.042292,
+        "stopEntryToExit": 0.002375,
+        "stopExitToTranscribeEntry": 0.047709,
+        "transcribeEntryToExit": 129.635333,
+        "transcribeExitToInsertEntry": 0.04525
+      },
+      "transcript": "Box Hearth keeps every spoken word private and local.",
+      "visibleTextDispatchMs": 129.805708
+    },
+    {
+      "audioStopEntryMs": 0.091417,
+      "captureStartCompletionMs": 64.926375,
+      "classification": "cold-model-switch",
+      "cueDispatchMs": 0.017791,
+      "fixtureID": "scored-02",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P5",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.016416,
+        "insertEntryToExit": 0.015,
+        "insertExitToIdle": 0.074333,
+        "stopEntryToExit": 0.001625,
+        "stopExitToTranscribeEntry": 0.0285,
+        "transcribeEntryToExit": 59.345917,
+        "transcribeExitToInsertEntry": 0.03225
+      },
+      "transcript": "The quick brown fox records a concise note for tomorrow.",
+      "visibleTextDispatchMs": 59.499709
+    }
+  ],
+  "schemaVersion": 1,
+  "transcriptDigests": {
+    "scored-01:parakeet-tdt-0.6b-v3-coreml:en": "599137a5ef2a969a46a29f22a62182a27a4d86033ef3392311217160c0a4eecf",
+    "scored-02:parakeet-tdt-ctc-110m-coreml:en": "b78d6bb4039e7434ba8b2fc23de129a8c3c424ec65c8d386fd31a11ac66c5417"
+  },
+  "weightedScoreMs": null
+}

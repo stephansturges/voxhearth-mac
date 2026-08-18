@@ -18,8 +18,9 @@ while IFS= read -r shell_script; do
 done < <(find scripts -maxdepth 1 -type f -name '*.sh' -print | sort)
 
 python_cache="$(mktemp -d "${TMPDIR:-/private/tmp}/voxhearth-pycache.XXXXXX")"
+inert_eval_dir="$(mktemp -d "${TMPDIR:-/private/tmp}/voxhearth-inert-eval.XXXXXX")"
 cleanup() {
-  rm -rf "$python_cache"
+  rm -rf "$python_cache" "$inert_eval_dir"
 }
 trap cleanup EXIT
 PYTHONPYCACHEPREFIX="$python_cache" python3 -m py_compile scripts/*.py
@@ -84,8 +85,8 @@ fi
 
 if git grep -n -E \
   'URLSession|URLRequest|URLProtocol|NW(Connection|Listener|Browser|PathMonitor)|import[[:space:]]+Network|CFSocket|CFStream|NSStream|NetworkExtension|WebSocket|(^|[^[:alnum:]_])socket[[:space:]]*\(|getaddrinfo|Sparkle|SUUpdater|SUFeedURL|Alamofire|Sentry|Telemetry|Analytics|HFClient|FileDownloader|AssetDownloader|downloadAndLoad|ModelHub' \
-  -- Sources Vendor/FluidAudioLocal; then
-  printf 'error: runtime source contains a forbidden networking, updater, or telemetry API\n' >&2
+  -- Sources Tests Vendor/FluidAudioLocal; then
+  printf 'error: runtime or test source contains a forbidden networking, updater, or telemetry API\n' >&2
   exit 1
 fi
 
@@ -109,10 +110,30 @@ if git grep -n -E '^[[:space:]]*\.package\(' -- Package.swift; then
 fi
 grep -Fq 'FluidAudioLocal' Package.swift
 grep -Fq '19600a485baa4998812e4654b70d2bab8f2c9949' Vendor/FluidAudioLocal/UPSTREAM.md
+python3 - <<'PY'
+from pathlib import Path
+
+source = Path("Sources/VoxHearthCore/ParakeetEngine.swift").read_text(encoding="utf-8")
+expected = """preprocessorConfiguration.computeUnits = model == .multilingual
+                ? .cpuOnly
+                : .cpuAndNeuralEngine"""
+if source.count(expected) != 1:
+    raise SystemExit(
+        "error: multilingual preprocessor must retain the measured cpuOnly placement"
+    )
+PY
 
 printf '%s\n' '==> Resolve, test, and build'
 swift package resolve
-swift test
+env -u VOXHEARTH_LATENCY_EVAL swift test
+inert_eval_output="$inert_eval_dir/result.json"
+env -u VOXHEARTH_LATENCY_EVAL \
+  VOXHEARTH_LATENCY_EVAL_OUTPUT="$inert_eval_output" \
+  swift test --filter latencyEvaluator
+[[ ! -e "$inert_eval_output" ]] || {
+  printf 'error: latency evaluator must remain inert without its opt-in flag\n' >&2
+  exit 1
+}
 swift build --configuration debug
 swift build --configuration release
 
