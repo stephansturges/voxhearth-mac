@@ -332,10 +332,9 @@ run_evaluator() {
 
   local run_root
   run_root="$(mktemp -d "${TMPDIR:-/private/tmp}/voxhearth-latency.XXXXXX")"
-  cleanup() {
-    rm -rf "$run_root"
-  }
-  trap cleanup EXIT
+  local cleanup_command
+  printf -v cleanup_command '/bin/rm -rf -- %q' "$run_root"
+  trap "$cleanup_command" EXIT
   mkdir -p "$run_root/home" "$run_root/clang-cache" "$run_root/swift-cache"
 
   local partials=()

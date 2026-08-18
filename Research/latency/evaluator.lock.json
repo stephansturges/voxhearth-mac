@@ -23,6 +23,6 @@
     {"path": "Tests/VoxHearthLatencyEval/EvaluatorFakes.swift", "sha256": "d7bad74a942cbc727e921ada66653d7ee491661314be8d375ec47f14b26b81d2"},
     {"path": "Tests/VoxHearthLatencyEval/LatencyEvaluator.swift", "sha256": "439535794324e1d1add3ecbf14b470cea998939e6f02ff6dafb4358e98a2267d"},
     {"path": "docs/ai/plans/ux-latency-autoresearch.md", "sha256": "edde06fde7624b0e6f72d021b1256079257a05cc10360cb34e9398c716c54f1c"},
-    {"path": "scripts/latency-eval.sh", "sha256": "0cc33a4ec8cfcd475bc1f2fd31925fb647c0dfddfc71921a9cff08faba78bddb"}
+    {"path": "scripts/latency-eval.sh", "sha256": "f24f904456af6c2c6f176237ed71551fc3f9e206fd04a4e8cda9beaa0ff307ab"}
   ]
 }
