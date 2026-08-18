@@ -10,6 +10,14 @@ Developer ID-signed, Apple-notarized releases.
 
 ## [Unreleased]
 
+### Engineering
+
+- Added an opt-in, network-denied real-model latency evaluator with fixed local
+  fixtures and reproducible warm, cold, transcript, CPU, and peak-RSS gates.
+- Retained the existing CPU-only multilingual preprocessor after every tested
+  compute-unit alternative slowed warm weighted p95 and regressed cold/resource
+  evidence; no experimental runtime change was promoted.
+
 ### Planned
 
 - Direct, phone-free Pebble Index 01 collection transfer, pending publication

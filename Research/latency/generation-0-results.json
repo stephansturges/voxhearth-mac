@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "sessionID": "voxhearth-ux-latency-20260818",
+  "evaluatorIdentity": "ff2457dae76e9156f28cefa2a04e34e93e255b5ce6f055a4d0c5b0c865cb148f",
+  "method": {
+    "networkDenied": true,
+    "p0FreshProcessesPerCandidate": 3,
+    "p5FreshProcessesPerCandidate": 3,
+    "scoredWarmSamplesPerCandidate": 27
+  },
+  "baseline": {
+    "sourceCommit": "f3ffb483f235b01037c9a67467d6926a601aa78e",
+    "weightedP95Ms": 48.088961579999996,
+    "measuredNoiseMs": 0.26096576999999144,
+    "requiredImprovementMs": 4.808896158,
+    "cpuSeconds": 4.894629,
+    "peakResidentBytes": 111558656,
+    "coldLaunchP95Ms": 91.7123753,
+    "coldLaunchAllowanceMs": 0.79223420000001,
+    "coldModelSwitchP95Ms": 53.6234917,
+    "coldModelSwitchAllowanceMs": 4.439125000000004
+  },
+  "candidates": [
+    {
+      "id": "preprocessor-cpu-gpu",
+      "sourceCommit": "20c381ed4469118ffee66c3d0c67adf2e3dd4552",
+      "computeUnits": "cpuAndGPU",
+      "weightedP95Ms": 51.88411344,
+      "improvementMs": -3.7951518600000043,
+      "cpuSeconds": 6.849705,
+      "peakResidentBytes": 134856704,
+      "coldLaunchP95Ms": 136.89270000000002,
+      "coldModelSwitchP95Ms": 60.1456167,
+      "componentGatePass": {
+        "cueDispatch": false,
+        "captureStartCompletion": true,
+        "audioStopEntry": false,
+        "visibleTextDispatch": false
+      },
+      "transcriptBytesIdentical": true,
+      "resourceGatePass": false,
+      "coldGatePass": false,
+      "promotionGatePass": false
+    },
+    {
+      "id": "preprocessor-cpu-ne",
+      "sourceCommit": "af7e07e24e1d24e69c5e8dafdf5d1ca6442ab74a",
+      "computeUnits": "cpuAndNeuralEngine",
+      "weightedP95Ms": 50.43777808,
+      "improvementMs": -2.348816500000005,
+      "cpuSeconds": 5.154526,
+      "peakResidentBytes": 123420672,
+      "coldLaunchP95Ms": 96.7677702,
+      "coldModelSwitchP95Ms": 65.02419139999999,
+      "componentGatePass": {
+        "cueDispatch": false,
+        "captureStartCompletion": true,
+        "audioStopEntry": false,
+        "visibleTextDispatch": false
+      },
+      "transcriptBytesIdentical": true,
+      "resourceGatePass": false,
+      "coldGatePass": false,
+      "promotionGatePass": false
+    },
+    {
+      "id": "preprocessor-all",
+      "sourceCommit": "ec2b19306d7978ae8c64a4869cebf6f4deb0f7a7",
+      "computeUnits": "all",
+      "weightedP95Ms": 51.47749461000001,
+      "improvementMs": -3.388533030000012,
+      "cpuSeconds": 5.317818,
+      "peakResidentBytes": 144424960,
+      "coldLaunchP95Ms": 130.7302339,
+      "coldModelSwitchP95Ms": 59.443025600000006,
+      "componentGatePass": {
+        "cueDispatch": false,
+        "captureStartCompletion": true,
+        "audioStopEntry": false,
+        "visibleTextDispatch": false
+      },
+      "transcriptBytesIdentical": true,
+      "resourceGatePass": false,
+      "coldGatePass": false,
+      "promotionGatePass": false
+    }
+  ],
+  "outcome": {
+    "acceptedCandidates": [],
+    "rejectedCandidates": [
+      "preprocessor-cpu-gpu",
+      "preprocessor-cpu-ne",
+      "preprocessor-all"
+    ],
+    "stopReason": "no_noise_significant_improvement",
+    "retainedConfiguration": "cpuOnly",
+    "secondGenerationRun": false
+  }
+}
