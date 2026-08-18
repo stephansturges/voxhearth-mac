@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "source": "Verified compiled model metadata.json and model.mil from the locked payloads",
+  "models": {
+    "parakeet-tdt-0.6b-v3-coreml": {
+      "preprocessor": {
+        "audioInputName": "audio_signal",
+        "audioInputShape": [1, 240000],
+        "hasShapeFlexibility": false,
+        "milMainType": "tensor<fp32, [1, 240000]>"
+      },
+      "rightSizingVerdict": "unsupported-no-op"
+    },
+    "parakeet-tdt-ctc-110m-coreml": {
+      "preprocessor": {
+        "audioInputName": "audio_signal",
+        "audioInputShape": [1, 240000],
+        "hasShapeFlexibility": false,
+        "milMainType": "tensor<fp32, [1, 240000]>"
+      },
+      "rightSizingVerdict": "unsupported-no-op"
+    }
+  }
+}

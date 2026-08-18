@@ -31,5 +31,9 @@ let package = Package(
             name: "VoxHearthAppTests",
             dependencies: ["VoxHearthApp", "VoxHearthCore"]
         ),
+        .testTarget(
+            name: "VoxHearthLatencyEval",
+            dependencies: ["VoxHearthCore"]
+        ),
     ]
 )
