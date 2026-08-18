@@ -67,7 +67,7 @@
           "always_on": true,
           "reuse": "never",
           "inputs": ["Package.swift", "Sources/VoxHearthCore/ParakeetEngine.swift", "Tests/VoxHearthCoreTests/ParakeetEngineTests.swift"],
-          "timeout_seconds": 300,
+          "timeout_seconds": 30,
           "expected_seconds": 20
         },
         {
@@ -96,7 +96,7 @@
           "always_on": true,
           "reuse": "never",
           "inputs": ["Package.swift", "Sources/VoxHearthCore/ParakeetEngine.swift", "Tests/VoxHearthCoreTests/ParakeetEngineTests.swift"],
-          "timeout_seconds": 300,
+          "timeout_seconds": 30,
           "expected_seconds": 20
         },
         {
@@ -125,7 +125,7 @@
           "always_on": true,
           "reuse": "never",
           "inputs": ["Package.swift", "Sources/VoxHearthCore/ParakeetEngine.swift", "Tests/VoxHearthCoreTests/ParakeetEngineTests.swift"],
-          "timeout_seconds": 300,
+          "timeout_seconds": 30,
           "expected_seconds": 20
         },
         {
