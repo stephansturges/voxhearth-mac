@@ -16,6 +16,14 @@ Developer ID-signed, Apple-notarized releases.
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
 
+## [0.3.0-dev.3] - 2026-08-18
+
+### Fixed
+
+- Advanced the internal bundle build from 947 to 948 so Macs already running
+  build 947 recognize this replacement as a new build and show the required
+  update/Accessibility setup flow.
+
 ## [0.3.0-dev.2] - 2026-08-18
 
 ### Fixed
@@ -133,7 +141,8 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.2...HEAD
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.3...HEAD
+[0.3.0-dev.3]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.3
 [0.3.0-dev.2]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.2
 [0.3.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.1
 [0.2.1-dev.3]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.3

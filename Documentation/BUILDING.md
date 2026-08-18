@@ -134,7 +134,7 @@ artifact before rebuilding.
 
 The automated development path is
 `.github/workflows/development-release.yml`. It requires no Apple secrets and
-publishes only tag `v0.3.0-dev.2` as a GitHub prerelease. It must not be renamed
+publishes only tag `v0.3.0-dev.3` as a GitHub prerelease. It must not be renamed
 to `VoxHearth-v0.3.0.dmg`, marked as the latest stable release, or described as
 signed/notarized.
 
