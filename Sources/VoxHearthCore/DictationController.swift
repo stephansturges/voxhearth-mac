@@ -140,11 +140,14 @@ public final class DictationController {
 
     public func startDictation() async {
         guard state == .idle || Self.isFailureState(state) else { return }
+        logger.info(.dictationStartAccepted)
         clearPendingTranscript()
         state = .preparing
 
         do {
+            logger.info(.startCueStarted)
             await onStartCue?()
+            logger.info(.startCueCompleted)
             try Task.checkCancellation()
             try await transcriptionEngine.prepare(model: settings.transcriptionModel)
             try Task.checkCancellation()
@@ -174,14 +177,21 @@ public final class DictationController {
 
     public func stopDictation() async {
         guard state == .recording else { return }
+        logger.info(.dictationStopAccepted)
         // Transition before the actor hop so simultaneous hotkey/limit stops
         // cannot both consume the same capture session.
         state = .transcribing
         recordingStartedAt = nil
-        stopLiveTranscriptPreview(clearText: false)
+        let cancelledPreviewTask = stopLiveTranscriptPreview(clearText: false)
 
         do {
+            // Release the tap and AVAudioEngine before waiting for an in-flight
+            // preview. The microphone indicator should react immediately even
+            // when Core ML takes time to acknowledge cancellation.
             let audio = try await audioCapture.stop()
+            // A Parakeet actor can re-enter while awaiting Core ML. Joining the
+            // cancelled preview prevents final inference from overlapping it.
+            await cancelledPreviewTask?.value
             await transcribeAndInsert(audio)
         } catch is CancellationError {
             transcriptionTask = nil
@@ -249,8 +259,9 @@ public final class DictationController {
     public func cancelDictation() async {
         transcriptionTask?.cancel()
         transcriptionTask = nil
-        stopLiveTranscriptPreview(clearText: true)
+        let cancelledPreviewTask = stopLiveTranscriptPreview(clearText: true)
         await audioCapture.cancel()
+        await cancelledPreviewTask?.value
         recordingStartedAt = nil
         state = .idle
     }
@@ -277,6 +288,7 @@ public final class DictationController {
         do {
             let selectedLanguage = settings.language
             let selectedModel = settings.transcriptionModel
+            logger.info(.finalTranscriptionStarted)
             let task = Task {
                 try await transcriptionEngine.transcribe(
                     audio,
@@ -287,6 +299,7 @@ public final class DictationController {
             transcriptionTask = task
             let transcript = try await task.value
             transcriptionTask = nil
+            logger.info(.finalTranscriptionCompleted)
 
             guard !transcript.isEmpty else {
                 scheduleLiveTranscriptPreviewDismissal()
@@ -299,6 +312,7 @@ public final class DictationController {
             }
 
             state = .inserting
+            logger.info(.textInsertionStarted)
             _ = try await textInserter.insert(
                 transcript,
                 clipboardFallbackEnabled: settings.clipboardCompatibilityEnabled
@@ -343,15 +357,14 @@ public final class DictationController {
 
     private func refreshLiveTranscriptPreview() async {
         guard state == .recording, settings.liveTranscriptOverlayEnabled,
-              let audio = await audioCapture.snapshot(),
+              let audio = await audioCapture.snapshot(maximumDuration: livePreviewWindow),
               audio.duration >= livePreviewMinimumDuration else { return }
 
         let selectedLanguage = settings.language
         let selectedModel = settings.transcriptionModel
-        let boundedAudio = Self.trailingPreviewWindow(audio, maximumDuration: livePreviewWindow)
         do {
             let text = try await transcriptionEngine.transcribe(
-                boundedAudio,
+                audio,
                 language: selectedLanguage,
                 model: selectedModel
             )
@@ -366,26 +379,17 @@ public final class DictationController {
         }
     }
 
-    private static func trailingPreviewWindow(
-        _ audio: CapturedAudio,
-        maximumDuration: TimeInterval
-    ) -> CapturedAudio {
-        let maximumSamples = max(1, Int((audio.sampleRate * maximumDuration).rounded(.down)))
-        guard audio.samples.count > maximumSamples else { return audio }
-        return CapturedAudio(
-            samples: Array(audio.samples.suffix(maximumSamples)),
-            sampleRate: audio.sampleRate
-        )
-    }
-
-    private func stopLiveTranscriptPreview(clearText: Bool) {
-        livePreviewTask?.cancel()
+    @discardableResult
+    private func stopLiveTranscriptPreview(clearText: Bool) -> Task<Void, Never>? {
+        let task = livePreviewTask
+        task?.cancel()
         livePreviewTask = nil
         if clearText {
             livePreviewDismissTask?.cancel()
             livePreviewDismissTask = nil
             publishLiveTranscriptPreview(nil)
         }
+        return task
     }
 
     private func publishLiveTranscriptPreview(_ text: String?) {

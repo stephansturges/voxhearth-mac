@@ -54,6 +54,30 @@ release configurations, validates shell and Python helpers, validates both model
 manifest, checks action pins, rejects tracked model/release secrets, and scans
 the runtime source for forbidden networking/updater APIs.
 
+## Diagnose dictation latency
+
+VoxHearth emits only fixed-name lifecycle markers. To inspect timing without
+recording audio, transcript text, clipboard contents, or paths, run:
+
+```sh
+/usr/bin/log stream --level info --style compact \
+  --predicate 'subsystem == "com.stephansturges.voxhearth"'
+```
+
+A normal hold-to-talk session follows this sequence:
+
+```text
+hotkey_pressed → dictation_start_accepted → start_cue_started
+→ start_cue_completed → audio_capture_started
+
+hotkey_released → dictation_stop_accepted → audio_capture_stopped
+→ final_transcription_started → final_transcription_completed
+→ text_insertion_started → text_insertion_completed
+```
+
+The timestamps identify which boundary is delayed while keeping dictated
+content outside logs.
+
 ## Fetch the build-only models
 
 ```sh
@@ -110,7 +134,7 @@ artifact before rebuilding.
 
 The automated development path is
 `.github/workflows/development-release.yml`. It requires no Apple secrets and
-publishes only tag `v0.3.0-dev.1` as a GitHub prerelease. It must not be renamed
+publishes only tag `v0.3.0-dev.2` as a GitHub prerelease. It must not be renamed
 to `VoxHearth-v0.3.0.dmg`, marked as the latest stable release, or described as
 signed/notarized.
 

@@ -2,6 +2,12 @@ import Foundation
 import OSLog
 
 public enum PrivacyLogEvent: String, Sendable {
+    case hotkeyPressed = "hotkey_pressed"
+    case hotkeyReleased = "hotkey_released"
+    case dictationStartAccepted = "dictation_start_accepted"
+    case dictationStopAccepted = "dictation_stop_accepted"
+    case startCueStarted = "start_cue_started"
+    case startCueCompleted = "start_cue_completed"
     case audioCaptureStarted = "audio_capture_started"
     case audioCaptureStopped = "audio_capture_stopped"
     case audioCaptureCancelled = "audio_capture_cancelled"
@@ -10,6 +16,9 @@ public enum PrivacyLogEvent: String, Sendable {
     case localModelLoadCompleted = "local_model_load_completed"
     case localTranscriptionStarted = "local_transcription_started"
     case localTranscriptionCompleted = "local_transcription_completed"
+    case finalTranscriptionStarted = "final_transcription_started"
+    case finalTranscriptionCompleted = "final_transcription_completed"
+    case textInsertionStarted = "text_insertion_started"
     case textInsertionCompleted = "text_insertion_completed"
     case operationFailed = "operation_failed"
 }

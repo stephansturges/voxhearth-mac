@@ -16,6 +16,24 @@ Developer ID-signed, Apple-notarized releases.
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
 
+## [0.3.0-dev.2] - 2026-08-18
+
+### Fixed
+
+- The hidden live-preview panel now stops its waveform animation between
+  dictation sessions, restoring an idle main run loop and prompt shortcut,
+  acknowledgement-cue, and microphone-release handling.
+- Live preview copies only its bounded trailing eight-second audio window
+  instead of sharing the full growing capture buffer.
+- Final transcription now waits for a cancelled preview inference to quiesce,
+  while microphone capture is stopped first, preventing simultaneous Core ML
+  work from delaying the final result.
+
+### Added
+
+- Privacy-safe lifecycle markers for shortcut press/release, cue playback,
+  final transcription, and insertion, without logging audio or transcript text.
+
 ## [0.3.0-dev.1] - 2026-08-11
 
 ### Added
@@ -115,7 +133,8 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.1...HEAD
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.2...HEAD
+[0.3.0-dev.2]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.2
 [0.3.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.1
 [0.2.1-dev.3]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.3
 [0.2.1-dev.2]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.2.1-dev.2

@@ -142,12 +142,14 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
 
         do {
             logger.info(.localTranscriptionStarted)
+            try Task.checkCancellation()
             let normalizedSamples = try PCMResampler.resample(
                 audio.samples,
                 from: audio.sampleRate,
                 to: 16_000
             )
             var decoderState = try TdtDecoderState(decoderLayers: model.decoderLayers)
+            try Task.checkCancellation()
             let result = try await manager.transcribe(
                 normalizedSamples,
                 decoderState: &decoderState,
@@ -155,6 +157,8 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
             )
             logger.info(.localTranscriptionCompleted)
             return result.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let error as ParakeetEngineError {
             logger.error(.operationFailed, error: error)
             throw error
