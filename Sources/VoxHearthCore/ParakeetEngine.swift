@@ -11,6 +11,7 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
     private let modelDirectoryURLs: [TranscriptionModel: URL]
     private var manager: AsrManager?
     private let logger = PrivacySafeLogger(category: "LocalTranscription")
+    private let signposter = PrivacySafeSignposter(category: "LocalTranscription")
 
     public private(set) var isPrepared = false
     public private(set) var preparedModel: TranscriptionModel?
@@ -142,21 +143,44 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
 
         do {
             logger.info(.localTranscriptionStarted)
-            try Task.checkCancellation()
-            let normalizedSamples = try PCMResampler.resample(
-                audio.samples,
-                from: audio.sampleRate,
-                to: 16_000
-            )
-            var decoderState = try TdtDecoderState(decoderLayers: model.decoderLayers)
-            try Task.checkCancellation()
-            let result = try await manager.transcribe(
-                normalizedSamples,
-                decoderState: &decoderState,
-                language: model == .multilingual ? language.fluidAudioLanguage : nil
-            )
+            let transcript: String
+            do {
+                try Task.checkCancellation()
+                logger.info(.audioResampleStarted)
+                let resampleInterval = signposter.begin(.audioResampleStarted)
+                let normalizedSamples: [Float]
+                do {
+                    defer {
+                        signposter.end(.audioResampleCompleted, resampleInterval)
+                        logger.info(.audioResampleCompleted)
+                    }
+                    normalizedSamples = try PCMResampler.resample(
+                        audio.samples,
+                        from: audio.sampleRate,
+                        to: 16_000
+                    )
+                }
+                var decoderState = try TdtDecoderState(decoderLayers: model.decoderLayers)
+                try Task.checkCancellation()
+                let transcriptionInterval = signposter.begin(.localTranscriptionStarted)
+                let result: ASRResult
+                do {
+                    defer {
+                        signposter.end(.localInferenceReturned, transcriptionInterval)
+                    }
+                    result = try await manager.transcribe(
+                        normalizedSamples,
+                        decoderState: &decoderState,
+                        language: model == .multilingual ? language.fluidAudioLanguage : nil
+                    )
+                }
+                logger.info(.localInferenceReturned)
+                transcript = result.text.trimmingCharacters(
+                    in: CharacterSet.whitespacesAndNewlines
+                )
+            }
             logger.info(.localTranscriptionCompleted)
-            return result.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            return transcript
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as ParakeetEngineError {
@@ -166,6 +190,24 @@ public actor ParakeetEngine: LocalTranscriptionEngine {
             logger.error(.operationFailed, error: error)
             throw ParakeetEngineError.transcriptionFailed
         }
+    }
+
+    public func releasePooledBuffers() async {
+        guard let manager else { return }
+        await manager.reset()
+        // FluidAudio's reset schedules the cache clear internally. This marker
+        // deliberately records the request, not synchronous deallocation.
+        logger.info(.pooledBuffersReleaseRequested)
+    }
+
+    public func recover(model: TranscriptionModel) async throws {
+        if let manager {
+            await manager.cleanup()
+            self.manager = nil
+        }
+        isPrepared = false
+        preparedModel = nil
+        try await prepare(model: model)
     }
 
     static func validateAssets(in directory: URL, model: TranscriptionModel) throws {

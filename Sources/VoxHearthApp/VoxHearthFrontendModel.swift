@@ -163,11 +163,11 @@ final class VoxHearthFrontendModel {
         interfaceError = nil
         switch controller.state {
         case .recording:
-            Task { await controller.stopDictation() }
+            controller.requestStop()
         case .preparing, .transcribing, .inserting:
             break
         case .idle, .failed:
-            Task { await controller.startDictation() }
+            controller.requestStart()
         }
     }
 
@@ -470,6 +470,8 @@ final class VoxHearthFrontendModel {
             "Allow Accessibility access so VoxHearth can insert text."
         case .insertionFailed:
             "The destination app did not accept the transcription."
+        case .insertionUncertain:
+            "VoxHearth could not confirm the text was inserted. Check the field, then retry or discard the in-memory transcript."
         }
     }
 }

@@ -12,6 +12,7 @@ private actor MockAudioCapture: AudioCapturing {
     private(set) var snapshotCount = 0
     private(set) var snapshotMaximumDurations: [TimeInterval] = []
     private(set) var requestedInputDeviceUIDs: [String?] = []
+    private(set) var startPriorities: [TaskPriority] = []
 
     func availableInputDevices() async -> [AudioInputDevice] { [] }
 
@@ -20,6 +21,7 @@ private actor MockAudioCapture: AudioCapturing {
         maximumDurationReached: @escaping @Sendable () async -> Void
     ) async throws -> AudioInputSelection {
         startCount += 1
+        startPriorities.append(Task.currentPriority)
         requestedInputDeviceUIDs.append(inputDeviceUID)
         if let startError { throw startError }
         return startSelection
@@ -55,6 +57,8 @@ private actor MockTranscriptionEngine: LocalTranscriptionEngine {
     private(set) var transcribeCount = 0
     private(set) var languages: [DictationLanguage] = []
     private(set) var models: [TranscriptionModel] = []
+    private(set) var releasePooledBuffersCount = 0
+    private(set) var recoveryCount = 0
 
     func prepare(model: TranscriptionModel) async throws {
         prepareCount += 1
@@ -71,6 +75,85 @@ private actor MockTranscriptionEngine: LocalTranscriptionEngine {
         languages.append(language)
         models.append(model)
         return transcript
+    }
+
+    func releasePooledBuffers() async {
+        releasePooledBuffersCount += 1
+    }
+
+    func recover(model: TranscriptionModel) async throws {
+        recoveryCount += 1
+        models.append(model)
+    }
+}
+
+private actor GatedPrepareEngine: LocalTranscriptionEngine {
+    private(set) var prepareCount = 0
+    private var firstPrepareContinuation: CheckedContinuation<Void, Never>?
+
+    func prepare(model: TranscriptionModel) async throws {
+        _ = model
+        prepareCount += 1
+        if prepareCount == 1 {
+            await withCheckedContinuation { continuation in
+                firstPrepareContinuation = continuation
+            }
+        }
+    }
+
+    func transcribe(
+        _ audio: CapturedAudio,
+        language: DictationLanguage,
+        model: TranscriptionModel
+    ) async throws -> String {
+        _ = audio
+        _ = language
+        _ = model
+        return "dictated locally"
+    }
+
+    func releaseFirstPrepare() {
+        firstPrepareContinuation?.resume()
+        firstPrepareContinuation = nil
+    }
+}
+
+private actor TransientPreviewEngine: LocalTranscriptionEngine {
+    private(set) var transcribeCount = 0
+
+    func prepare(model: TranscriptionModel) async throws { _ = model }
+
+    func transcribe(
+        _ audio: CapturedAudio,
+        language: DictationLanguage,
+        model: TranscriptionModel
+    ) async throws -> String {
+        _ = audio
+        _ = language
+        _ = model
+        transcribeCount += 1
+        if transcribeCount == 1 {
+            throw ParakeetEngineError.transcriptionFailed
+        }
+        return "preview recovered"
+    }
+}
+
+private actor PersistentPreviewFailureEngine: LocalTranscriptionEngine {
+    private(set) var transcribeCount = 0
+
+    func prepare(model: TranscriptionModel) async throws { _ = model }
+
+    func transcribe(
+        _ audio: CapturedAudio,
+        language: DictationLanguage,
+        model: TranscriptionModel
+    ) async throws -> String {
+        _ = audio
+        _ = language
+        _ = model
+        transcribeCount += 1
+        throw ParakeetEngineError.transcriptionFailed
     }
 }
 
@@ -111,6 +194,7 @@ private actor NonCooperativePreviewEngine: LocalTranscriptionEngine {
 private final class MockTextInserter: TextInserting {
     private(set) var insertedTexts: [String] = []
     private(set) var clipboardFlags: [Bool] = []
+    private(set) var priorities: [TaskPriority] = []
     var error: TextInsertionError?
 
     func insert(
@@ -118,9 +202,70 @@ private final class MockTextInserter: TextInserting {
         clipboardFallbackEnabled: Bool
     ) async throws -> TextInsertionMethod {
         if let error { throw error }
+        priorities.append(Task.currentPriority)
         insertedTexts.append(text)
         clipboardFlags.append(clipboardFallbackEnabled)
         return .accessibility
+    }
+}
+
+@MainActor
+private final class BlockingRetryInserter: TextInserting {
+    private(set) var insertCount = 0
+    private var shouldFail = true
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func insert(
+        _ text: String,
+        clipboardFallbackEnabled: Bool
+    ) async throws -> TextInsertionMethod {
+        _ = text
+        _ = clipboardFallbackEnabled
+        if shouldFail {
+            shouldFail = false
+            throw TextInsertionError.insertionFailed
+        }
+        insertCount += 1
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+        return .accessibility
+    }
+
+    func release() {
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
+@MainActor
+private final class CountingLifecycleActivityAsserter: LifecycleActivityAsserting {
+    private final class Token: NSObject {}
+
+    private(set) var beginOptions: [ProcessInfo.ActivityOptions] = []
+    private(set) var beginCount = 0
+    private(set) var endCount = 0
+    private(set) var liveTokens: Set<ObjectIdentifier> = []
+    private(set) var maximumLiveTokenCount = 0
+
+    func beginActivity(
+        options: ProcessInfo.ActivityOptions,
+        reason: String
+    ) -> any NSObjectProtocol {
+        _ = reason
+        let token = Token()
+        beginOptions.append(options)
+        beginCount += 1
+        liveTokens.insert(ObjectIdentifier(token))
+        maximumLiveTokenCount = max(maximumLiveTokenCount, liveTokens.count)
+        return token
+    }
+
+    func endActivity(_ activity: any NSObjectProtocol) {
+        endCount += 1
+        if let token = activity as? Token {
+            liveTokens.remove(ObjectIdentifier(token))
+        }
     }
 }
 
@@ -277,6 +422,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     let audio = MockAudioCapture()
     let engine = NonCooperativePreviewEngine()
     let inserter = MockTextInserter()
+    let recorder = LivePreviewRecorder()
     let controller = DictationController(
         transcriptionEngine: engine,
         settings: AppSettings(liveTranscriptOverlayEnabled: true),
@@ -286,6 +432,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         livePreviewInterval: .milliseconds(1),
         livePreviewMinimumDuration: 0
     )
+    controller.onLiveTranscriptPreview = { recorder.values.append($0) }
 
     await controller.startDictation()
     for _ in 0..<500 {
@@ -300,6 +447,96 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(await engine.transcribeCount == 2)
     #expect(await engine.maximumActiveTranscriptions == 1)
     #expect(inserter.insertedTexts == ["final"])
+    #expect(!recorder.values.contains("preview"))
+    #expect(recorder.values.contains("final"))
+}
+
+@Test func defaultPreviewLatencyBudgetHasAnAbsoluteFloor() {
+    #expect(
+        DictationController.defaultLivePreviewLatencyBudget(for: .milliseconds(100))
+            == .seconds(2)
+    )
+    #expect(
+        DictationController.defaultLivePreviewLatencyBudget(for: .seconds(1))
+            == .seconds(4)
+    )
+}
+
+@Test @MainActor func disablingPreviewStillJoinsBeforeFinalTranscription() async throws {
+    let audio = MockAudioCapture()
+    let engine = NonCooperativePreviewEngine()
+    let inserter = MockTextInserter()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: AppSettings(liveTranscriptOverlayEnabled: true),
+        audioCapture: audio,
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        livePreviewInterval: .milliseconds(1),
+        livePreviewMinimumDuration: 0
+    )
+
+    await controller.startDictation()
+    for _ in 0..<500 {
+        if await engine.transcribeCount == 1 { break }
+        await Task.yield()
+    }
+    #expect(await engine.transcribeCount == 1)
+
+    try controller.applySettings(AppSettings(liveTranscriptOverlayEnabled: false))
+    await controller.stopDictation()
+
+    #expect(await engine.transcribeCount == 2)
+    #expect(await engine.maximumActiveTranscriptions == 1)
+    #expect(inserter.insertedTexts == ["final"])
+}
+
+@Test @MainActor func transientPreviewFailureRetriesWithinRecording() async {
+    let engine = TransientPreviewEngine()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: AppSettings(liveTranscriptOverlayEnabled: true),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        livePreviewInterval: .zero,
+        livePreviewMinimumDuration: 0,
+        livePreviewLatencyBudget: .seconds(60)
+    )
+
+    await controller.startDictation()
+    await waitUntil(attempts: 500) {
+        controller.liveTranscriptPreview == "preview recovered"
+    }
+
+    #expect(await engine.transcribeCount >= 2)
+    #expect(controller.state == .recording)
+    await controller.cancelDictation()
+}
+
+@Test @MainActor func persistentPreviewFailuresOpenBoundedCircuit() async {
+    let engine = PersistentPreviewFailureEngine()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: AppSettings(liveTranscriptOverlayEnabled: true),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        livePreviewInterval: .zero,
+        livePreviewMinimumDuration: 0,
+        livePreviewLatencyBudget: .seconds(60)
+    )
+
+    await controller.startDictation()
+    for _ in 0..<500 {
+        if await engine.transcribeCount == 3 { break }
+        await Task.yield()
+    }
+    for _ in 0..<50 { await Task.yield() }
+
+    #expect(await engine.transcribeCount == 3)
+    #expect(controller.state == .recording)
+    await controller.cancelDictation()
 }
 
 @Test @MainActor func controllerPreparesSelectedCompactModelInEnglish() async {
@@ -484,6 +721,55 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(inserter.insertedTexts == ["dictated locally"])
 }
 
+@Test @MainActor func concurrentRetryRequestsInsertOnlyOnce() async {
+    let inserter = BlockingRetryInserter()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService()
+    )
+
+    await controller.startDictation()
+    await controller.stopDictation()
+    #expect(controller.pendingTranscript == "dictated locally")
+
+    let first = Task { @MainActor in await controller.retryPendingInsertion() }
+    await waitUntil { controller.state == .inserting }
+    let second = Task { @MainActor in await controller.retryPendingInsertion() }
+    await Task.yield()
+    inserter.release()
+    await first.value
+    await second.value
+
+    #expect(inserter.insertCount == 1)
+    #expect(controller.pendingTranscript == nil)
+    #expect(controller.state == .idle)
+}
+
+@Test @MainActor func uncertainInsertionRequiresExplicitRetry() async {
+    let inserter = MockTextInserter()
+    inserter.error = .insertionUncertain
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService()
+    )
+
+    await controller.startDictation()
+    await controller.stopDictation()
+    #expect(controller.state == .failed(.insertionUncertain))
+    #expect(controller.pendingTranscript == "dictated locally")
+    #expect(inserter.insertedTexts.isEmpty)
+
+    inserter.error = nil
+    await controller.retryPendingInsertion()
+    #expect(controller.pendingTranscript == nil)
+    #expect(controller.state == .idle)
+    #expect(inserter.insertedTexts == ["dictated locally"])
+}
+
 @Test @MainActor func pendingTranscriptExpiresFromMemory() async {
     let inserter = MockTextInserter()
     inserter.error = .insertionFailed
@@ -520,6 +806,85 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(controller.state == .idle)
 }
 
+@Test @MainActor func staleCancelledStartCannotClobberNewPress() async throws {
+    let hotkey = MockHotkeyService()
+    let audio = MockAudioCapture()
+    let engine = GatedPrepareEngine()
+    let activity = CountingLifecycleActivityAsserter()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        audioCapture: audio,
+        textInserter: MockTextInserter(),
+        hotkeyService: hotkey,
+        lifecycleActivityAsserter: activity
+    )
+    try controller.activate()
+
+    hotkey.emit(.pressed)
+    for _ in 0..<500 {
+        if await engine.prepareCount == 1 { break }
+        await Task.yield()
+    }
+    #expect(await engine.prepareCount == 1)
+    hotkey.emit(.released)
+    #expect(controller.state == .idle)
+    hotkey.emit(.pressed)
+    #expect(controller.state == .preparing)
+    await engine.releaseFirstPrepare()
+    await waitUntil { controller.state == .recording }
+
+    #expect(controller.state == .recording)
+    #expect(activity.liveTokens.count == 1)
+    #expect(activity.beginCount - activity.endCount == 1)
+    #expect(await audio.cancelCount == 1)
+    await controller.cancelDictation()
+}
+
+@Test @MainActor func backgroundPreparationCannotClobberQueuedHotkeyStart() async throws {
+    let hotkey = MockHotkeyService()
+    let audio = MockAudioCapture()
+    let engine = GatedPrepareEngine()
+    let activity = CountingLifecycleActivityAsserter()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        audioCapture: audio,
+        textInserter: MockTextInserter(),
+        hotkeyService: hotkey,
+        lifecycleActivityAsserter: activity
+    )
+    try controller.activate()
+
+    let backgroundPreparation = Task { @MainActor in
+        await controller.prepareEngine()
+    }
+    for _ in 0..<500 {
+        if await engine.prepareCount == 1 { break }
+        await Task.yield()
+    }
+    #expect(controller.state == .preparing)
+
+    hotkey.emit(.released)
+    #expect(controller.state == .preparing)
+
+    hotkey.emit(.pressed)
+    #expect(controller.state == .preparing)
+    hotkey.emit(.released)
+    #expect(controller.state == .idle)
+    hotkey.emit(.pressed)
+    #expect(controller.state == .preparing)
+
+    await engine.releaseFirstPrepare()
+    await backgroundPreparation.value
+    await waitUntil(attempts: 500) { controller.state == .recording }
+
+    #expect(controller.state == .recording)
+    #expect(await engine.prepareCount == 2)
+    #expect(await audio.startCount == 1)
+    #expect(activity.liveTokens.count == 1)
+    #expect(activity.beginCount - activity.endCount == 1)
+    await controller.cancelDictation()
+}
+
 @Test @MainActor func pointerButtonRegistersHoldToTalkPhases() async throws {
     let pointer = MockPointerButtonService()
     var settings = AppSettings.default
@@ -540,6 +905,234 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     pointer.emit(.released)
     await waitUntil { controller.state == .idle }
     #expect(controller.state == .idle)
+}
+
+@Test @MainActor func hotkeyAcceptsPressAndReleaseSynchronously() throws {
+    let hotkey = MockHotkeyService()
+    let activity = CountingLifecycleActivityAsserter()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: hotkey,
+        lifecycleActivityAsserter: activity
+    )
+    try controller.activate()
+
+    hotkey.emit(.pressed)
+    #expect(controller.state == .preparing)
+    #expect(activity.beginCount == 1)
+    #expect(activity.liveTokens.count == 1)
+
+    hotkey.emit(.pressed)
+    #expect(activity.beginCount == 1)
+
+    hotkey.emit(.released)
+    #expect(controller.state == .idle)
+    #expect(activity.beginCount == activity.endCount)
+    #expect(activity.liveTokens.isEmpty)
+
+    hotkey.emit(.released)
+    #expect(activity.beginCount == activity.endCount)
+}
+
+@Test @MainActor func successfulSessionNarrowsAndBalancesLifecycleActivity() async {
+    let activity = CountingLifecycleActivityAsserter()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        lifecycleActivityAsserter: activity
+    )
+
+    await controller.startDictation()
+    #expect(controller.state == .recording)
+    #expect(activity.liveTokens.count == 1)
+    await controller.stopDictation()
+
+    #expect(controller.state == .idle)
+    #expect(activity.beginCount == 2)
+    #expect(activity.endCount == 2)
+    #expect(activity.maximumLiveTokenCount == 2)
+    #expect(activity.liveTokens.isEmpty)
+    #expect(activity.beginOptions[0].contains(.latencyCritical))
+    #expect(activity.beginOptions[0].contains(.userInitiatedAllowingIdleSystemSleep))
+    #expect(!activity.beginOptions[1].contains(.latencyCritical))
+    #expect(activity.beginOptions[1].contains(.userInitiatedAllowingIdleSystemSleep))
+}
+
+@Test @MainActor func lifecycleActivityBalancesOnStartAndInsertionFailures() async {
+    let startActivity = CountingLifecycleActivityAsserter()
+    let failedCapture = MockAudioCapture()
+    await failedCapture.setStartError(.microphoneUnavailable)
+    let startController = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: failedCapture,
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        lifecycleActivityAsserter: startActivity
+    )
+    await startController.startDictation()
+    #expect(startController.state == .failed(.microphoneUnavailable))
+    #expect(startActivity.beginCount == startActivity.endCount)
+    #expect(startActivity.liveTokens.isEmpty)
+
+    let insertionActivity = CountingLifecycleActivityAsserter()
+    let failedInserter = MockTextInserter()
+    failedInserter.error = .insertionUncertain
+    let insertionController = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: failedInserter,
+        hotkeyService: MockHotkeyService(),
+        lifecycleActivityAsserter: insertionActivity
+    )
+    await insertionController.startDictation()
+    await insertionController.stopDictation()
+    #expect(insertionController.state == .failed(.insertionUncertain))
+    #expect(insertionActivity.beginCount == insertionActivity.endCount)
+    #expect(insertionActivity.liveTokens.isEmpty)
+}
+
+@Test @MainActor func userVisiblePipelineRunsAtUserInitiatedPriority() async {
+    let audio = MockAudioCapture()
+    let inserter = MockTextInserter()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: audio,
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService()
+    )
+
+    await controller.startDictation()
+    await controller.stopDictation()
+
+    #expect(await audio.startPriorities == [.userInitiated])
+    #expect(inserter.priorities == [.userInitiated])
+}
+
+@Test @MainActor func lifecycleActivityBalancesForCancelExternalRetryAndDeactivate() async {
+    let cancelActivity = CountingLifecycleActivityAsserter()
+    let cancelController = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        lifecycleActivityAsserter: cancelActivity
+    )
+    await cancelController.startDictation()
+    await cancelController.cancelDictation()
+    #expect(cancelActivity.beginCount == cancelActivity.endCount)
+    #expect(cancelActivity.liveTokens.isEmpty)
+
+    let externalActivity = CountingLifecycleActivityAsserter()
+    let externalController = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        lifecycleActivityAsserter: externalActivity
+    )
+    let externalResult = await externalController.submitExternalAudio(
+        CapturedAudio(samples: [0.1], sampleRate: 16_000)
+    )
+    #expect(externalResult == .accepted)
+    #expect(externalActivity.beginCount == externalActivity.endCount)
+    #expect(externalActivity.liveTokens.isEmpty)
+
+    let retryActivity = CountingLifecycleActivityAsserter()
+    let retryInserter = MockTextInserter()
+    retryInserter.error = .insertionFailed
+    let retryController = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: retryInserter,
+        hotkeyService: MockHotkeyService(),
+        lifecycleActivityAsserter: retryActivity
+    )
+    await retryController.startDictation()
+    await retryController.stopDictation()
+    retryController.discardPendingTranscript()
+    #expect(retryActivity.beginCount == retryActivity.endCount)
+    #expect(retryActivity.liveTokens.isEmpty)
+
+    retryInserter.error = .insertionFailed
+    await retryController.startDictation()
+    await retryController.stopDictation()
+    retryInserter.error = nil
+    await retryController.retryPendingInsertion()
+    #expect(retryActivity.beginCount == retryActivity.endCount)
+    #expect(retryActivity.liveTokens.isEmpty)
+
+    let deactivateActivity = CountingLifecycleActivityAsserter()
+    let deactivateController = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        lifecycleActivityAsserter: deactivateActivity
+    )
+    await deactivateController.startDictation()
+    deactivateController.deactivate()
+    #expect(deactivateActivity.beginCount == deactivateActivity.endCount)
+    #expect(deactivateActivity.liveTokens.isEmpty)
+    await deactivateController.cancelDictation()
+}
+
+@Test @MainActor func pathologicalPreviewOpensPerRecordingCircuitWithoutBlockingFinal() async {
+    let audio = MockAudioCapture()
+    let engine = MockTranscriptionEngine()
+    let inserter = MockTextInserter()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: AppSettings(liveTranscriptOverlayEnabled: true),
+        audioCapture: audio,
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        livePreviewInterval: .zero,
+        livePreviewMinimumDuration: 0,
+        livePreviewLatencyBudget: .nanoseconds(-1)
+    )
+
+    await controller.startDictation()
+    await waitUntil(attempts: 500) { controller.liveTranscriptPreview == "dictated locally" }
+    let firstRecordingPreviewCount = await engine.transcribeCount
+    for _ in 0..<50 { await Task.yield() }
+    #expect(await engine.transcribeCount == firstRecordingPreviewCount)
+
+    await controller.stopDictation()
+    #expect(controller.state == .idle)
+    #expect(inserter.insertedTexts == ["dictated locally"])
+
+    await controller.startDictation()
+    await waitUntil(attempts: 500) {
+        controller.liveTranscriptPreview == "dictated locally"
+    }
+    #expect(await engine.transcribeCount > firstRecordingPreviewCount + 1)
+    await controller.cancelDictation()
+}
+
+@Test @MainActor func diagnosticPoolReleaseRunsOnlyAfterReturningIdle() async {
+    let engine = MockTranscriptionEngine()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        releasePooledBuffersWhenIdle: true
+    )
+
+    await controller.startDictation()
+    #expect(await engine.releasePooledBuffersCount == 0)
+    await controller.stopDictation()
+    await waitUntil(attempts: 500) {
+        controller.state == .idle
+    }
+    for _ in 0..<20 where await engine.releasePooledBuffersCount == 0 {
+        await Task.yield()
+    }
+    #expect(await engine.releasePooledBuffersCount == 1)
 }
 
 @MainActor

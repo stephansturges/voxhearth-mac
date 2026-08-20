@@ -5,15 +5,22 @@ import Foundation
 @MainActor
 protocol TextInsertionBackend: AnyObject {
     var isAccessibilityTrusted: Bool { get }
-    func replaceSelectedText(_ text: String) -> Bool
+    func replaceSelectedText(_ text: String) -> AccessibilityInsertionOutcome
     func postUnicodeText(_ text: String) -> Bool
     func pasteWithSafeClipboardRestore(_ text: String) async throws -> Bool
+}
+
+enum AccessibilityInsertionOutcome: Equatable, Sendable {
+    case inserted
+    case unavailable
+    case ambiguous
 }
 
 @MainActor
 public final class TextInsertionService: TextInserting {
     private let backend: any TextInsertionBackend
     private let logger = PrivacySafeLogger(category: "TextInsertion")
+    private let signposter = PrivacySafeSignposter(category: "TextInsertion")
 
     public convenience init() {
         self.init(backend: MacTextInsertionBackend())
@@ -32,64 +39,196 @@ public final class TextInsertionService: TextInserting {
             throw TextInsertionError.accessibilityPermissionRequired
         }
 
-        if backend.replaceSelectedText(text) {
+        switch backend.replaceSelectedText(text) {
+        case .inserted:
             logger.info(.textInsertionCompleted)
             return .accessibility
+        case .ambiguous:
+            logger.info(.accessibilityInsertionUncertain)
+            throw TextInsertionError.insertionUncertain
+        case .unavailable:
+            logger.info(.accessibilityInsertionUnavailable)
         }
 
+        logger.info(.unicodeInsertionStarted)
+        let unicodeInterval = signposter.begin(.unicodeInsertionStarted)
         if backend.postUnicodeText(text) {
+            // CGEvent posting confirms dispatch only. macOS provides no target
+            // application acknowledgement for this fallback.
+            signposter.end(.unicodeInsertionDispatched, unicodeInterval)
+            logger.info(.unicodeInsertionDispatched)
             logger.info(.textInsertionCompleted)
             return .unicodeEvents
         }
+        signposter.end(.unicodeInsertionDispatched, unicodeInterval)
 
         guard clipboardFallbackEnabled else {
             throw TextInsertionError.clipboardFallbackDisabled
         }
+        logger.info(.clipboardInsertionStarted)
+        let clipboardInterval = signposter.begin(.clipboardInsertionStarted)
+        defer { signposter.end(.clipboardInsertionCompleted, clipboardInterval) }
         guard try await backend.pasteWithSafeClipboardRestore(text) else {
             throw TextInsertionError.insertionFailed
         }
+        logger.info(.clipboardInsertionCompleted)
         logger.info(.textInsertionCompleted)
         return .clipboard
     }
+}
+
+enum DiagnosticInsertionMode: Equatable, Sendable {
+    case accessibilityFirst
+    case unicodeFirst
+}
+
+@MainActor
+struct AccessibilityMessaging {
+    let setMessagingTimeout: (AXUIElement, Float) -> AXError
+    let copyFocusedElement: (AXUIElement) -> (AXError, AXUIElement?)
+    let isSelectedTextSettable: (AXUIElement) -> (AXError, Bool)
+    let setSelectedText: (AXUIElement, String) -> AXError
+
+    static let live = AccessibilityMessaging(
+        setMessagingTimeout: { element, timeout in
+            AXUIElementSetMessagingTimeout(element, timeout)
+        },
+        copyFocusedElement: { systemWideElement in
+            var focusedValue: AnyObject?
+            let status = AXUIElementCopyAttributeValue(
+                systemWideElement,
+                kAXFocusedUIElementAttribute as CFString,
+                &focusedValue
+            )
+            guard status == .success,
+                  let focusedValue,
+                  CFGetTypeID(focusedValue) == AXUIElementGetTypeID() else {
+                return (status, nil)
+            }
+            return (status, (focusedValue as! AXUIElement))
+        },
+        isSelectedTextSettable: { focusedElement in
+            var isSettable = DarwinBoolean(false)
+            let status = AXUIElementIsAttributeSettable(
+                focusedElement,
+                kAXSelectedTextAttribute as CFString,
+                &isSettable
+            )
+            return (status, isSettable.boolValue)
+        },
+        setSelectedText: { focusedElement, text in
+            AXUIElementSetAttributeValue(
+                focusedElement,
+                kAXSelectedTextAttribute as CFString,
+                text as CFTypeRef
+            )
+        }
+    )
 }
 
 @MainActor
 final class MacTextInsertionBackend: TextInsertionBackend {
     private static let unicodeChunkSize = 32
     private static let clipboardRestoreDelay: Duration = .milliseconds(120)
+    static let accessibilityQueryTimeout: Float = 0.35
+    static let accessibilitySetTimeout: Float = 0.60
+
+    private let messaging: AccessibilityMessaging
+    private let insertionMode: DiagnosticInsertionMode
+    private let logger = PrivacySafeLogger(category: "TextInsertion")
+    private let signposter = PrivacySafeSignposter(category: "TextInsertion")
+
+    init(
+        messaging: AccessibilityMessaging = .live,
+        mode: DiagnosticInsertionMode? = nil
+    ) {
+        self.messaging = messaging
+        if let mode {
+            insertionMode = mode
+        } else if UserDefaults.standard.string(
+            forKey: "VoxHearth.diagnostics.insertionMode"
+        ) == "unicode-first" {
+            insertionMode = .unicodeFirst
+        } else {
+            insertionMode = .accessibilityFirst
+        }
+    }
 
     var isAccessibilityTrusted: Bool {
         AXIsProcessTrusted()
     }
 
-    func replaceSelectedText(_ text: String) -> Bool {
+    func replaceSelectedText(_ text: String) -> AccessibilityInsertionOutcome {
+        guard insertionMode == .accessibilityFirst else { return .unavailable }
+
         let systemWideElement = AXUIElementCreateSystemWide()
-        var focusedValue: AnyObject?
-        guard AXUIElementCopyAttributeValue(
+        guard messaging.setMessagingTimeout(
             systemWideElement,
-            kAXFocusedUIElementAttribute as CFString,
-            &focusedValue
-        ) == .success,
-        let focusedValue,
-        CFGetTypeID(focusedValue) == AXUIElementGetTypeID() else {
-            return false
+            Self.accessibilityQueryTimeout
+        ) == .success else {
+            return .unavailable
+        }
+        defer { _ = messaging.setMessagingTimeout(systemWideElement, 0) }
+
+        logger.info(.accessibilityFocusQueryStarted)
+        let focusInterval = signposter.begin(.accessibilityFocusQueryStarted)
+        let (focusStatus, focusedElement) = messaging.copyFocusedElement(systemWideElement)
+        signposter.end(.accessibilityFocusQueryCompleted, focusInterval)
+        logger.info(.accessibilityFocusQueryCompleted)
+        guard focusStatus == .success, let focusedElement else {
+            return .unavailable
         }
 
-        let focusedElement = focusedValue as! AXUIElement
-        var isSettable = DarwinBoolean(false)
-        guard AXUIElementIsAttributeSettable(
+        guard messaging.setMessagingTimeout(
             focusedElement,
-            kAXSelectedTextAttribute as CFString,
-            &isSettable
-        ) == .success, isSettable.boolValue else {
-            return false
+            Self.accessibilityQueryTimeout
+        ) == .success else {
+            return .unavailable
         }
 
-        return AXUIElementSetAttributeValue(
+        logger.info(.accessibilitySettableQueryStarted)
+        let settableInterval = signposter.begin(.accessibilitySettableQueryStarted)
+        let (settableStatus, isSettable) = messaging.isSelectedTextSettable(focusedElement)
+        signposter.end(.accessibilitySettableQueryCompleted, settableInterval)
+        logger.info(.accessibilitySettableQueryCompleted)
+        guard settableStatus == .success, isSettable else {
+            return .unavailable
+        }
+
+        guard messaging.setMessagingTimeout(
             focusedElement,
-            kAXSelectedTextAttribute as CFString,
-            text as CFTypeRef
-        ) == .success
+            Self.accessibilitySetTimeout
+        ) == .success else {
+            return .unavailable
+        }
+
+        logger.info(.accessibilitySetValueStarted)
+        let setValueInterval = signposter.begin(.accessibilitySetValueStarted)
+        let setValueStatus = messaging.setSelectedText(focusedElement, text)
+        signposter.end(.accessibilitySetValueCompleted, setValueInterval)
+        logger.info(.accessibilitySetValueCompleted)
+
+        let outcome = Self.classifySetOutcome(setValueStatus)
+        switch outcome {
+        case .inserted:
+            break
+        case .ambiguous:
+            logger.info(.accessibilitySetValueTimedOut)
+        case .unavailable:
+            logger.info(.accessibilitySetValueRefused)
+        }
+        return outcome
+    }
+
+    static func classifySetOutcome(_ status: AXError) -> AccessibilityInsertionOutcome {
+        switch status {
+        case .success:
+            .inserted
+        case .cannotComplete:
+            .ambiguous
+        default:
+            .unavailable
+        }
     }
 
     func postUnicodeText(_ text: String) -> Bool {

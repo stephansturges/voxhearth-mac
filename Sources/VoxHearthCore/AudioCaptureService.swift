@@ -53,6 +53,7 @@ public actor AudioCaptureService: AudioCapturing {
     private var engine: AVAudioEngine?
     private var accumulator: AudioSampleAccumulator?
     private let logger = PrivacySafeLogger(category: "AudioCapture")
+    private let signposter = PrivacySafeSignposter(category: "AudioCapture")
 
     public init() {}
 
@@ -64,6 +65,9 @@ public actor AudioCaptureService: AudioCapturing {
         inputDeviceUID: String?,
         maximumDurationReached: @escaping @Sendable () async -> Void
     ) async throws -> AudioInputSelection {
+        logger.info(.audioCaptureStartEntered)
+        let captureStartInterval = signposter.begin(.audioCaptureStartEntered)
+        defer { signposter.end(.audioCaptureStarted, captureStartInterval) }
         guard engine == nil else { throw AudioCaptureError.alreadyRecording }
         guard await Self.requestMicrophonePermission() else {
             throw AudioCaptureError.microphonePermissionDenied
@@ -138,6 +142,9 @@ public actor AudioCaptureService: AudioCapturing {
     }
 
     public func stop() async throws -> CapturedAudio {
+        logger.info(.audioCaptureStopEntered)
+        let captureStopInterval = signposter.begin(.audioCaptureStopEntered)
+        defer { signposter.end(.audioCaptureStopped, captureStopInterval) }
         guard let activeEngine = engine, let activeAccumulator = accumulator else {
             throw AudioCaptureError.notRecording
         }
@@ -164,9 +171,11 @@ public actor AudioCaptureService: AudioCapturing {
             1,
             Int(boundedSampleCount.rounded(.down))
         )
+        logger.info(.audioSnapshotLockEntered)
         let samples = activeAccumulator.trailingSnapshot(
             maximumSampleCount: maximumSampleCount
         )
+        logger.info(.audioSnapshotCopyCompleted)
         guard !samples.isEmpty else { return nil }
         return CapturedAudio(samples: samples, sampleRate: activeAccumulator.sampleRate)
     }

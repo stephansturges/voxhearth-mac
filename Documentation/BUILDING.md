@@ -60,23 +60,178 @@ VoxHearth emits only fixed-name lifecycle markers. To inspect timing without
 recording audio, transcript text, clipboard contents, or paths, run:
 
 ```sh
+voxhearth_pid="$(pgrep -x VoxHearth)"
 /usr/bin/log stream --level info --style compact \
-  --predicate 'subsystem == "com.stephansturges.voxhearth"'
+  --predicate "subsystem == \"com.stephansturges.voxhearth\" AND processIdentifier == $voxhearth_pid"
 ```
+
+The PID clause matters: real-model development tests run in a separate process
+and use a `.tests` subsystem, so their deliberately dense soak traffic must not
+be mistaken for an installed-app session.
+
+Do not run `scripts/soak-eval.sh` while dictating in the installed app. The soak
+intentionally drives sustained real-model inference; Core ML/CPU contention can
+make the otherwise separate app appear to hang. A line whose process is
+`swiftpm-testing-helper` is evaluator evidence, not a VoxHearth lifecycle event.
 
 A normal hold-to-talk session follows this sequence:
 
 ```text
-hotkey_pressed → dictation_start_accepted → start_cue_started
-→ start_cue_completed → audio_capture_started
+hotkey_pressed → activation_handling_started → lifecycle_activity_began
+→ dictation_start_accepted → start_cue_started → start_cue_play_entered
+→ start_cue_play_returned → start_cue_delay_resumed → start_cue_completed
+→ model_preparation_started
+→ model_preparation_completed → audio_capture_start_entered
+→ audio_capture_started
 
-hotkey_released → dictation_stop_accepted → audio_capture_stopped
-→ final_transcription_started → final_transcription_completed
-→ text_insertion_started → text_insertion_completed
+live_preview_snapshot_started → audio_snapshot_lock_entered
+→ audio_snapshot_copy_completed → live_preview_snapshot_completed
+→ live_preview_inference_started → local_transcription_started
+→ audio_resample_started → audio_resample_completed
+→ local_inference_returned → local_transcription_completed
+→ live_preview_inference_completed → live_preview_publish_requested
+→ live_preview_actor_entered → overlay_text_applied
+→ overlay_screen_query_started → overlay_screen_query_completed
+→ overlay_position_applied → overlay_order_front_started
+→ overlay_order_front_completed → live_preview_published
+
+hotkey_released → dictation_stop_accepted → live_preview_cancellation_requested
+→ audio_capture_stop_entered → audio_capture_stopped
+→ lifecycle_activity_narrowed → live_preview_cancellation_joined
+→ final_transcription_started
+→ local_transcription_started → audio_resample_started
+→ audio_resample_completed → local_inference_returned
+→ local_transcription_completed
+→ final_transcription_completed → text_insertion_started
+→ accessibility_focus_query_started → accessibility_focus_query_completed
+→ accessibility_settable_query_started → accessibility_settable_query_completed
+→ accessibility_set_value_started → accessibility_set_value_completed
+→ text_insertion_completed → lifecycle_activity_ended
+→ session_returned_to_idle
 ```
 
-The timestamps identify which boundary is delayed while keeping dictated
-content outside logs.
+Only the first visible preview queries a screen, repositions, and orders the
+panel. Later preview updates emit `overlay_text_applied` only when their display
+text changes. Screen-configuration changes can trigger a new screen query and
+position marker without reordering every refresh.
+
+Use the dominant gap to identify the mechanism:
+
+| Marker or gap | Interpretation |
+| --- | --- |
+| `hotkey_dispatch_delayed` or `hotkey_dispatch_stalled` | The Carbon event waited more than 100 ms or 500 ms before handling. |
+| Hotkey event to `activation_handling_started` | Main event-loop delivery was delayed after Carbon dispatch. |
+| `dictation_start_abandoned` / `dictation_stop_abandoned` | An older asynchronous continuation resumed after a newer lifecycle epoch and was deliberately prevented from mutating the new session. |
+| `start_cue_play_entered` to `start_cue_play_returned` | AppKit sound dispatch itself stalled. |
+| Cue play return to `start_cue_delay_resumed` | The short cue-isolation timer was throttled or starved. |
+| `local_transcription_started` to `local_inference_returned` | Resampling plus the real model pipeline was slow. |
+| `audio_snapshot_lock_entered` to `audio_snapshot_copy_completed` | The bounded preview snapshot waited on or copied the accumulator buffer. |
+| `local_inference_returned` to `local_transcription_completed` | Postprocessing or scoped Core ML object release was slow. |
+| `live_preview_publish_requested` to `live_preview_actor_entered` | The preview waited to enter MainActor. |
+| Overlay substep markers | SwiftUI/AppKit screen lookup, positioning, or WindowServer ordering was slow. |
+| `live_preview_budget_exceeded` / `live_preview_circuit_opened` | One complete preview cycle exceeded its budget. Later previews are disabled only for this recording so final transcription gets the engine. |
+| Audio-capture stop entry to stopped | `AVAudioEngine` teardown delayed microphone release. |
+| Preview cancellation request to joined | Release waited for an in-flight preview operation. |
+| Accessibility operation start to completion | The destination's Accessibility process delayed insertion. |
+| `accessibility_insertion_uncertain` | The final AX write timed out ambiguously; inspect the field before retrying or discarding the in-memory transcript. |
+| `unicode_insertion_dispatched` | Unicode events were posted. This is not acknowledgement that the destination rendered them. |
+| Lifecycle activity begin/narrow/end | The scoped App Nap/QoS protection is balanced across audio-critical and post-audio work. |
+
+The diagnostic build bounds the first two Accessibility queries to 350 ms each
+and the final write to 600 ms. A definite query or write refusal safely falls
+through to Unicode events. A final `kAXErrorCannotComplete` never falls through
+automatically because the destination may have applied the text without
+acknowledging it; VoxHearth retains the transcript for an explicit retry or
+discard instead.
+
+To compare the Unicode path without attempting Accessibility insertion, quit
+VoxHearth and run:
+
+```sh
+defaults write com.stephansturges.voxhearth \
+  VoxHearth.diagnostics.insertionMode -string unicode-first
+```
+
+Restore the bounded Accessibility-first default with:
+
+```sh
+defaults delete com.stephansturges.voxhearth \
+  VoxHearth.diagnostics.insertionMode
+```
+
+Unicode-first is diagnostic-only. It is not the default insertion behavior.
+
+Two additional experiments remain opt-in because they are not proven latency
+fixes. They execute only after returning idle:
+
+```sh
+defaults write com.stephansturges.voxhearth \
+  VoxHearth.diagnostics.releasePooledArrays -bool true
+defaults write com.stephansturges.voxhearth \
+  VoxHearth.diagnostics.modelReloadOnStall -bool true
+```
+
+The first requests that FluidAudio clear its shared MLMultiArray pool. The
+second permits one idle model reload after a preview circuit opens. Both can
+increase the next cold operation, so the diagnostic build leaves them off.
+Delete the keys to restore the default.
+
+### Same-process lifecycle soak
+
+The supplemental soak keeps one process, controller, and real model alive and
+runs preview plus final inference on every cycle. It denies network access,
+checks transcript digests, records raw latency and resource windows, and fails
+sustained first-to-last drift.
+
+```sh
+scripts/soak-eval.sh quick /private/tmp/voxhearth-soak-quick.json
+scripts/soak-eval.sh full /private/tmp/voxhearth-soak-full.json
+```
+
+The default model roots are the two verified payloads under `.build/models`.
+Set `VOXHEARTH_SOAK_MULTILINGUAL_MODEL_ROOT` and
+`VOXHEARTH_SOAK_COMPACT_MODEL_ROOT` to use other already-local verified roots.
+The evaluator is inert during ordinary `swift test` runs. It cannot exercise
+AppKit/WindowServer or reproduce 20 hours of wall-clock uptime, so a clean soak
+does not exonerate the installed UI path.
+
+### Capture a slow installed process
+
+Run this immediately after a slow session, using the exact VoxHearth PID:
+
+```sh
+scripts/capture-diagnostics.sh \
+  --pid 12345 \
+  --out /private/tmp/VoxHearth-diagnostics-slow-session \
+  --last 15m \
+  --sample-seconds 3
+```
+
+`logs.txt` requests info-level entries. Retrospective info records may not be
+present in the unified-log archive unless persistence was enabled before the
+slow session. For a long observation window, either keep the PID-scoped
+`log stream --level info` command above running, or first configure the
+subsystem explicitly:
+
+```sh
+sudo /usr/bin/log config \
+  --subsystem com.stephansturges.voxhearth \
+  --mode "level:info,persist:info"
+```
+
+Restore the default logging policy after the investigation with:
+
+```sh
+sudo /usr/bin/log config \
+  --subsystem com.stephansturges.voxhearth \
+  --reset
+```
+
+The script pins the VoxHearth log subsystem and one PID. It collects fixed
+process columns, thread states, `vmmap -summary`, a quiet heap class summary,
+and a short stack sample when macOS permits them. Paths are redacted; process
+environment, transcripts, clipboard content, audio, and unrelated processes
+are never requested. The script does not install, terminate, or modify the app.
 
 ## Fetch the build-only models
 

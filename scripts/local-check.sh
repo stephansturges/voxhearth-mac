@@ -45,6 +45,38 @@ file Brand/VoxHearth.icns | grep -Fq 'Mac OS X icon' || {
   exit 1
 }
 zsh -n Brand/build-icon.sh
+[[ -x scripts/capture-diagnostics.sh && -x scripts/soak-eval.sh ]] || {
+  printf 'error: diagnostic scripts must be executable\n' >&2
+  exit 1
+}
+grep -Fq -- 'subsystem == \"com.stephansturges.voxhearth\" AND processIdentifier ==' \
+  scripts/capture-diagnostics.sh
+grep -Fq -- '--info' scripts/capture-diagnostics.sh || {
+  printf 'error: retrospective lifecycle capture must request info-level markers\n' >&2
+  exit 1
+}
+if grep -En 'printenv|ps[[:space:]]+e(ww)?|^[[:space:]]*env[[:space:]]' \
+  scripts/capture-diagnostics.sh; then
+  printf 'error: capture script may not expose a process environment\n' >&2
+  exit 1
+fi
+if grep -Fq 'symbolEffect' Sources/VoxHearthApp/*.swift; then
+  printf 'error: persistent symbol effects are forbidden in the long-running menu agent\n' >&2
+  exit 1
+fi
+if grep -Fq 'privacy: .private' Sources/VoxHearthCore/PrivacySafeLogger.swift; then
+  printf 'error: lifecycle event identifiers must stay public and content-free\n' >&2
+  exit 1
+fi
+python3 - <<'PY'
+from pathlib import Path
+
+source = Path("Sources/VoxHearthCore/PrivacySafeLogger.swift").read_text(encoding="utf-8")
+if "func info(_ event: PrivacyLogEvent)" not in source:
+    raise SystemExit("error: privacy-safe logger must accept only the closed event enum")
+if "func info(_ value: String" in source or "func info(_ message: String" in source:
+    raise SystemExit("error: privacy-safe logger must not accept freeform strings")
+PY
 
 if unpinned_actions="$(git grep -n -E '^[[:space:]]*uses:[[:space:]]*[^ ]+@' -- .github/workflows \
   | grep -Ev '@[0-9a-f]{40}([[:space:]]+#.*)?$' || true)"; then
@@ -61,6 +93,7 @@ for required_file in \
   Documentation/PRIVACY.md Documentation/THREAT_MODEL.md \
   Documentation/PEBBLE_INDEX.md \
   Documentation/MODEL_PROVENANCE.md Documentation/BUILDING.md \
+  Documentation/LOCAL_RELEASE_0.3.0-dev.3.diag2.md \
   Documentation/VERIFY_RELEASE.md Documentation/RELEASE.md \
   .github/release-notes-v0.3.0-dev.3.md \
   .github/release-notes-v0.3.0.md; do
@@ -134,6 +167,16 @@ env -u VOXHEARTH_LATENCY_EVAL \
   printf 'error: latency evaluator must remain inert without its opt-in flag\n' >&2
   exit 1
 }
+inert_soak_output="$inert_eval_dir/soak-result.json"
+env -u VOXHEARTH_LATENCY_EVAL -u VOXHEARTH_SOAK_EVAL \
+  VOXHEARTH_SOAK_OUTPUT="$inert_soak_output" \
+  swift test --filter lifecycleSoakEvaluator
+[[ ! -e "$inert_soak_output" ]] || {
+  printf 'error: lifecycle soak evaluator must remain inert without its opt-in flag\n' >&2
+  exit 1
+}
+./scripts/latency-eval.sh verify
+./scripts/soak-eval.sh verify
 swift build --configuration debug
 swift build --configuration release
 

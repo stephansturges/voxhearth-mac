@@ -24,6 +24,19 @@ public protocol LocalTranscriptionEngine: Sendable {
         language: DictationLanguage,
         model: TranscriptionModel
     ) async throws -> String
+
+    /// Optional idle-only maintenance hooks. Engines without retained pools or
+    /// a reload boundary inherit the no-op defaults below.
+    func releasePooledBuffers() async
+    func recover(model: TranscriptionModel) async throws
+}
+
+public extension LocalTranscriptionEngine {
+    func releasePooledBuffers() async {}
+
+    func recover(model: TranscriptionModel) async throws {
+        try await prepare(model: model)
+    }
 }
 
 @MainActor

@@ -8,6 +8,12 @@ public final class DictationController {
     public static let defaultLivePreviewInterval: Duration = .milliseconds(600)
     public static let defaultLivePreviewWindow: TimeInterval = 8
 
+    nonisolated static func defaultLivePreviewLatencyBudget(
+        for interval: Duration
+    ) -> Duration {
+        max(.seconds(2), interval * 4)
+    }
+
     public private(set) var state: DictationSessionState = .idle
     public private(set) var settings: AppSettings
     public private(set) var recordingStartedAt: Date?
@@ -38,17 +44,30 @@ public final class DictationController {
     @ObservationIgnored private let pointerButtonService: any GlobalPointerButtonRegistering
     @ObservationIgnored private var isActive = false
     @ObservationIgnored private var transcriptionTask: Task<String, Error>?
+    @ObservationIgnored private var enginePreparationTask: Task<Void, Error>?
     @ObservationIgnored private var pendingTranscriptExpiryTask: Task<Void, Never>?
     @ObservationIgnored private var activationStartTask: Task<Void, Never>?
+    @ObservationIgnored private var activationStopTask: Task<Void, Never>?
     @ObservationIgnored private var livePreviewTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingPreviewJoin: Task<Void, Never>?
     @ObservationIgnored private var livePreviewDismissTask: Task<Void, Never>?
+    @ObservationIgnored private var modelMaintenanceTask: Task<Void, Never>?
     @ObservationIgnored private var activationIsPressed = false
+    @ObservationIgnored private var sessionEpoch = 0
     @ObservationIgnored private let pendingTranscriptLifetime: Duration
     @ObservationIgnored private let livePreviewInterval: Duration
     @ObservationIgnored private let livePreviewMinimumDuration: TimeInterval
     @ObservationIgnored private let livePreviewWindow: TimeInterval
     @ObservationIgnored private let livePreviewFinalVisibility: Duration
+    @ObservationIgnored private let livePreviewLatencyBudget: Duration
+    @ObservationIgnored private let activityScope: LifecycleActivityScope
+    @ObservationIgnored private let recoveryPolicy = ModelRecoveryPolicy()
+    @ObservationIgnored private let releasePooledBuffersWhenIdle: Bool
+    @ObservationIgnored private let modelReloadOnStall: Bool
+    @ObservationIgnored private var pathologicalPreviewCount = 0
+    @ObservationIgnored private var modelRecoveryAttempted = false
     @ObservationIgnored private let logger = PrivacySafeLogger(category: "Dictation")
+    @ObservationIgnored private let signposter = PrivacySafeSignposter(category: "Dictation")
 
     public init(
         transcriptionEngine: any LocalTranscriptionEngine,
@@ -61,7 +80,11 @@ public final class DictationController {
         livePreviewInterval: Duration = defaultLivePreviewInterval,
         livePreviewMinimumDuration: TimeInterval = 0.6,
         livePreviewWindow: TimeInterval = defaultLivePreviewWindow,
-        livePreviewFinalVisibility: Duration = .seconds(2)
+        livePreviewFinalVisibility: Duration = .seconds(2),
+        livePreviewLatencyBudget: Duration? = nil,
+        lifecycleActivityAsserter: (any LifecycleActivityAsserting)? = nil,
+        releasePooledBuffersWhenIdle: Bool? = nil,
+        modelReloadOnStall: Bool? = nil
     ) {
         self.transcriptionEngine = transcriptionEngine
         self.settings = settings.normalizedForSelectedModel()
@@ -74,14 +97,30 @@ public final class DictationController {
         self.livePreviewMinimumDuration = livePreviewMinimumDuration
         self.livePreviewWindow = livePreviewWindow
         self.livePreviewFinalVisibility = livePreviewFinalVisibility
+        self.livePreviewLatencyBudget = livePreviewLatencyBudget
+            ?? Self.defaultLivePreviewLatencyBudget(for: livePreviewInterval)
+        activityScope = LifecycleActivityScope(asserter: lifecycleActivityAsserter)
+        self.releasePooledBuffersWhenIdle = releasePooledBuffersWhenIdle
+            ?? UserDefaults.standard.bool(
+                forKey: "VoxHearth.diagnostics.releasePooledArrays"
+            )
+        self.modelReloadOnStall = modelReloadOnStall
+            ?? UserDefaults.standard.bool(
+                forKey: "VoxHearth.diagnostics.modelReloadOnStall"
+            )
     }
 
     deinit {
         transcriptionTask?.cancel()
+        enginePreparationTask?.cancel()
         pendingTranscriptExpiryTask?.cancel()
         activationStartTask?.cancel()
+        activationStopTask?.cancel()
+        enginePreparationTask?.cancel()
         livePreviewTask?.cancel()
+        pendingPreviewJoin?.cancel()
         livePreviewDismissTask?.cancel()
+        modelMaintenanceTask?.cancel()
     }
 
     public func activate() throws {
@@ -94,6 +133,13 @@ public final class DictationController {
     public func deactivate() {
         hotkeyService.unregister()
         pointerButtonService.unregister()
+        activationIsPressed = false
+        sessionEpoch &+= 1
+        activationStartTask?.cancel()
+        activationStopTask?.cancel()
+        livePreviewTask?.cancel()
+        pendingPreviewJoin?.cancel()
+        activityScope.end()
         isActive = false
     }
 
@@ -117,86 +163,224 @@ public final class DictationController {
             if settings.liveTranscriptOverlayEnabled {
                 beginLiveTranscriptPreview()
             } else {
-                stopLiveTranscriptPreview(clearText: true)
+                retainPreviewJoin(stopLiveTranscriptPreview(clearText: true))
             }
         } else if !settings.liveTranscriptOverlayEnabled {
-            stopLiveTranscriptPreview(clearText: true)
+            retainPreviewJoin(stopLiveTranscriptPreview(clearText: true))
         }
     }
 
     public func prepareEngine() async {
         guard state == .idle || Self.isFailureState(state) else { return }
-        state = .preparing
+        let epoch = sessionEpoch
+        transition(to: .preparing)
+        let model = settings.transcriptionModel
+        let task = Task {
+            try await transcriptionEngine.prepare(model: model)
+        }
+        enginePreparationTask = task
         do {
-            try await transcriptionEngine.prepare(model: settings.transcriptionModel)
-            state = .idle
+            try await task.value
+            enginePreparationTask = nil
+            guard epoch == sessionEpoch else { return }
+            transition(to: .idle)
         } catch is CancellationError {
-            state = .idle
+            enginePreparationTask = nil
+            guard epoch == sessionEpoch else { return }
+            transition(to: .idle)
         } catch {
+            enginePreparationTask = nil
+            guard epoch == sessionEpoch else { return }
             logger.error(.operationFailed, error: error)
-            state = .failed(.modelUnavailable)
+            transition(to: .failed(.modelUnavailable))
         }
     }
 
     public func startDictation() async {
-        guard state == .idle || Self.isFailureState(state) else { return }
-        logger.info(.dictationStartAccepted)
-        clearPendingTranscript()
-        state = .preparing
+        guard requestStart(), let task = activationStartTask else { return }
+        await task.value
+    }
 
+    /// Accepts the start in the caller's current MainActor turn, before any
+    /// preparation work is queued. This is the hotkey/UI control-plane seam.
+    @discardableResult
+    public func requestStart() -> Bool {
+        let backgroundPreparationInProgress = state == .preparing
+            && activationStartTask == nil
+            && enginePreparationTask != nil
+        guard state == .idle
+            || Self.isFailureState(state)
+            || backgroundPreparationInProgress else { return false }
+        modelMaintenanceTask?.cancel()
+        modelMaintenanceTask = nil
+        let predecessorStart = activationStartTask
+        let predecessorStop = activationStopTask
+        let predecessorPreparation = enginePreparationTask
+        predecessorStart?.cancel()
+        sessionEpoch &+= 1
+        let epoch = sessionEpoch
+        pathologicalPreviewCount = 0
+        clearPendingTranscript()
+        activityScope.beginAudioCritical()
+        transition(to: .preparing)
+        logger.info(.dictationStartAccepted)
+
+        activationStartTask = Task(priority: .userInitiated) { [weak self] in
+            await predecessorStart?.value
+            await predecessorStop?.value
+            _ = try? await predecessorPreparation?.value
+            guard let self else { return }
+            guard self.sessionEpoch == epoch else {
+                self.logger.info(.dictationStartAbandoned)
+                return
+            }
+            await self.runAcceptedStart(epoch: epoch)
+        }
+        return true
+    }
+
+    private func runAcceptedStart(epoch: Int) async {
+        defer {
+            if epoch == sessionEpoch {
+                activationStartTask = nil
+            }
+        }
         do {
             logger.info(.startCueStarted)
             await onStartCue?()
             logger.info(.startCueCompleted)
             try Task.checkCancellation()
-            try await transcriptionEngine.prepare(model: settings.transcriptionModel)
+            guard epoch == sessionEpoch else {
+                logger.info(.dictationStartAbandoned)
+                return
+            }
+            logger.info(.modelPreparationStarted)
+            let preparationInterval = signposter.begin(.modelPreparationStarted)
+            do {
+                try await transcriptionEngine.prepare(model: settings.transcriptionModel)
+            } catch {
+                signposter.end(.modelPreparationCompleted, preparationInterval)
+                logger.info(.modelPreparationCompleted)
+                throw error
+            }
+            signposter.end(.modelPreparationCompleted, preparationInterval)
+            logger.info(.modelPreparationCompleted)
             try Task.checkCancellation()
+            guard epoch == sessionEpoch else {
+                logger.info(.dictationStartAbandoned)
+                return
+            }
             let inputSelection = try await audioCapture.start(
                 inputDeviceUID: settings.inputDeviceUID,
                 maximumDurationReached: { [weak self] in
                     await self?.stopDictation()
                 }
             )
+            try Task.checkCancellation()
+            guard epoch == sessionEpoch, state == .preparing else {
+                await audioCapture.cancel()
+                logger.info(.dictationStartAbandoned)
+                return
+            }
             if inputSelection == .fellBackToSystemDefault {
                 settings.inputDeviceUID = nil
                 onInputDeviceFallback?()
             }
             recordingStartedAt = Date()
-            state = .recording
+            transition(to: .recording)
             beginLiveTranscriptPreview()
         } catch is CancellationError {
             await audioCapture.cancel()
+            guard epoch == sessionEpoch else {
+                logger.info(.dictationStartAbandoned)
+                return
+            }
             recordingStartedAt = nil
-            state = .idle
+            transition(to: .idle)
         } catch {
             await audioCapture.cancel()
+            guard epoch == sessionEpoch else {
+                logger.info(.dictationStartAbandoned)
+                return
+            }
             recordingStartedAt = nil
-            handleStartError(error)
+            if Task.isCancelled {
+                transition(to: .idle)
+            } else {
+                handleStartError(error)
+            }
         }
     }
 
     public func stopDictation() async {
-        guard state == .recording else { return }
-        logger.info(.dictationStopAccepted)
-        // Transition before the actor hop so simultaneous hotkey/limit stops
-        // cannot both consume the same capture session.
-        state = .transcribing
-        recordingStartedAt = nil
-        let cancelledPreviewTask = stopLiveTranscriptPreview(clearText: false)
+        guard requestStop(), let task = activationStopTask else { return }
+        await task.value
+    }
 
+    /// Accepts the stop synchronously so the UI and duplicate-event guard no
+    /// longer wait behind preview or overlay MainActor work.
+    @discardableResult
+    public func requestStop() -> Bool {
+        guard state == .recording else { return false }
+        sessionEpoch &+= 1
+        let epoch = sessionEpoch
+        logger.info(.dictationStopAccepted)
+        transition(to: .transcribing)
+        recordingStartedAt = nil
+        let cancelledPreviewTask = mergePreviewJoins(
+            pendingPreviewJoin,
+            stopLiveTranscriptPreview(clearText: false)
+        )
+        pendingPreviewJoin = nil
+
+        activationStopTask = Task(priority: .userInitiated) { [weak self] in
+            await self?.runAcceptedStop(epoch: epoch, joining: cancelledPreviewTask)
+        }
+        return true
+    }
+
+    private func runAcceptedStop(
+        epoch: Int,
+        joining cancelledPreviewTask: Task<Void, Never>?
+    ) async {
+        defer {
+            if epoch == sessionEpoch {
+                activationStopTask = nil
+            }
+        }
         do {
             // Release the tap and AVAudioEngine before waiting for an in-flight
             // preview. The microphone indicator should react immediately even
             // when Core ML takes time to acknowledge cancellation.
             let audio = try await audioCapture.stop()
+            guard epoch == sessionEpoch else {
+                logger.info(.dictationStopAbandoned)
+                return
+            }
+            activityScope.narrowToUserInitiated()
             // A Parakeet actor can re-enter while awaiting Core ML. Joining the
             // cancelled preview prevents final inference from overlapping it.
-            await cancelledPreviewTask?.value
+            if let cancelledPreviewTask {
+                await cancelledPreviewTask.value
+                guard epoch == sessionEpoch else {
+                    logger.info(.dictationStopAbandoned)
+                    return
+                }
+                logger.info(.livePreviewCancellationJoined)
+            }
             await transcribeAndInsert(audio)
         } catch is CancellationError {
+            guard epoch == sessionEpoch else {
+                logger.info(.dictationStopAbandoned)
+                return
+            }
             transcriptionTask = nil
-            state = .idle
+            transition(to: .idle)
         } catch {
+            guard epoch == sessionEpoch else {
+                logger.info(.dictationStopAbandoned)
+                return
+            }
             transcriptionTask = nil
             handleCompletionError(error)
         }
@@ -225,7 +409,8 @@ public final class DictationController {
 
         clearPendingTranscript()
         recordingStartedAt = nil
-        state = .transcribing
+        activityScope.beginUserInitiated()
+        transition(to: .transcribing)
         await transcribeAndInsert(audio)
         return .accepted
     }
@@ -234,15 +419,17 @@ public final class DictationController {
     /// app rejected it. Nothing is written to disk and the value remains subject
     /// to the same two-minute expiry.
     public func retryPendingInsertion() async {
+        guard state == .idle || Self.isFailureState(state) else { return }
         guard let pendingTranscript else { return }
-        state = .inserting
+        activityScope.beginUserInitiated()
+        transition(to: .inserting)
         do {
             _ = try await textInserter.insert(
                 pendingTranscript,
                 clipboardFallbackEnabled: settings.clipboardCompatibilityEnabled
             )
             clearPendingTranscript()
-            state = .idle
+            transition(to: .idle)
         } catch {
             retainPendingTranscript(pendingTranscript)
             handleCompletionError(error)
@@ -252,18 +439,34 @@ public final class DictationController {
     public func discardPendingTranscript() {
         clearPendingTranscript()
         if Self.isFailureState(state) {
-            state = .idle
+            transition(to: .idle)
         }
     }
 
     public func cancelDictation() async {
+        sessionEpoch &+= 1
+        let epoch = sessionEpoch
+        let cancelledStartTask = activationStartTask
+        let cancelledStopTask = activationStopTask
+        cancelledStartTask?.cancel()
+        cancelledStopTask?.cancel()
         transcriptionTask?.cancel()
         transcriptionTask = nil
-        let cancelledPreviewTask = stopLiveTranscriptPreview(clearText: true)
+        let cancelledPreviewTask = mergePreviewJoins(
+            pendingPreviewJoin,
+            stopLiveTranscriptPreview(clearText: true)
+        )
+        pendingPreviewJoin = nil
         await audioCapture.cancel()
         await cancelledPreviewTask?.value
+        await cancelledStartTask?.value
+        await cancelledStopTask?.value
+        guard epoch == sessionEpoch else {
+            logger.info(.dictationStopAbandoned)
+            return
+        }
         recordingStartedAt = nil
-        state = .idle
+        transition(to: .idle)
     }
 
     private func retainPendingTranscript(_ transcript: String) {
@@ -289,7 +492,7 @@ public final class DictationController {
             let selectedLanguage = settings.language
             let selectedModel = settings.transcriptionModel
             logger.info(.finalTranscriptionStarted)
-            let task = Task {
+            let task = Task(priority: .userInitiated) {
                 try await transcriptionEngine.transcribe(
                     audio,
                     language: selectedLanguage,
@@ -303,7 +506,7 @@ public final class DictationController {
 
             guard !transcript.isEmpty else {
                 scheduleLiveTranscriptPreviewDismissal()
-                state = .idle
+                finishSessionReturningToIdle()
                 return
             }
             transcriptForRecovery = transcript
@@ -311,18 +514,19 @@ public final class DictationController {
                 publishLiveTranscriptPreview(transcript)
             }
 
-            state = .inserting
+            transition(to: .inserting)
             logger.info(.textInsertionStarted)
             _ = try await textInserter.insert(
                 transcript,
                 clipboardFallbackEnabled: settings.clipboardCompatibilityEnabled
             )
             clearPendingTranscript()
-            state = .idle
+            finishSessionReturningToIdle()
             scheduleLiveTranscriptPreviewDismissal()
         } catch is CancellationError {
             transcriptionTask = nil
-            state = .idle
+            transition(to: .idle)
+            logger.info(.sessionReturnedToIdle)
             scheduleLiveTranscriptPreviewDismissal()
         } catch {
             transcriptionTask = nil
@@ -336,52 +540,49 @@ public final class DictationController {
 
     private func beginLiveTranscriptPreview() {
         guard settings.liveTranscriptOverlayEnabled, state == .recording else { return }
-        livePreviewTask?.cancel()
+        let predecessor = mergePreviewJoins(
+            pendingPreviewJoin,
+            stopLiveTranscriptPreview(clearText: false)
+        )
+        pendingPreviewJoin = nil
         livePreviewDismissTask?.cancel()
         livePreviewDismissTask = nil
         publishLiveTranscriptPreview("")
 
-        let interval = livePreviewInterval
-        livePreviewTask = Task { [weak self, interval] in
-            while !Task.isCancelled {
-                do {
-                    try await Task.sleep(for: interval)
-                } catch {
-                    return
-                }
-                guard !Task.isCancelled, let self else { return }
-                await self.refreshLiveTranscriptPreview()
+        let session = LivePreviewSession(
+            audioCapture: audioCapture,
+            transcriptionEngine: transcriptionEngine,
+            interval: livePreviewInterval,
+            maximumWindow: livePreviewWindow,
+            minimumDuration: livePreviewMinimumDuration,
+            language: settings.language,
+            model: settings.transcriptionModel,
+            latencyBudget: livePreviewLatencyBudget,
+            publish: { [weak self] text in
+                guard let self,
+                      self.state == .recording,
+                      self.settings.liveTranscriptOverlayEnabled else { return }
+                self.logger.info(.livePreviewActorEntered)
+                self.publishLiveTranscriptPreview(text)
+                self.logger.info(.livePreviewPublished)
+            },
+            circuitOpened: { [weak self] in
+                self?.pathologicalPreviewCount += 1
             }
-        }
-    }
-
-    private func refreshLiveTranscriptPreview() async {
-        guard state == .recording, settings.liveTranscriptOverlayEnabled,
-              let audio = await audioCapture.snapshot(maximumDuration: livePreviewWindow),
-              audio.duration >= livePreviewMinimumDuration else { return }
-
-        let selectedLanguage = settings.language
-        let selectedModel = settings.transcriptionModel
-        do {
-            let text = try await transcriptionEngine.transcribe(
-                audio,
-                language: selectedLanguage,
-                model: selectedModel
-            )
-            guard !Task.isCancelled, state == .recording,
-                  settings.liveTranscriptOverlayEnabled else { return }
-            publishLiveTranscriptPreview(text)
-        } catch is CancellationError {
-            return
-        } catch {
-            // Preview is optional and must never disrupt final transcription.
-            return
+        )
+        livePreviewTask = Task(priority: .medium) {
+            await predecessor?.value
+            guard !Task.isCancelled else { return }
+            await session.run()
         }
     }
 
     @discardableResult
     private func stopLiveTranscriptPreview(clearText: Bool) -> Task<Void, Never>? {
         let task = livePreviewTask
+        if task != nil {
+            logger.info(.livePreviewCancellationRequested)
+        }
         task?.cancel()
         livePreviewTask = nil
         if clearText {
@@ -392,14 +593,28 @@ public final class DictationController {
         return task
     }
 
+    private func retainPreviewJoin(_ task: Task<Void, Never>?) {
+        pendingPreviewJoin = mergePreviewJoins(pendingPreviewJoin, task)
+    }
+
+    private func mergePreviewJoins(
+        _ first: Task<Void, Never>?,
+        _ second: Task<Void, Never>?
+    ) -> Task<Void, Never>? {
+        guard first != nil || second != nil else { return nil }
+        return Task(priority: .medium) {
+            await first?.value
+            await second?.value
+        }
+    }
+
     private func publishLiveTranscriptPreview(_ text: String?) {
         liveTranscriptPreview = text
         onLiveTranscriptPreview?(text)
     }
 
     private func scheduleLiveTranscriptPreviewDismissal() {
-        livePreviewTask?.cancel()
-        livePreviewTask = nil
+        retainPreviewJoin(stopLiveTranscriptPreview(clearText: false))
         guard liveTranscriptPreview != nil else { return }
         livePreviewDismissTask?.cancel()
         let visibility = livePreviewFinalVisibility
@@ -418,9 +633,9 @@ public final class DictationController {
     public func toggleDictation() {
         switch state {
         case .idle, .failed:
-            Task { await startDictation() }
+            requestStart()
         case .recording:
-            Task { await stopDictation() }
+            requestStop()
         case .preparing, .transcribing, .inserting:
             break
         }
@@ -439,47 +654,52 @@ public final class DictationController {
     }
 
     private func handleActivation(_ phase: GlobalHotkeyPhase) {
+        logger.info(.activationHandlingStarted)
+        let activationInterval = signposter.begin(.activationHandlingStarted)
+        defer {
+            signposter.end(.activationHandlingCompleted, activationInterval)
+            logger.info(.activationHandlingCompleted)
+        }
         switch phase {
         case .pressed:
             guard !activationIsPressed else { return }
             activationIsPressed = true
-            guard state == .idle || Self.isFailureState(state) else { return }
-            activationStartTask?.cancel()
-            activationStartTask = Task { [weak self] in
-                guard let self else { return }
-                await self.startDictation()
-                if !self.activationIsPressed, self.state == .recording {
-                    await self.stopDictation()
-                }
-            }
+            requestStart()
         case .released:
             guard activationIsPressed else { return }
             activationIsPressed = false
             switch state {
             case .preparing:
-                activationStartTask?.cancel()
-                Task { await cancelDictation() }
+                cancelAcceptedStart()
             case .recording:
-                Task { await stopDictation() }
+                requestStop()
             case .idle, .transcribing, .inserting, .failed:
                 break
             }
         }
     }
 
+    private func cancelAcceptedStart() {
+        guard activationStartTask != nil else { return }
+        sessionEpoch &+= 1
+        activationStartTask?.cancel()
+        recordingStartedAt = nil
+        transition(to: .idle)
+    }
+
     private func handleStartError(_ error: any Error) {
         logger.error(.operationFailed, error: error)
         switch error {
         case AudioCaptureError.microphonePermissionDenied:
-            state = .failed(.microphonePermissionDenied)
+            transition(to: .failed(.microphonePermissionDenied))
             onOnboardingRequirement?(.microphone)
         case AudioCaptureError.microphoneUnavailable,
              AudioCaptureError.invalidInputFormat:
-            state = .failed(.microphoneUnavailable)
+            transition(to: .failed(.microphoneUnavailable))
         case is ParakeetEngineError:
-            state = .failed(.modelUnavailable)
+            transition(to: .failed(.modelUnavailable))
         default:
-            state = .failed(.recordingFailed)
+            transition(to: .failed(.recordingFailed))
         }
     }
 
@@ -487,16 +707,77 @@ public final class DictationController {
         logger.error(.operationFailed, error: error)
         switch error {
         case AudioCaptureError.noAudioCaptured:
-            state = .failed(.noAudioCaptured)
+            transition(to: .failed(.noAudioCaptured))
         case TextInsertionError.accessibilityPermissionRequired:
-            state = .failed(.accessibilityPermissionRequired)
+            transition(to: .failed(.accessibilityPermissionRequired))
             onOnboardingRequirement?(.accessibility)
+        case TextInsertionError.insertionUncertain:
+            transition(to: .failed(.insertionUncertain))
         case is TextInsertionError:
-            state = .failed(.insertionFailed)
+            transition(to: .failed(.insertionFailed))
         case is ParakeetEngineError:
-            state = .failed(.transcriptionFailed)
+            transition(to: .failed(.transcriptionFailed))
         default:
-            state = .failed(.transcriptionFailed)
+            transition(to: .failed(.transcriptionFailed))
+        }
+    }
+
+    private func transition(to newState: DictationSessionState) {
+        state = newState
+        switch newState {
+        case .idle, .failed:
+            activityScope.end()
+        case .preparing, .recording, .transcribing, .inserting:
+            break
+        }
+    }
+
+    private func finishSessionReturningToIdle() {
+        transition(to: .idle)
+        logger.info(.sessionReturnedToIdle)
+        scheduleIdleModelMaintenance()
+    }
+
+    private func scheduleIdleModelMaintenance() {
+        let shouldRecover = recoveryPolicy.shouldAttemptRecovery(
+            state: state,
+            pathologicalEventCount: pathologicalPreviewCount,
+            alreadyAttempted: modelRecoveryAttempted
+        )
+        if pathologicalPreviewCount > 0 {
+            logger.info(.modelRecoveryConsidered)
+            if !modelReloadOnStall || !shouldRecover {
+                logger.info(.modelRecoverySkipped)
+            }
+        }
+
+        let performRecovery = modelReloadOnStall && shouldRecover
+        guard releasePooledBuffersWhenIdle || performRecovery else { return }
+        if performRecovery {
+            modelRecoveryAttempted = true
+        }
+        let selectedModel = settings.transcriptionModel
+        let engine = transcriptionEngine
+        let logger = logger
+        let releasePooledBuffersWhenIdle = releasePooledBuffersWhenIdle
+        modelMaintenanceTask?.cancel()
+        modelMaintenanceTask = Task(priority: .utility) { [weak self] in
+            await Task.yield()
+            guard !Task.isCancelled, let self, self.state == .idle else {
+                if performRecovery { logger.info(.modelRecoverySkipped) }
+                return
+            }
+            if releasePooledBuffersWhenIdle {
+                await engine.releasePooledBuffers()
+            }
+            guard performRecovery, !Task.isCancelled, self.state == .idle else { return }
+            logger.info(.modelRecoveryStarted)
+            do {
+                try await engine.recover(model: selectedModel)
+                logger.info(.modelRecoveryCompleted)
+            } catch {
+                logger.error(.operationFailed, error: error)
+            }
         }
     }
 

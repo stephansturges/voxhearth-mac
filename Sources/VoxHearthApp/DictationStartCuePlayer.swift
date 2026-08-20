@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import VoxHearthCore
 
 /// Plays a deliberately short, low-volume acknowledgement tone entirely from
 /// memory. Waiting for the 45 ms tone to finish before capture prevents the
@@ -7,6 +8,7 @@ import Foundation
 @MainActor
 final class DictationStartCuePlayer {
     private let sound: NSSound?
+    private let logger = PrivacySafeLogger(category: "StartCue")
 
     init() {
         sound = NSSound(data: Self.makeToneData())
@@ -17,8 +19,11 @@ final class DictationStartCuePlayer {
         guard let sound else { return }
         sound.stop()
         sound.currentTime = 0
+        logger.info(.startCuePlayEntered)
         sound.play()
+        logger.info(.startCuePlayReturned)
         try? await Task.sleep(for: .milliseconds(55))
+        logger.info(.startCueDelayResumed)
     }
 
     nonisolated static func makeToneData(

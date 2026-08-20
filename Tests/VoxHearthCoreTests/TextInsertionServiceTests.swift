@@ -1,17 +1,34 @@
 import AppKit
+import ApplicationServices
 import Foundation
 import Testing
 @testable import VoxHearthCore
 
+@Test func testProcessesUseIsolatedLoggingSubsystem() {
+    #expect(
+        PrivacyLogSubsystem.resolved(
+            processName: "xctest",
+            environment: ["XCTestConfigurationFilePath": "/redacted"]
+        ) == AppIdentity.bundleIdentifier + ".tests"
+    )
+    #expect(
+        PrivacyLogSubsystem.resolved(
+            processName: "VoxHearth",
+            environment: [:]
+        ) == AppIdentity.bundleIdentifier
+    )
+    #expect(PrivacyLogSubsystem.current.hasSuffix(".tests"))
+}
+
 @MainActor
 private final class MockInsertionBackend: TextInsertionBackend {
     var isAccessibilityTrusted = true
-    var accessibilityResult = false
+    var accessibilityResult: AccessibilityInsertionOutcome = .unavailable
     var unicodeResult = false
     var clipboardResult = false
     var calls: [String] = []
 
-    func replaceSelectedText(_ text: String) -> Bool {
+    func replaceSelectedText(_ text: String) -> AccessibilityInsertionOutcome {
         calls.append("accessibility")
         return accessibilityResult
     }
@@ -29,12 +46,116 @@ private final class MockInsertionBackend: TextInsertionBackend {
 
 @Test @MainActor func insertionPrefersAccessibility() async throws {
     let backend = MockInsertionBackend()
-    backend.accessibilityResult = true
+    backend.accessibilityResult = .inserted
     let service = TextInsertionService(backend: backend)
 
     let method = try await service.insert("private transcript", clipboardFallbackEnabled: true)
     #expect(method == .accessibility)
     #expect(backend.calls == ["accessibility"])
+}
+
+@Test @MainActor func uncertainAccessibilityInsertionNeverFallsBackAutomatically() async {
+    let backend = MockInsertionBackend()
+    backend.accessibilityResult = .ambiguous
+    backend.unicodeResult = true
+    backend.clipboardResult = true
+    let service = TextInsertionService(backend: backend)
+
+    await #expect(throws: TextInsertionError.insertionUncertain) {
+        try await service.insert("hello", clipboardFallbackEnabled: true)
+    }
+    #expect(backend.calls == ["accessibility"])
+}
+
+@Test @MainActor func accessibilitySetOutcomeClassifierIsConservative() {
+    #expect(MacTextInsertionBackend.classifySetOutcome(.success) == .inserted)
+    #expect(MacTextInsertionBackend.classifySetOutcome(.cannotComplete) == .ambiguous)
+    #expect(MacTextInsertionBackend.classifySetOutcome(.attributeUnsupported) == .unavailable)
+    #expect(MacTextInsertionBackend.classifySetOutcome(.illegalArgument) == .unavailable)
+    #expect(MacTextInsertionBackend.classifySetOutcome(.invalidUIElement) == .unavailable)
+    #expect(MacTextInsertionBackend.classifySetOutcome(.notImplemented) == .unavailable)
+}
+
+@Test @MainActor func accessibilityTimeoutsAreScopedAndResetOnSuccess() {
+    let focusedElement = AXUIElementCreateSystemWide()
+    var timeouts: [Float] = []
+    let messaging = AccessibilityMessaging(
+        setMessagingTimeout: { _, timeout in
+            timeouts.append(timeout)
+            return .success
+        },
+        copyFocusedElement: { _ in (.success, focusedElement) },
+        isSelectedTextSettable: { _ in (.success, true) },
+        setSelectedText: { _, _ in .success }
+    )
+    let backend = MacTextInsertionBackend(messaging: messaging, mode: .accessibilityFirst)
+
+    #expect(backend.replaceSelectedText("hello") == .inserted)
+    #expect(timeouts == [
+        MacTextInsertionBackend.accessibilityQueryTimeout,
+        MacTextInsertionBackend.accessibilityQueryTimeout,
+        MacTextInsertionBackend.accessibilitySetTimeout,
+        0,
+    ])
+}
+
+@Test @MainActor func accessibilityTimeoutIsResetAfterEarlyFailure() {
+    var timeouts: [Float] = []
+    let messaging = AccessibilityMessaging(
+        setMessagingTimeout: { _, timeout in
+            timeouts.append(timeout)
+            return .success
+        },
+        copyFocusedElement: { _ in (.cannotComplete, nil) },
+        isSelectedTextSettable: { _ in (.success, true) },
+        setSelectedText: { _, _ in .success }
+    )
+    let backend = MacTextInsertionBackend(messaging: messaging, mode: .accessibilityFirst)
+
+    #expect(backend.replaceSelectedText("hello") == .unavailable)
+    #expect(timeouts == [MacTextInsertionBackend.accessibilityQueryTimeout, 0])
+}
+
+@Test @MainActor func unicodeFirstDiagnosticModeSkipsAccessibilityMessaging() {
+    var messagingCallCount = 0
+    let messaging = AccessibilityMessaging(
+        setMessagingTimeout: { _, _ in
+            messagingCallCount += 1
+            return .success
+        },
+        copyFocusedElement: { _ in
+            messagingCallCount += 1
+            return (.success, AXUIElementCreateSystemWide())
+        },
+        isSelectedTextSettable: { _ in
+            messagingCallCount += 1
+            return (.success, true)
+        },
+        setSelectedText: { _, _ in
+            messagingCallCount += 1
+            return .success
+        }
+    )
+    let backend = MacTextInsertionBackend(messaging: messaging, mode: .unicodeFirst)
+
+    #expect(backend.replaceSelectedText("hello") == .unavailable)
+    #expect(messagingCallCount == 0)
+}
+
+@Test func privacyLogEventVocabularyIsClosedAndPolicySafe() {
+    let values = PrivacyLogEvent.allCases.map(\.rawValue)
+    let forbidden = [
+        "urlsession", "cfnetwork", "nwconnection", "websocket", "modelhub",
+        "hfclient", "filedownloader", "assetdownloader", "downloader",
+        "http://", "https://", "telemetry", "analytics",
+    ]
+
+    #expect(Set(values).count == values.count)
+    #expect(values.allSatisfy { value in
+        value == value.lowercased()
+            && value.range(of: #"^[a-z0-9]+(?:_[a-z0-9]+)*$"#, options: .regularExpression) != nil
+            && forbidden.allSatisfy { !value.contains($0) }
+    })
 }
 
 @Test @MainActor func insertionUsesUnicodeBeforeClipboard() async throws {

@@ -107,7 +107,6 @@ struct MenuBarContentView: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: model.sessionState.symbolName)
                 .font(.title2)
-                .symbolEffect(.pulse, isActive: model.sessionState.isBusy)
                 .foregroundStyle(model.sessionState.tint)
                 .frame(width: 28)
 
@@ -141,6 +140,7 @@ struct MenuBarContentView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(Color.voxHearthAmber)
                     .foregroundStyle(Color.voxGraphite)
+                    .disabled(model.controller.state == .inserting)
                 Button("Discard", role: .destructive, action: model.discardPendingTranscript)
                     .buttonStyle(.bordered)
             }

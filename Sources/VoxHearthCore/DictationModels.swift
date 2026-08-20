@@ -61,6 +61,7 @@ public enum DictationFailure: String, Error, Equatable, Sendable {
     case transcriptionFailed
     case accessibilityPermissionRequired
     case insertionFailed
+    case insertionUncertain
 }
 
 extension DictationFailure: LocalizedError {
@@ -82,6 +83,8 @@ extension DictationFailure: LocalizedError {
             "Accessibility access is required to type into other apps."
         case .insertionFailed:
             "VoxHearth could not type the transcript into the active app."
+        case .insertionUncertain:
+            "VoxHearth could not confirm the transcript reached the app. Retry or discard it."
         }
     }
 }
@@ -135,4 +138,5 @@ public enum TextInsertionError: Error, Equatable, Sendable {
     case clipboardWriteFailed
     case pasteEventCreationFailed
     case insertionFailed
+    case insertionUncertain
 }
