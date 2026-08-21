@@ -27,6 +27,7 @@ private struct FixtureResult: Encodable {
     let format: String
     let disposition: String
     let fallbackReason: String?
+    let generations: Int
     let outputSHA256: String
     let outputBytes: Int
     let latencyMilliseconds: Double
@@ -200,6 +201,7 @@ private enum S1MiniEvaluator {
             listEnabled: settings.listDirectiveEnabled,
             emailEnabled: settings.emailDirectiveEnabled
         )
+        let generationsBefore = await normalizer.resourceCounters().generations
         let started = ContinuousClock.now
         let outcome = await normalizer.normalize(
             NormalizationInput(parse: parse),
@@ -207,6 +209,7 @@ private enum S1MiniEvaluator {
             deadlineMilliseconds: 3_000
         )
         let latency = milliseconds(started.duration(to: .now))
+        let generations = await normalizer.resourceCounters().generations - generationsBefore
 
         let output: String
         let disposition: String
@@ -239,6 +242,8 @@ private enum S1MiniEvaluator {
             && containsPass
             && excludesPass
             && lineBreakPass
+            && (fixture.id != "chunked-prose" || generations > 1)
+            && (fixture.id != "structured-over-budget-fallback" || generations == 0)
         let outputDigest = sha256(Data(output.utf8))
         let identity = [fixture.id, disposition, fallbackReason ?? "", outputDigest].joined(separator: ":")
         return (
@@ -249,6 +254,7 @@ private enum S1MiniEvaluator {
                 format: parse.format.rawValue,
                 disposition: disposition,
                 fallbackReason: fallbackReason,
+                generations: generations,
                 outputSHA256: outputDigest,
                 outputBytes: output.utf8.count,
                 latencyMilliseconds: latency

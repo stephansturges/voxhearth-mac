@@ -41,7 +41,12 @@ public struct CleanupDirectiveParser: Sendable {
             return ordinary(transcript)
         }
 
-        let payloadIndex = index.samePosition(in: text)!
+        // A leading combining scalar is a valid scalar boundary but not a
+        // Swift Character boundary. Treat that degenerate input as ordinary
+        // prose instead of trapping the global hotkey path.
+        guard let payloadIndex = index.samePosition(in: text) else {
+            return ordinary(transcript)
+        }
         let offset = text.utf8.distance(
             from: text.utf8.startIndex,
             to: payloadIndex.samePosition(in: text.utf8)!

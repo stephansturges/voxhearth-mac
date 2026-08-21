@@ -102,6 +102,14 @@ func rejectsNearMissesWithoutTransformingPayload(text: String) {
     #expect(result.payloadUTF8Offset > 8)
 }
 
+@Test func combiningScalarAtPayloadBoundaryNeverTraps() {
+    let text = "list \u{0301}milk eggs bread"
+    let result = parsed(text)
+    #expect(result.directive == nil)
+    #expect(result.format == .proseGeneral)
+    #expect(String(result.effectiveText) == text)
+}
+
 private struct ASRCorpus: Decodable {
     struct Model: Decodable {
         struct Result: Decodable {

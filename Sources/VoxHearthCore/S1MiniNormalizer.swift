@@ -1,6 +1,30 @@
 import Dispatch
 import Foundation
 
+private final class QueueDeadlineGate<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Value, Never>?
+    private var resolved = false
+
+    init(_ continuation: CheckedContinuation<Value, Never>) {
+        self.continuation = continuation
+    }
+
+    func begin() -> Bool {
+        lock.withLock { !resolved }
+    }
+
+    func resolve(_ value: Value) {
+        let continuation = lock.withLock { () -> CheckedContinuation<Value, Never>? in
+            guard !resolved else { return nil }
+            resolved = true
+            defer { self.continuation = nil }
+            return self.continuation
+        }
+        continuation?.resume(returning: value)
+    }
+}
+
 protocol S1MiniRuntimeSession: AnyObject, Sendable {
     var backend: LlamaBackend { get }
     func unload()
@@ -387,7 +411,16 @@ public actor S1MiniNormalizer {
         let logger = self.logger
         let started = DispatchTime.now()
         let deadline = started + .milliseconds(deadlineMilliseconds)
-        let outcome: DictationOutcome = (try? await enqueue(qos: .userInitiated) {
+        let deadlineFallback = DictationOutcome.recover(
+            CleanupPolicy().fallback(for: input, reason: .deadline),
+            .deadline
+        )
+        let outcome: DictationOutcome = await enqueue(
+            qos: .userInitiated,
+            deadline: deadline,
+            timeout: deadlineFallback,
+            onTimeout: { cancellation.cancel() }
+        ) {
             logger.info(.cleanupQueueEntered)
             return state.normalize(
                 input,
@@ -396,10 +429,7 @@ public actor S1MiniNormalizer {
                 started: started,
                 deadline: deadline
             )
-        }) ?? .recover(
-            CleanupPolicy().fallback(for: input, reason: .generationFailed),
-            .generationFailed
-        )
+        }
         signposter.end(.cleanupSelectionCompleted, queueInterval)
         logger.info(.cleanupSelectionCompleted)
 
@@ -450,6 +480,29 @@ public actor S1MiniNormalizer {
                 catch { continuation.resume(throwing: error) }
             }
             queue.async(execute: item)
+        }
+    }
+
+    private func enqueue<Value: Sendable>(
+        qos: DispatchQoS.QoSClass,
+        deadline: DispatchTime,
+        timeout: Value,
+        onTimeout: @escaping @Sendable () -> Void,
+        operation: @escaping @Sendable () -> Value
+    ) async -> Value {
+        await withCheckedContinuation { continuation in
+            let gate = QueueDeadlineGate(continuation)
+            let item = DispatchWorkItem(
+                qos: DispatchQoS(qosClass: qos, relativePriority: 0)
+            ) {
+                guard gate.begin() else { return }
+                gate.resolve(operation())
+            }
+            queue.async(execute: item)
+            DispatchQueue.global(qos: qos).asyncAfter(deadline: deadline) {
+                onTimeout()
+                gate.resolve(timeout)
+            }
         }
     }
 }

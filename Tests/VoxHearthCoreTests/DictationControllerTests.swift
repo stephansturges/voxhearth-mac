@@ -165,6 +165,114 @@ private final class GatedFailingInserter: TextInserting {
     }
 }
 
+@MainActor
+private final class RetryExpiryInserter: TextInserting {
+    private(set) var attemptCount = 0
+    private var retryContinuation: CheckedContinuation<Void, Never>?
+
+    func insert(
+        _ transcript: InsertableTranscript,
+        clipboardFallbackEnabled: Bool
+    ) async throws -> TextInsertionMethod {
+        _ = transcript
+        _ = clipboardFallbackEnabled
+        attemptCount += 1
+        if attemptCount == 2 {
+            await withCheckedContinuation { continuation in
+                retryContinuation = continuation
+            }
+        }
+        throw TextInsertionError.insertionFailed
+    }
+
+    func releaseRetry() {
+        retryContinuation?.resume()
+        retryContinuation = nil
+    }
+}
+
+private actor GatedUnloadNormalizer: TranscriptNormalizing {
+    private(set) var unloadStarted = false
+    private var unloadContinuation: CheckedContinuation<Void, Never>?
+
+    func prepare(
+        modelURL: URL,
+        selection: LlamaBackendSelection,
+        warmUp: Bool,
+        deadlineMilliseconds: Int
+    ) async throws -> LlamaBackend {
+        _ = modelURL
+        _ = warmUp
+        _ = deadlineMilliseconds
+        return selection.selected
+    }
+
+    func normalize(
+        _ input: NormalizationInput,
+        settings: CleanupSettings,
+        cancellation: S1MiniCancellationToken,
+        deadlineMilliseconds: Int
+    ) async -> DictationOutcome {
+        _ = settings
+        _ = cancellation
+        _ = deadlineMilliseconds
+        return .recover(CleanupPolicy().fallback(for: input, reason: .modelUnavailable), .modelUnavailable)
+    }
+
+    func unload() async {
+        unloadStarted = true
+        await withCheckedContinuation { continuation in
+            unloadContinuation = continuation
+        }
+    }
+
+    func releaseUnload() {
+        unloadContinuation?.resume()
+        unloadContinuation = nil
+    }
+}
+
+private actor GatedCleanupPreparationNormalizer: TranscriptNormalizing {
+    private(set) var prepareStarted = false
+    private(set) var unloadCount = 0
+    private var prepareContinuation: CheckedContinuation<Void, Never>?
+
+    func prepare(
+        modelURL: URL,
+        selection: LlamaBackendSelection,
+        warmUp: Bool,
+        deadlineMilliseconds: Int
+    ) async throws -> LlamaBackend {
+        _ = modelURL
+        _ = warmUp
+        _ = deadlineMilliseconds
+        prepareStarted = true
+        await withCheckedContinuation { continuation in
+            prepareContinuation = continuation
+        }
+        return selection.selected
+    }
+
+    func normalize(
+        _ input: NormalizationInput,
+        settings: CleanupSettings,
+        cancellation: S1MiniCancellationToken,
+        deadlineMilliseconds: Int
+    ) async -> DictationOutcome {
+        _ = settings
+        _ = cancellation
+        _ = deadlineMilliseconds
+        return .recover(CleanupPolicy().fallback(for: input, reason: .modelUnavailable), .modelUnavailable)
+    }
+
+    func unload() async { unloadCount += 1 }
+
+    func releasePreparation() {
+        prepareContinuation?.resume()
+        prepareContinuation = nil
+    }
+}
+
 private actor GatedPrepareEngine: LocalTranscriptionEngine {
     private(set) var prepareCount = 0
     private var firstPrepareContinuation: CheckedContinuation<Void, Never>?
@@ -1284,6 +1392,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
         cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
     )
+    await controller.prepareCleanupModelIfEffective()
 
     await controller.startDictation()
     await controller.stopDictation()
@@ -1295,6 +1404,54 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(String(input.text) == "milk eggs bread")
     #expect(inserter.insertedTexts == ["- Milk\n- Eggs\n- Bread"])
     #expect(inserter.attemptedSessionIDs == [input.sessionID])
+    #expect(controller.state == .idle)
+}
+
+@Test @MainActor func unpreparedCleanupFallsBackImmediatelyWithoutQueueingNormalization() async {
+    let engine = MockTranscriptionEngine()
+    await engine.setTranscript("list milk eggs bread")
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("should not run"))
+    let inserter = MockTextInserter()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+
+    let started = ContinuousClock.now
+    await controller.startDictation()
+    await controller.stopDictation()
+    #expect(started.duration(to: .now) < .milliseconds(200))
+    #expect(await normalizer.inputs.isEmpty)
+    #expect(inserter.insertedTexts == ["milk eggs bread"])
+    #expect(controller.state == .idle)
+}
+
+@Test @MainActor func acceptedEmptyCleanupFinishesWithoutInsertionOrRecovery() async {
+    let engine = MockTranscriptionEngine()
+    await engine.setTranscript("um uh")
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned(""))
+    let inserter = MockTextInserter()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+    await controller.prepareCleanupModelIfEffective()
+
+    await controller.startDictation()
+    await controller.stopDictation()
+    #expect(inserter.insertedTexts.isEmpty)
+    #expect(inserter.attemptedSessionIDs.isEmpty)
+    #expect(controller.pendingInsertions.entries.isEmpty)
     #expect(controller.state == .idle)
 }
 
@@ -1321,6 +1478,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         recorder.record(original: original, selected: selected, directive: directive)
     }
     controller.onLiveTranscriptPreview = { recorder.recordOverlay($0) }
+    await controller.prepareCleanupModelIfEffective()
 
     await controller.startDictation()
     await controller.stopDictation()
@@ -1372,6 +1530,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
         cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
     )
+    await controller.prepareCleanupModelIfEffective()
 
     await controller.startDictation()
     await controller.stopDictation()
@@ -1397,6 +1556,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
         cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
     )
+    await controller.prepareCleanupModelIfEffective()
 
     await controller.startDictation()
     await controller.stopDictation()
@@ -1419,6 +1579,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
         cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
     )
+    await controller.prepareCleanupModelIfEffective()
 
     await controller.startDictation()
     await controller.stopDictation()
@@ -1438,6 +1599,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
         cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
     )
+    await controller.prepareCleanupModelIfEffective()
 
     let session = Task { @MainActor in
         await controller.startDictation()
@@ -1471,6 +1633,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
     )
     try controller.activate()
+    await controller.prepareCleanupModelIfEffective()
 
     hotkey.emit(.pressed)
     await waitUntil(attempts: 1_000) { controller.state == .recording }
@@ -1518,6 +1681,42 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(controller.pendingInsertions.entries.map(\.id) == retainedIDs)
 }
 
+@Test @MainActor func retryReservationSurvivesExpiryAndConcurrentFailuresWithoutLoss() async throws {
+    let inserter = RetryExpiryInserter()
+    let hotkey = MockHotkeyService()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: hotkey,
+        pendingTranscriptLifetime: .milliseconds(50),
+        expediteRestartDelay: .zero
+    )
+    try controller.activate()
+
+    await controller.startDictation()
+    await controller.stopDictation()
+    let retryID = try #require(controller.pendingInsertions.entries.first?.id)
+    let retry = Task { @MainActor in
+        await controller.retryPendingInsertion(sessionID: retryID)
+    }
+    await waitUntil(attempts: 1_000) { inserter.attemptCount == 2 }
+    try? await Task.sleep(for: .milliseconds(70))
+
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 1_000) { controller.state == .recording }
+    hotkey.emit(.released)
+    await waitUntil(attempts: 1_000) { controller.pendingInsertions.entries.count == 1 }
+    await controller.startDictation()
+    await controller.stopDictation()
+    #expect(controller.pendingInsertions.entries.count == 2)
+
+    inserter.releaseRetry()
+    await retry.value
+    #expect(controller.pendingInsertions.entries.count == 3)
+    #expect(controller.pendingInsertions.entry(for: retryID) != nil)
+}
+
 @Test @MainActor func latePriorTranscriptionCannotClobberANewRecording() async throws {
     let audio = MockAudioCapture()
     let engine = GatedFinalTranscriptionEngine()
@@ -1540,6 +1739,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
     )
     try controller.activate()
+    await controller.prepareCleanupModelIfEffective()
 
     hotkey.emit(.pressed)
     await waitUntil(attempts: 1_000) { controller.state == .recording }
@@ -1584,6 +1784,107 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     }
     #expect(await normalizer.unloadCount == 1)
     #expect(controller.cleanupStatus == .preparing)
+}
+
+@Test @MainActor func cleanupModelUnloadsAfterTheConfiguredLongIdleInterval() async {
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("cleaned"))
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion,
+        cleanupIdleUnloadDelay: .milliseconds(10),
+        monitorCleanupMemoryPressure: false
+    )
+    await controller.prepareCleanupModelIfEffective()
+    for _ in 0..<5_000 where await normalizer.unloadCount != 1 {
+        await Task.yield()
+    }
+    #expect(await normalizer.unloadCount == 1)
+    #expect(controller.cleanupStatus == .preparing)
+}
+
+@Test @MainActor func repeatedPressureWarningsCoalesceAndDelayRepreparation() async {
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("cleaned"))
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion,
+        cleanupIdleUnloadDelay: .seconds(60),
+        cleanupPressureCooldown: .milliseconds(50),
+        monitorCleanupMemoryPressure: false
+    )
+    await controller.prepareCleanupModelIfEffective()
+    controller.handleCleanupMemoryPressure(.warning)
+    controller.handleCleanupMemoryPressure(.warning)
+    for _ in 0..<1_000 where await normalizer.unloadCount != 1 {
+        await Task.yield()
+    }
+    #expect(await normalizer.unloadCount == 1)
+    #expect(await normalizer.prepareCount == 1)
+    try? await Task.sleep(for: .milliseconds(20))
+    #expect(await normalizer.prepareCount == 1)
+    try? await Task.sleep(for: .milliseconds(60))
+    for _ in 0..<1_000 where await normalizer.prepareCount != 2 {
+        await Task.yield()
+    }
+    #expect(await normalizer.prepareCount == 2)
+}
+
+@Test @MainActor func pressureDuringPreparationCannotPublishAStaleReadyState() async {
+    let normalizer = GatedCleanupPreparationNormalizer()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion,
+        cleanupPressureCooldown: .seconds(60),
+        monitorCleanupMemoryPressure: false
+    )
+    let preparation = Task { @MainActor in
+        await controller.prepareCleanupModelIfEffective()
+    }
+    for _ in 0..<1_000 where !(await normalizer.prepareStarted) {
+        await Task.yield()
+    }
+    controller.handleCleanupMemoryPressure(.warning)
+    await normalizer.releasePreparation()
+    await preparation.value
+    for _ in 0..<1_000 where await normalizer.unloadCount != 1 {
+        await Task.yield()
+    }
+    #expect(await normalizer.unloadCount == 1)
+    #expect(controller.cleanupStatus == .preparing)
+}
+
+@Test @MainActor func cleanupShutdownDrainReturnsAtItsDeadline() async {
+    let normalizer = GatedUnloadNormalizer()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion,
+        monitorCleanupMemoryPressure: false
+    )
+    await controller.prepareCleanupModelIfEffective()
+    let started = ContinuousClock.now
+    await controller.shutdownCleanup(deadline: .milliseconds(20))
+    #expect(started.duration(to: .now) < .milliseconds(200))
+    #expect(await normalizer.unloadStarted)
+    await normalizer.releaseUnload()
 }
 
 @MainActor

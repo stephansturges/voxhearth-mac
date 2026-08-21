@@ -82,7 +82,14 @@ A release fails if any of these conditions is not met:
 - all three model trees and the sealed Metal library match their committed manifests exactly;
 - the app contains the expected bundle ID, minimum OS, exact legal files, models, and S1-mini/Qwen/llama.cpp attribution;
 - the app has no network, iCloud, associated-domain, app-group, or debug
-  entitlement and does not link known update/network frameworks;
+  entitlement; the signed entitlement dictionary must exactly equal
+  `Documentation/Distribution/VoxHearth.entitlements` (microphone input only);
+- direct dynamic-library dependencies must remain within the reviewed set:
+  Accelerate, Foundation, Metal, MetalKit, AVFAudio, AVFoundation, AppKit,
+  ApplicationServices, AudioToolbox, Carbon, CoreAudio, CoreFoundation,
+  CoreGraphics, CoreML, ServiceManagement, SwiftUI, the system Swift runtime,
+  libSystem, libc++, and libobjc. Any newly linked framework fails closed until
+  this allowlist is deliberately reviewed and updated;
 - the app and DMG have the expected Developer ID team, valid signatures,
   accepted notarization, and stapled tickets;
 - checksums, SPDX SBOM, provenance metadata, complete corresponding source, and

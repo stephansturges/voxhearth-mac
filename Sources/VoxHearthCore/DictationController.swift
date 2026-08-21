@@ -1,6 +1,23 @@
 import Foundation
 import Observation
 
+private final class BoundedDrainReply: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    init(_ continuation: CheckedContinuation<Void, Never>) {
+        self.continuation = continuation
+    }
+
+    func finish() {
+        let continuation = lock.withLock { () -> CheckedContinuation<Void, Never>? in
+            defer { self.continuation = nil }
+            return self.continuation
+        }
+        continuation?.resume()
+    }
+}
+
 @MainActor
 @Observable
 public final class DictationController {
@@ -67,6 +84,8 @@ public final class DictationController {
     @ObservationIgnored private var pendingPreviewJoin: Task<Void, Never>?
     @ObservationIgnored private var livePreviewDismissTask: Task<Void, Never>?
     @ObservationIgnored private var modelMaintenanceTask: Task<Void, Never>?
+    @ObservationIgnored private var cleanupIdleUnloadTask: Task<Void, Never>?
+    @ObservationIgnored private var cleanupPressureRecoveryTask: Task<Void, Never>?
     @ObservationIgnored private var activationIsPressed = false
     @ObservationIgnored private var sessionEpoch = 0
     @ObservationIgnored private var currentSessionID: DictationSessionID?
@@ -92,7 +111,12 @@ public final class DictationController {
     @ObservationIgnored private var cleanupModelURL: URL?
     @ObservationIgnored private var cleanupDisclosureVersion: Int
     @ObservationIgnored private let cleanupDeadlineMilliseconds: Int
+    @ObservationIgnored private let cleanupIdleUnloadDelay: Duration
+    @ObservationIgnored private let cleanupPressureCooldown: Duration
     @ObservationIgnored private var cleanupIsPrepared = false
+    @ObservationIgnored private var cleanupPreparationEpoch = 0
+    @ObservationIgnored private var cleanupUnloadPending = false
+    @ObservationIgnored private var cleanupPreparationSuppressedUntil: ContinuousClock.Instant?
     @ObservationIgnored private var cleanupMemoryPressureMonitor: CleanupMemoryPressureMonitor?
     @ObservationIgnored private var pathologicalPreviewCount = 0
     @ObservationIgnored private var modelRecoveryAttempted = false
@@ -120,6 +144,8 @@ public final class DictationController {
         cleanupModelURL: URL? = nil,
         cleanupDisclosureVersion: Int = 0,
         cleanupDeadlineMilliseconds: Int = 2_000,
+        cleanupIdleUnloadDelay: Duration = .seconds(15 * 60),
+        cleanupPressureCooldown: Duration = .seconds(5 * 60),
         monitorCleanupMemoryPressure: Bool = true
     ) {
         precondition(cleanupDeadlineMilliseconds > 0)
@@ -151,6 +177,8 @@ public final class DictationController {
         self.cleanupModelURL = cleanupModelURL
         self.cleanupDisclosureVersion = cleanupDisclosureVersion
         self.cleanupDeadlineMilliseconds = cleanupDeadlineMilliseconds
+        self.cleanupIdleUnloadDelay = cleanupIdleUnloadDelay
+        self.cleanupPressureCooldown = cleanupPressureCooldown
         cleanupStatus = cleanupEnablement.isEffective ? .preparing : .disabled
         if cleanupNormalizer != nil, monitorCleanupMemoryPressure {
             cleanupMemoryPressureMonitor = CleanupMemoryPressureMonitor { [weak self] level in
@@ -174,6 +202,8 @@ public final class DictationController {
         pendingPreviewJoin?.cancel()
         livePreviewDismissTask?.cancel()
         modelMaintenanceTask?.cancel()
+        cleanupIdleUnloadTask?.cancel()
+        cleanupPressureRecoveryTask?.cancel()
     }
 
     public func activate() throws {
@@ -216,9 +246,15 @@ public final class DictationController {
         }
         self.settings = settings
         let enablement = cleanupEnablement
-        if !enablement.isEffective, !Self.isCleanupActive(cleanupStatus) {
-            cleanupStatus = .disabled
+        if !enablement.isEffective {
+            cleanupIdleUnloadTask?.cancel()
+            cleanupPressureRecoveryTask?.cancel()
+            cleanupPreparationSuppressedUntil = nil
+            cleanupPreparationEpoch &+= 1
             cleanupIsPrepared = false
+            if !Self.isCleanupActive(cleanupStatus) {
+                cleanupStatus = .disabled
+            }
             if wasCleanupEffective, let cleanupNormalizer {
                 Task(priority: .utility) { await cleanupNormalizer.unload() }
             }
@@ -249,6 +285,7 @@ public final class DictationController {
     ) {
         if cleanupModelURL != modelURL {
             cleanupIsPrepared = false
+            cleanupPreparationEpoch &+= 1
         }
         cleanupModelURL = modelURL
         cleanupDisclosureVersion = disclosureVersion
@@ -258,13 +295,14 @@ public final class DictationController {
     }
 
     public func prepareCleanupModelIfEffective() async {
-        guard state == .idle || Self.isFailureState(state),
-              cleanupEnablement.isEffective,
+        guard cleanupEnablement.isEffective,
               let cleanupNormalizer,
               let cleanupModelURL else {
             cleanupStatus = .disabled
             return
         }
+        guard state == .idle || Self.isFailureState(state) else { return }
+        let preparationEpoch = cleanupPreparationEpoch
         cleanupStatus = .preparing
         do {
             _ = try await cleanupNormalizer.prepare(
@@ -273,13 +311,15 @@ public final class DictationController {
                 warmUp: true,
                 deadlineMilliseconds: 30_000
             )
-            guard cleanupEnablement.isEffective else {
+            guard preparationEpoch == cleanupPreparationEpoch,
+                  cleanupEnablement.isEffective else {
                 cleanupIsPrepared = false
-                cleanupStatus = .disabled
+                if !cleanupEnablement.isEffective { cleanupStatus = .disabled }
                 return
             }
             cleanupIsPrepared = true
             cleanupStatus = .ready
+            scheduleCleanupIdleUnloadIfNeeded()
         } catch {
             cleanupIsPrepared = false
             logger.error(.operationFailed, error: error)
@@ -292,12 +332,52 @@ public final class DictationController {
         if level == .critical, let currentSessionID {
             cleanupCancellationTokens[currentSessionID]?.cancel()
         }
+        let now = ContinuousClock.now
+        cleanupPreparationEpoch &+= 1
+        cleanupPreparationSuppressedUntil = now + cleanupPressureCooldown
+        cleanupPressureRecoveryTask?.cancel()
+        cleanupPressureRecoveryTask = Task(priority: .utility) { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: self.cleanupPressureCooldown)
+            guard !Task.isCancelled else { return }
+            self.cleanupPreparationSuppressedUntil = nil
+            await self.prepareCleanupModelIfEffective()
+        }
+        let shouldUnload = !cleanupUnloadPending
+            && (cleanupIsPrepared
+                || cleanupStatus == .preparing
+                || Self.isCleanupActive(cleanupStatus))
+        guard shouldUnload else { return }
+        cleanupUnloadPending = true
         cleanupIsPrepared = false
         if !Self.isCleanupActive(cleanupStatus) {
             cleanupStatus = cleanupEnablement.isEffective ? .preparing : .disabled
         }
-        Task(priority: .utility) {
+        Task(priority: .utility) { [weak self] in
             await cleanupNormalizer.unload()
+            self?.cleanupUnloadPending = false
+        }
+    }
+
+    /// Drains cleanup work on application termination, but never makes Quit
+    /// wait indefinitely for a non-cooperative native call.
+    public func shutdownCleanup(deadline: Duration = .seconds(2)) async {
+        cleanupIdleUnloadTask?.cancel()
+        cleanupPressureRecoveryTask?.cancel()
+        cleanupCancellationTokens.values.forEach { $0.cancel() }
+        cleanupPreparationEpoch &+= 1
+        cleanupIsPrepared = false
+        guard let cleanupNormalizer else { return }
+        await withCheckedContinuation { continuation in
+            let reply = BoundedDrainReply(continuation)
+            Task(priority: .utility) {
+                await cleanupNormalizer.unload()
+                reply.finish()
+            }
+            Task(priority: .utility) {
+                try? await Task.sleep(for: deadline)
+                reply.finish()
+            }
         }
     }
 
@@ -364,6 +444,8 @@ public final class DictationController {
         }
         modelMaintenanceTask?.cancel()
         modelMaintenanceTask = nil
+        cleanupIdleUnloadTask?.cancel()
+        cleanupIdleUnloadTask = nil
         let predecessorStart = activationStartTask
         let predecessorStop = activationStopTask
         let predecessorPreparation = enginePreparationTask
@@ -629,7 +711,12 @@ public final class DictationController {
         expirePendingInsertions()
         guard let entry = pendingInsertions.entry(for: sessionID),
               retryingSessions.insert(sessionID).inserted else { return }
-        defer { retryingSessions.remove(sessionID) }
+        recoveryReservations.insert(sessionID)
+        removePendingInsertion(sessionID: sessionID)
+        defer {
+            retryingSessions.remove(sessionID)
+            recoveryReservations.remove(sessionID)
+        }
         activityScope.beginUserInitiated()
         transition(to: .inserting)
         do {
@@ -674,7 +761,12 @@ public final class DictationController {
               entry.reason == .blockedTerminal
                 || entry.reason == .multilineClipboardDisabled,
               retryingSessions.insert(sessionID).inserted else { return }
-        defer { retryingSessions.remove(sessionID) }
+        recoveryReservations.insert(sessionID)
+        removePendingInsertion(sessionID: sessionID)
+        defer {
+            retryingSessions.remove(sessionID)
+            recoveryReservations.remove(sessionID)
+        }
         activityScope.beginUserInitiated()
         transition(to: .inserting)
         do {
@@ -825,39 +917,46 @@ public final class DictationController {
             let enablement = cleanupEnablement
             let insertableTranscript: InsertableTranscript
             let recognizedDirective: RecognizedDirective?
-            if enablement.isEffective, let cleanupNormalizer {
+            if enablement.isEffective {
                 let parse = CleanupDirectiveParser().parse(
                     finalTranscript,
                     listEnabled: enablement.listDirectiveEnabled,
                     emailEnabled: enablement.emailDirectiveEnabled
                 )
                 let input = NormalizationInput(parse: parse)
-                let cancellation = S1MiniCancellationToken()
-                cleanupCancellationTokens[sessionID] = cancellation
-                transition(to: .cleaning(parse.format), for: sessionID)
-                publishProgress(.cleaning(parse.format), for: sessionID)
-                logger.info(.cleanupGenerationStarted, format: parse.format)
-                setCleanupStatus(.cleaning(sessionID), for: sessionID)
-                let outcome = await cleanupNormalizer.normalize(
-                    input,
-                    settings: settings.cleanup,
-                    cancellation: cancellation,
-                    deadlineMilliseconds: cleanupDeadlineMilliseconds
-                )
-                cleanupCancellationTokens[sessionID] = nil
-                guard !explicitlyCancelledSessions.contains(sessionID) else {
-                    finishSessionReturningToIdle(sessionID: sessionID)
-                    return
-                }
-                switch outcome {
-                case let .insert(selected):
-                    insertableTranscript = selected
-                case let .recover(fallback, reason):
-                    setCleanupStatus(.fallingBack(sessionID, reason), for: sessionID)
-                    publishProgress(.fallingBack(parse.format, reason), for: sessionID)
-                    insertableTranscript = fallback
-                case .cancelled:
-                    let reason = CleanupFallbackReason.cancelled
+                if cleanupIsPrepared, let cleanupNormalizer {
+                    let cancellation = S1MiniCancellationToken()
+                    cleanupCancellationTokens[sessionID] = cancellation
+                    transition(to: .cleaning(parse.format), for: sessionID)
+                    publishProgress(.cleaning(parse.format), for: sessionID)
+                    logger.info(.cleanupGenerationStarted, format: parse.format)
+                    setCleanupStatus(.cleaning(sessionID), for: sessionID)
+                    let outcome = await cleanupNormalizer.normalize(
+                        input,
+                        settings: settings.cleanup,
+                        cancellation: cancellation,
+                        deadlineMilliseconds: cleanupDeadlineMilliseconds
+                    )
+                    cleanupCancellationTokens[sessionID] = nil
+                    guard !explicitlyCancelledSessions.contains(sessionID) else {
+                        finishSessionReturningToIdle(sessionID: sessionID)
+                        return
+                    }
+                    switch outcome {
+                    case let .insert(selected):
+                        insertableTranscript = selected
+                    case let .recover(fallback, reason):
+                        setCleanupStatus(.fallingBack(sessionID, reason), for: sessionID)
+                        publishProgress(.fallingBack(parse.format, reason), for: sessionID)
+                        insertableTranscript = fallback
+                    case .cancelled:
+                        let reason = CleanupFallbackReason.cancelled
+                        setCleanupStatus(.fallingBack(sessionID, reason), for: sessionID)
+                        publishProgress(.fallingBack(parse.format, reason), for: sessionID)
+                        insertableTranscript = policy.fallback(for: input, reason: reason)
+                    }
+                } else {
+                    let reason = CleanupFallbackReason.modelUnavailable
                     setCleanupStatus(.fallingBack(sessionID, reason), for: sessionID)
                     publishProgress(.fallingBack(parse.format, reason), for: sessionID)
                     insertableTranscript = policy.fallback(for: input, reason: reason)
@@ -876,6 +975,13 @@ public final class DictationController {
             }
 
             guard beginAutomaticInsertion(for: sessionID) else { return }
+            if insertableTranscript.text.isEmpty {
+                removePendingInsertion(sessionID: sessionID)
+                let ownsPresentation = currentSessionID == sessionID
+                finishSessionReturningToIdle(sessionID: sessionID)
+                if ownsPresentation { scheduleLiveTranscriptPreviewDismissal() }
+                return
+            }
             transition(to: .inserting, for: sessionID)
             logger.info(.textInsertionStarted)
             _ = try await textInserter.insert(
@@ -1140,6 +1246,7 @@ public final class DictationController {
         logger.info(.sessionReturnedToIdle)
         scheduleIdleModelMaintenance()
         scheduleCleanupPreparationIfNeeded()
+        scheduleCleanupIdleUnloadIfNeeded()
     }
 
     private func beginAutomaticInsertion(for sessionID: DictationSessionID) -> Bool {
@@ -1226,10 +1333,37 @@ public final class DictationController {
 
     private func scheduleCleanupPreparationIfNeeded() {
         guard cleanupEnablement.isEffective, !cleanupIsPrepared else { return }
+        if let suppressedUntil = cleanupPreparationSuppressedUntil,
+           ContinuousClock.now < suppressedUntil {
+            return
+        }
         Task(priority: .utility) { [weak self] in
             await Task.yield()
             guard let self, self.state == .idle else { return }
             await self.prepareCleanupModelIfEffective()
+        }
+    }
+
+    private func scheduleCleanupIdleUnloadIfNeeded() {
+        cleanupIdleUnloadTask?.cancel()
+        cleanupIdleUnloadTask = nil
+        guard cleanupEnablement.isEffective,
+              cleanupIsPrepared,
+              pendingInsertions.entries.isEmpty,
+              let cleanupNormalizer else { return }
+        let delay = cleanupIdleUnloadDelay
+        cleanupIdleUnloadTask = Task(priority: .utility) { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled,
+                  let self,
+                  self.state == .idle,
+                  self.pendingInsertions.entries.isEmpty,
+                  self.cleanupEnablement.isEffective,
+                  self.cleanupIsPrepared else { return }
+            self.cleanupIsPrepared = false
+            self.cleanupStatus = .preparing
+            await cleanupNormalizer.unload()
+            self.cleanupIdleUnloadTask = nil
         }
     }
 

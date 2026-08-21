@@ -5,6 +5,31 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 expected_bundle_id="com.stephansturges.voxhearth"
 expected_team_id="${APPLE_TEAM_ID:-}"
+expected_entitlements="$repo_root/Documentation/Distribution/VoxHearth.entitlements"
+
+canonical_plist() {
+  plutil -convert json -o - "$1" \
+    | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin), sort_keys=True, separators=(",", ":")))'
+}
+
+verify_exact_entitlements() {
+  local actual="$1"
+  local expected="$2"
+  [[ "$(canonical_plist "$actual")" == "$(canonical_plist "$expected")" ]]
+}
+
+if [[ "${1:-}" == --self-test ]]; then
+  clean="$(mktemp "${TMPDIR:-/private/tmp}/voxhearth-entitlements-clean.XXXXXX.plist")"
+  hostile="$(mktemp "${TMPDIR:-/private/tmp}/voxhearth-entitlements-hostile.XXXXXX.plist")"
+  trap 'rm -f "$clean" "$hostile"' EXIT
+  cp "$expected_entitlements" "$clean"
+  cp "$expected_entitlements" "$hostile"
+  /usr/libexec/PlistBuddy -c 'Add :com.apple.security.cs.allow-jit bool true' "$hostile"
+  verify_exact_entitlements "$clean" "$expected_entitlements"
+  ! verify_exact_entitlements "$hostile" "$expected_entitlements"
+  printf 'release entitlement check self-test passed\n'
+  exit 0
+fi
 
 if [[ $# -ne 1 ]]; then
   printf 'Usage: scripts/verify-release.sh VOXHEARTH_DMG\n' >&2
@@ -69,19 +94,11 @@ done
 
 entitlements="$(mktemp "${TMPDIR:-/private/tmp}/voxhearth-entitlements.XXXXXX.plist")"
 codesign -d --entitlements :- "$app" > "$entitlements" 2>/dev/null
-for forbidden_entitlement in \
-  com.apple.security.network.client \
-  com.apple.security.network.server \
-  com.apple.developer.associated-domains \
-  com.apple.developer.icloud-container-identifiers \
-  com.apple.security.application-groups \
-  com.apple.security.get-task-allow; do
-  if plutil -extract "$forbidden_entitlement" raw -o - "$entitlements" >/dev/null 2>&1; then
-    printf 'error: forbidden entitlement present: %s\n' "$forbidden_entitlement" >&2
-    rm -f "$entitlements"
-    exit 1
-  fi
-done
+if ! verify_exact_entitlements "$entitlements" "$expected_entitlements"; then
+  printf 'error: signed entitlements differ from the reviewed microphone-only set\n' >&2
+  rm -f "$entitlements"
+  exit 1
+fi
 rm -f "$entitlements"
 
 signature_details="$(codesign -dvvv "$app" 2>&1)"

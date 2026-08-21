@@ -126,3 +126,12 @@ output structurally and falls back to the command-stripped raw transcript if
 cleanup is unavailable, times out, is cancelled, or yields unsafe output. It
 may still make semantically plausible mistakes, so users should review text
 before relying on it in consequential contexts.
+
+The current production safety policy allows at most 42 input tokens in one
+cleanup pass. Lists and emails above that cap fall back without generation.
+Ordinary prose is split only at safe sentence boundaries; if no safe split
+exists, the original transcript is inserted unchanged. This conservative cap
+is derived from the passing 41-42-token semantic fixtures in the M5 spike; the
+150-word fixtures completed quickly but did not pass the semantic ratchet. It
+must not be raised without equivalent real-model evidence on the M2/16 GB
+performance floor.

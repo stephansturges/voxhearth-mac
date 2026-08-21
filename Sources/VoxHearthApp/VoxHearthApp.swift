@@ -6,7 +6,15 @@ import VoxHearthCore
 @MainActor
 struct VoxHearthApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var model = VoxHearthFrontendModel()
+    @State private var model: VoxHearthFrontendModel
+
+    init() {
+        let model = VoxHearthFrontendModel()
+        _model = State(initialValue: model)
+        CleanupTerminationRegistry.handler = { [weak model] in
+            await model?.controller.shutdownCleanup()
+        }
+    }
 
     var body: some Scene {
         Window("Welcome to VoxHearth", id: "onboarding") {
@@ -27,6 +35,11 @@ struct VoxHearthApp: App {
             SettingsRootView(model: model)
         }
     }
+}
+
+@MainActor
+private enum CleanupTerminationRegistry {
+    static var handler: (@MainActor @Sendable () async -> Void)?
 }
 
 @MainActor
@@ -64,6 +77,8 @@ private struct OnboardingWindowView: View {
 
 @MainActor
 private final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var terminationIsPending = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         let currentProcessIdentifier = ProcessInfo.processInfo.processIdentifier
         let bundleIdentifier = Bundle.main.bundleIdentifier ?? AppIdentity.bundleIdentifier
@@ -83,6 +98,13 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        .terminateNow
+        guard let handler = CleanupTerminationRegistry.handler else { return .terminateNow }
+        guard !terminationIsPending else { return .terminateLater }
+        terminationIsPending = true
+        Task { @MainActor in
+            await handler()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 }

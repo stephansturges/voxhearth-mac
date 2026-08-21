@@ -46,6 +46,7 @@ plutil -lint Documentation/Distribution/VoxHearth.entitlements >/dev/null
   exit 1
 }
 ./scripts/check-release-binary.sh --self-test
+./scripts/verify-release.sh --self-test
 [[ -f Brand/VoxHearth.icns ]] || {
   printf 'error: required application icon is missing: Brand/VoxHearth.icns\n' >&2
   exit 1

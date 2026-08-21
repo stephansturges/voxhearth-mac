@@ -147,7 +147,7 @@
     },
     {
       "id": "chunked-prose",
-      "transcript": "The first section explains the privacy model and confirms that every transcript remains local. The second section explains the fallback path and confirms that the original text remains recoverable.",
+      "transcript": "The first section explains the privacy model and confirms that every transcript remains local on this Mac without an account or cloud service. The second section explains the fallback path and confirms that the original dictated text remains recoverable when cleanup cannot complete safely. The final section explains that users can disable cleanup at any time while ordinary local dictation continues unchanged.",
       "expectedDirective": null,
       "expectedFormat": "proseGeneral",
       "expectedExact": null,

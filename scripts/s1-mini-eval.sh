@@ -109,6 +109,8 @@ assert_report() {
     .counters.modelLoads <= $ratchet[0].maximumModelLoads and
     .counters.contextCreations <= $ratchet[0].maximumContextCreations and
     .counters.warmups == $ratchet[0].requiredWarmups and
+    (.fixtures[] | select(.id == "chunked-prose") | .generations > 1) and
+    (.fixtures[] | select(.id == "structured-over-budget-fallback") | .generations == 0) and
     ([.fixtures[].passed] | all)
   ' "$report" >/dev/null || fail "$backend semantic/performance ratchet failed"
   jq -e --arg backend "$backend" --slurpfile ratchet "$ratchet" '

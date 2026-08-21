@@ -20,6 +20,8 @@ private final class RuntimeRecorder: @unchecked Sendable {
 private final class FakeS1Session: S1MiniRuntimeSession, @unchecked Sendable {
     enum Behavior: Sendable {
         case output(String)
+        case echo
+        case invalidateWhenInputContains(String)
         case fail(S1MiniError, producedTokens: Int)
     }
 
@@ -79,6 +81,19 @@ private final class FakeS1Session: S1MiniRuntimeSession, @unchecked Sendable {
                 outputTokens: max(1, text.split(whereSeparator: \.isWhitespace).count),
                 reachedEndOfGeneration: true
             )
+        case .echo:
+            return CleanupGenerationResult(
+                text: input,
+                outputTokens: max(1, input.split(whereSeparator: \.isWhitespace).count),
+                reachedEndOfGeneration: true
+            )
+        case let .invalidateWhenInputContains(fragment):
+            let text = input.contains(fragment) ? "<think>invalid</think>" : input
+            return CleanupGenerationResult(
+                text: text,
+                outputTokens: max(1, text.split(whereSeparator: \.isWhitespace).count),
+                reachedEndOfGeneration: true
+            )
         case let .fail(error, producedTokens):
             throw LlamaGenerationFailure(error: error, producedTokens: producedTokens)
         }
@@ -110,6 +125,15 @@ private func selection(_ backend: LlamaBackend) -> LlamaBackendSelection {
     )
 }
 
+private final class BlockingFactoryGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _hasEntered = false
+    let release = DispatchSemaphore(value: 0)
+
+    var hasEntered: Bool { lock.withLock { _hasEntered } }
+    func markEntered() { lock.withLock { _hasEntered = true } }
+}
+
 @Test func preparationFallsBackFromMetalToCPU() async throws {
     let recorder = RuntimeRecorder()
     let normalizer = S1MiniNormalizer(policy: CleanupPolicy()) { _, backend in
@@ -123,6 +147,44 @@ private func selection(_ backend: LlamaBackend) -> LlamaBackendSelection {
     )
     #expect(backend == .cpu)
     #expect(recorder.loads == [.cpu])
+    await normalizer.unload()
+}
+
+@Test func normalizationDeadlineIncludesQueueAdmissionBehindPreparation() async throws {
+    let recorder = RuntimeRecorder()
+    let gate = BlockingFactoryGate()
+    let normalizer = S1MiniNormalizer(policy: CleanupPolicy()) { _, backend in
+        gate.markEntered()
+        gate.release.wait()
+        return FakeS1Session(backend: backend, recorder: recorder, behavior: .echo)
+    }
+    let preparation = Task {
+        try await normalizer.prepare(
+            modelURL: URL(fileURLWithPath: "/tmp/fake.gguf"),
+            selection: selection(.cpu),
+            warmUp: false
+        )
+    }
+    while !gate.hasEntered {
+        await Task.yield()
+    }
+
+    let input = runtimeInput("please send it")
+    let started = ContinuousClock.now
+    let outcome = await normalizer.normalize(
+        input,
+        settings: CleanupSettings(),
+        deadlineMilliseconds: 30
+    )
+    let elapsed = started.duration(to: .now)
+    #expect(outcome == .recover(
+        CleanupPolicy().fallback(for: input, reason: .deadline),
+        .deadline
+    ))
+    #expect(elapsed < .milliseconds(500))
+
+    gate.release.signal()
+    _ = try await preparation.value
     await normalizer.unload()
 }
 
@@ -167,6 +229,53 @@ private func selection(_ backend: LlamaBackend) -> LlamaBackendSelection {
         .inputTooLong
     ))
     #expect(recorder.generations == 0)
+    await normalizer.unload()
+}
+
+@Test func proseChunkingGeneratesEveryChunkAndPreservesSeparators() async throws {
+    let recorder = RuntimeRecorder()
+    let policy = CleanupPolicy(limits: .init(contextTokens: 2_048, safeSinglePassInputTokens: 4))
+    let normalizer = S1MiniNormalizer(policy: policy) { _, backend in
+        FakeS1Session(backend: backend, recorder: recorder, behavior: .echo)
+    }
+    _ = try await normalizer.prepare(
+        modelURL: URL(fileURLWithPath: "/tmp/fake.gguf"),
+        selection: selection(.cpu),
+        warmUp: false
+    )
+    let input = runtimeInput("First part works.\n\nSecond part works.")
+    let outcome = await normalizer.normalize(input, settings: CleanupSettings())
+    guard case let .insert(transcript) = outcome else {
+        Issue.record("expected a joined cleaned result")
+        return
+    }
+    #expect(transcript.text == "First part works.\n\nSecond part works.")
+    #expect(recorder.generations == 2)
+    await normalizer.unload()
+}
+
+@Test func proseChunkingFallsBackAsAWholeWhenAnyChunkIsInvalid() async throws {
+    let recorder = RuntimeRecorder()
+    let policy = CleanupPolicy(limits: .init(contextTokens: 2_048, safeSinglePassInputTokens: 4))
+    let normalizer = S1MiniNormalizer(policy: policy) { _, backend in
+        FakeS1Session(
+            backend: backend,
+            recorder: recorder,
+            behavior: .invalidateWhenInputContains("Second")
+        )
+    }
+    _ = try await normalizer.prepare(
+        modelURL: URL(fileURLWithPath: "/tmp/fake.gguf"),
+        selection: selection(.cpu),
+        warmUp: false
+    )
+    let input = runtimeInput("First part works. Second part fails.")
+    let outcome = await normalizer.normalize(input, settings: CleanupSettings())
+    #expect(outcome == .recover(
+        CleanupPolicy().fallback(for: input, reason: .invalidOutput),
+        .invalidOutput
+    ))
+    #expect(recorder.generations == 2)
     await normalizer.unload()
 }
 

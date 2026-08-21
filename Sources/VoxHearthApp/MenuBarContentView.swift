@@ -195,8 +195,11 @@ struct MenuBarContentView: View {
                         }
                     }
                     .buttonStyle(.bordered)
-                    .disabled(model.controller.state == .inserting)
+                    .disabled(!RecoveryActionPresentation.insertionIsEnabled(
+                        for: model.controller.state
+                    ))
                     .accessibilityLabel("Retry inserting \(pending.title)")
+                    .accessibilityHint(RecoveryActionPresentation.busyHint)
                 }
 
                 if pending.allowsInsertAnyway {
@@ -204,8 +207,11 @@ struct MenuBarContentView: View {
                         recoveryConfirmation = .insertAnyway(pending)
                     }
                     .buttonStyle(.bordered)
-                    .disabled(model.controller.state == .inserting)
+                    .disabled(!RecoveryActionPresentation.insertionIsEnabled(
+                        for: model.controller.state
+                    ))
                     .accessibilityLabel("Insert \(pending.title) once using the clipboard")
+                    .accessibilityHint(RecoveryActionPresentation.busyHint)
                 }
 
                 Button("Discard", role: .destructive) {

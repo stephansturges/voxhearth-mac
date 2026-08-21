@@ -114,6 +114,11 @@ private struct DictationSettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
+                Text(CleanupSettingsPresentation.lengthDisclosure)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 if let reason = CleanupSettingsPresentation.ineffectiveReason(
                     model.cleanupEnablement.ineffectiveReason
                 ) {
@@ -307,7 +312,7 @@ private struct PrivacySettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Preferences stored on this Mac")
                         .font(.subheadline.weight(.semibold))
-                    Text("Shortcut, selected microphone identifier, speech model, language, launch-at-login choice, clipboard compatibility choice, and onboarding completion.")
+                    Text(PrivacySettingsPresentation.localPreferences)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -463,6 +468,9 @@ private struct LicensesView: View {
                     terms: "Creative Commons Attribution 4.0",
                     note: "The compact English model is derived from NVIDIA Parakeet and redistributed with attribution in the release notices."
                 )
+                ForEach(ThirdPartyLicensePresentation.cleanupDependencies, id: \.name) { entry in
+                    license(entry.name, terms: entry.terms, note: entry.note)
+                }
 
                 Divider()
                 Text("The complete license texts, upstream notices, model provenance, and source offer ship with every release and are available in the repository.")

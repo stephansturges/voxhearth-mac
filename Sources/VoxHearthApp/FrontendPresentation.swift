@@ -118,6 +118,9 @@ enum CleanupProgressPresentation {
         format: CleanupFormat,
         reason: CleanupFallbackReason
     ) -> String {
+        if reason == .inputTooLong, format == .proseGeneral {
+            return "Too long to clean up — using original transcript"
+        }
         if reason == .inputTooLong, format != .proseGeneral {
             return "Too long to format — inserted without the command"
         }
@@ -133,6 +136,8 @@ enum CleanupProgressPresentation {
 }
 
 enum CleanupSettingsPresentation {
+    static let lengthDisclosure = "Cleanup and list or email formatting apply to shorter dictations. Longer or unusually long single-sentence dictations are inserted unchanged."
+
     static var modelPayloadSize: String {
         let bytes = Int64(S1MiniModelAsset.byteCount)
         let decimal = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
@@ -153,6 +158,42 @@ enum CleanupSettingsPresentation {
         case nil:
             nil
         }
+    }
+}
+
+enum PrivacySettingsPresentation {
+    static let localPreferences = "Shortcut, selected microphone identifier, selected speech model, language, launch-at-login choice, live-preview choice, clipboard-fallback choice, cleanup choice/style, list/email prefix choices, and onboarding/disclosure completion."
+}
+
+struct ThirdPartyLicensePresentation: Equatable {
+    let name: String
+    let terms: String
+    let note: String
+
+    static let cleanupDependencies = [
+        ThirdPartyLicensePresentation(
+            name: "S1-mini by Superwhisper",
+            terms: "Apache-2.0 AND LicenseRef-S1-mini-Naming-Clause",
+            note: "The transcript-cleanup model is identified and redistributed under its complete upstream terms."
+        ),
+        ThirdPartyLicensePresentation(
+            name: "Qwen3-0.6B",
+            terms: "Apache License 2.0",
+            note: "S1-mini is based on Qwen3-0.6B; the base-model attribution and license ship with every release."
+        ),
+        ThirdPartyLicensePresentation(
+            name: "llama.cpp",
+            terms: "MIT License",
+            note: "Provides the statically linked local CPU and Metal cleanup runtime."
+        ),
+    ]
+}
+
+enum RecoveryActionPresentation {
+    static let busyHint = "Available after the current dictation finishes"
+
+    static func insertionIsEnabled(for state: DictationSessionState) -> Bool {
+        !state.isBusy
     }
 }
 

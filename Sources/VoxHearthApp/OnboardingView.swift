@@ -120,6 +120,11 @@ struct OnboardingView: View {
                     .font(.caption)
                     .foregroundStyle(Color.voxWarmWhite.opacity(0.65))
                     .fixedSize(horizontal: false, vertical: true)
+
+                Text(CleanupSettingsPresentation.lengthDisclosure)
+                    .font(.caption)
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.65))
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

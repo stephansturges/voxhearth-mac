@@ -237,4 +237,53 @@ struct FrontendPresentationTests {
         #expect(AccessibilityRecoveryGuidance.recoverySteps.joined().contains("press +"))
         #expect(AccessibilityRecoveryGuidance.recoverySteps.joined().contains("Applications"))
     }
+
+    @Test("Cleanup length, privacy, attribution, and fallback copy stay explicit")
+    func cleanupDisclosureAndAttributionCopy() {
+        #expect(CleanupSettingsPresentation.lengthDisclosure.contains("Longer"))
+        #expect(CleanupSettingsPresentation.lengthDisclosure.contains("inserted unchanged"))
+        #expect(PrivacySettingsPresentation.localPreferences.contains("cleanup choice/style"))
+        #expect(PrivacySettingsPresentation.localPreferences.contains("list/email prefix choices"))
+        #expect(PrivacySettingsPresentation.localPreferences.contains("live-preview choice"))
+        #expect(ThirdPartyLicensePresentation.cleanupDependencies.map(\.name) == [
+            "S1-mini by Superwhisper", "Qwen3-0.6B", "llama.cpp",
+        ])
+        #expect(ThirdPartyLicensePresentation.cleanupDependencies[0].terms.contains("Naming-Clause"))
+        #expect(
+            CleanupProgressPresentation.fallbackDetail(
+                format: .proseGeneral,
+                reason: .inputTooLong
+            ) == "Too long to clean up — using original transcript"
+        )
+    }
+
+    @Test("Settings and onboarding both render the shared cleanup disclosure")
+    func cleanupDisclosureSurfaces() throws {
+        let repository = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let settings = try String(contentsOf: repository.appendingPathComponent(
+            "Sources/VoxHearthApp/SettingsRootView.swift"
+        ))
+        let onboarding = try String(contentsOf: repository.appendingPathComponent(
+            "Sources/VoxHearthApp/OnboardingView.swift"
+        ))
+        #expect(settings.contains("Text(CleanupSettingsPresentation.lengthDisclosure)"))
+        #expect(onboarding.contains("Text(CleanupSettingsPresentation.lengthDisclosure)"))
+        #expect(settings.contains("PrivacySettingsPresentation.localPreferences"))
+        #expect(settings.contains("ThirdPartyLicensePresentation.cleanupDependencies"))
+    }
+
+    @Test("Recovery insertion controls are inert only while the session is busy")
+    func recoveryActionEnablement() {
+        #expect(RecoveryActionPresentation.insertionIsEnabled(for: .idle))
+        #expect(RecoveryActionPresentation.insertionIsEnabled(for: .failed(.insertionFailed)))
+        #expect(!RecoveryActionPresentation.insertionIsEnabled(for: .preparing))
+        #expect(!RecoveryActionPresentation.insertionIsEnabled(for: .recording))
+        #expect(!RecoveryActionPresentation.insertionIsEnabled(for: .transcribing))
+        #expect(!RecoveryActionPresentation.insertionIsEnabled(for: .cleaning(.proseGeneral)))
+        #expect(!RecoveryActionPresentation.insertionIsEnabled(for: .inserting))
+        #expect(RecoveryActionPresentation.busyHint.contains("current dictation"))
+    }
 }
