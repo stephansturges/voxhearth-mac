@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "hashAlgorithm": "sha256",
   "files": [
-    {"path": "Package.swift", "sha256": "12c19dfc4e38c2cfa942d0e671a41766d04597ff6d52b64cf7d9beb5ccf6edc7"},
+    {"path": "Package.swift", "sha256": "ab23cbe0e86e1826e39aefd27468c85f0b3f0dc1a19425fd4c67c80e72e689b4"},
     {"path": "Research/latency/README.md", "sha256": "744afc96f8e12574057b0c1bb52c464500bbc43c0ca7188ed658ccf5bed372c4"},
     {"path": "Research/latency/fixtures.manifest.json", "sha256": "cad221a5d56555ae0a2a923d1df0ed38120244c9764e32c4a87ee4aa6bcf0fe5"},
     {"path": "Research/latency/fixtures/guardrail-chunked.aiff", "sha256": "bed2769f96079748cbbe563bd9c138dc08b40635b28ea8bc08c14caefae6edb9"},

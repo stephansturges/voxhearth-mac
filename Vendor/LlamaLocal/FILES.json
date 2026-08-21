@@ -1,0 +1,845 @@
+{
+  "schemaVersion": 1,
+  "upstream": {
+    "repository": "https://github.com/ggml-org/llama.cpp",
+    "tag": "b10524",
+    "commit": "9ee9fc04c136ef2ae729bfc60d18961b23c13ddf"
+  },
+  "compiledSources": [
+    "ggml/src/ggml.c",
+    "ggml/src/ggml.cpp",
+    "ggml/src/ggml-alloc.c",
+    "ggml/src/ggml-backend.cpp",
+    "ggml/src/ggml-backend-meta.cpp",
+    "ggml/src/ggml-backend-reg.cpp",
+    "ggml/src/ggml-opt.cpp",
+    "ggml/src/ggml-threading.cpp",
+    "ggml/src/ggml-quants.c",
+    "ggml/src/gguf.cpp",
+    "ggml/src/ggml-cpu/ggml-cpu.c",
+    "ggml/src/ggml-cpu/ggml-cpu.cpp",
+    "ggml/src/ggml-cpu/repack.cpp",
+    "ggml/src/ggml-cpu/hbm.cpp",
+    "ggml/src/ggml-cpu/quants.c",
+    "ggml/src/ggml-cpu/traits.cpp",
+    "ggml/src/ggml-cpu/binary-ops.cpp",
+    "ggml/src/ggml-cpu/unary-ops.cpp",
+    "ggml/src/ggml-cpu/vec.cpp",
+    "ggml/src/ggml-cpu/ops.cpp",
+    "ggml/src/ggml-cpu/llamafile/sgemm.cpp",
+    "ggml/src/ggml-cpu/arch/arm/cpu-feats.cpp",
+    "ggml/src/ggml-cpu/arch/arm/quants.c",
+    "ggml/src/ggml-cpu/arch/arm/repack.cpp",
+    "ggml/src/ggml-blas/ggml-blas.cpp",
+    "ggml/src/ggml-metal/ggml-metal.cpp",
+    "ggml/src/ggml-metal/ggml-metal-device.m",
+    "ggml/src/ggml-metal/ggml-metal-device.cpp",
+    "ggml/src/ggml-metal/ggml-metal-common.cpp",
+    "ggml/src/ggml-metal/ggml-metal-context.m",
+    "ggml/src/ggml-metal/ggml-metal-ops.cpp",
+    "src/llama.cpp",
+    "src/llama-adapter.cpp",
+    "src/llama-arch.cpp",
+    "src/llama-batch.cpp",
+    "src/llama-chat.cpp",
+    "src/llama-context.cpp",
+    "src/llama-cparams.cpp",
+    "src/llama-grammar.cpp",
+    "src/llama-graph.cpp",
+    "src/llama-hparams.cpp",
+    "src/llama-impl.cpp",
+    "src/llama-io.cpp",
+    "src/llama-kv-cache.cpp",
+    "src/llama-kv-cache-iswa.cpp",
+    "src/llama-kv-cache-dsa.cpp",
+    "src/llama-kv-cache-msa.cpp",
+    "src/llama-kv-cache-dsv4.cpp",
+    "src/llama-memory.cpp",
+    "src/llama-memory-hybrid.cpp",
+    "src/llama-memory-hybrid-iswa.cpp",
+    "src/llama-memory-recurrent.cpp",
+    "src/llama-mmap.cpp",
+    "src/llama-model-loader.cpp",
+    "src/llama-model.cpp",
+    "src/llama-sampler.cpp",
+    "src/llama-vocab.cpp",
+    "src/unicode-data.cpp",
+    "src/unicode.cpp",
+    "src/models/qwen3.cpp"
+  ],
+  "files": [
+    {
+      "path": "ggml/include/ggml-alloc.h",
+      "bytes": 3753,
+      "sha256": "94e4cd069b9313b2ceb35dacec901981e0bb478d8bb31035b7126be091998c23",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/include/ggml-backend.h",
+      "bytes": 25374,
+      "sha256": "46d84cb998105f871240864fd0f55446939a2fe86c5c281afa63a010fb1f65a2",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/include/ggml-blas.h",
+      "bytes": 586,
+      "sha256": "e76cb8594dc9866d99e7d63191b9fff6ab8b50244b4a28ce3af0f962964a6b5b",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/include/ggml-cpp.h",
+      "bytes": 1652,
+      "sha256": "bc15ba002c68685df23faae42df0d2b3d58032011f88b649021ab92485862c72",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/include/ggml-cpu.h",
+      "bytes": 7753,
+      "sha256": "316279e004cdeb8e6ef78599acb602bf79a8abdf897fed9fd1914808c1518c6e",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/include/ggml-metal.h",
+      "bytes": 2141,
+      "sha256": "322f36cd30f3e9e7aad7b5b9bc63078012fd0b7706ac4e24f5721b604f3d8980",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/include/ggml-opt.h",
+      "bytes": 14040,
+      "sha256": "3586de1bc8a934b5c72339e2b6937b0641e8f149b512231e666f67de0736eea2",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/include/ggml.h",
+      "bytes": 112592,
+      "sha256": "6fe9b62d3ea48c2de82cce6e9e06d3ae4f0de34f4b5831399c49c099badefb09",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/include/gguf.h",
+      "bytes": 11355,
+      "sha256": "e56714aab702e5ce62ee587a409643c08f7e93e8fbb77f48ef7cc85075f96fa4",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-alloc.c",
+      "bytes": 47819,
+      "sha256": "881083e2f5d0126738ffe5b246d60cacf7db7b524f1ea471f116697c3211026a",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-backend-impl.h",
+      "bytes": 13783,
+      "sha256": "10c9fdb0b8ea77c9c67ee3eded6904b6e9b867e4537fb7ed77c85ca1897f8818",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-backend-meta.cpp",
+      "bytes": 107546,
+      "sha256": "f23cde660fd31b1fd9343aa46d0ad1ce800e49f8aa1f9c1bfeb335fae4c67398",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-backend-reg.cpp",
+      "bytes": 4978,
+      "sha256": "08d40c33491dfd552673225c17d8ee447e06e0f1e68d98829c4535fc4602e7b8",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-backend.cpp",
+      "bytes": 95835,
+      "sha256": "195abf481dea0e20f110e135e41e694a4ab6cba3895425f7b9b358865669756c",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-blas/ggml-blas.cpp",
+      "bytes": 17567,
+      "sha256": "d81fd424f08c47b5fc2711030b94104a487d2acad9b197783e7dd2c99caeba37",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-common.h",
+      "bytes": 135128,
+      "sha256": "af255601767325f087313fa84b9435cb77aeec37df6b61b98d9ecc65f29fb4a0",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/arch/arm/cpu-feats.cpp",
+      "bytes": 926,
+      "sha256": "a8691f7fb8f41f707d68566a168196b5ff7743090b0b486a0be998df6476c511",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/arch/arm/quants.c",
+      "bytes": 216961,
+      "sha256": "ece07cb27d6dc29603f4bb6e953a1e63900f2275c763288d77f04e82e0ff9a7c",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/arch/arm/repack.cpp",
+      "bytes": 255596,
+      "sha256": "2e7ba6aaf10834601315fc8f5e7f52a1638076bf6c0435542247c3de1ee4cce7",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/arch-fallback.h",
+      "bytes": 21654,
+      "sha256": "2dc6b116f732329effe45d3f9384d5ebae628f3c19e2f2ac69551fd2e3721917",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/binary-ops.cpp",
+      "bytes": 6709,
+      "sha256": "2df261aadce36a20f5e3bf6961d4ca27b8c2d461afc41488361ee6ad09c1730d",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/binary-ops.h",
+      "bytes": 518,
+      "sha256": "5915519c4e2227db28239b2a5d3b8a5f9022730cc0ddb7880b24748ee78cd1f9",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/common.h",
+      "bytes": 2333,
+      "sha256": "db7c19747a28c819d18922aa43b91b224df3730e424e6d8a4cf4fd16bfb1db14",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/ggml-cpu-impl.h",
+      "bytes": 13723,
+      "sha256": "e7008069e3e46f1db5e3d2eaafb4ddec3c7d0ece5c0454f99c5a8e33a50f20ba",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/ggml-cpu.c",
+      "bytes": 129626,
+      "sha256": "3995ad662f8f48abc95c33f8b7fa7e034d6e4ddf4e5b123c8be063f20d76b7f7",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/ggml-cpu.cpp",
+      "bytes": 24525,
+      "sha256": "7e97bfcddae91bb11a0da226e7e7cb32b3048a86708083ab62177e14ab7d5e97",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/hbm.cpp",
+      "bytes": 2003,
+      "sha256": "3c75b5aaf9b51d17060ecfb93cb5f8b22ce3974d7eff3d76dec2156d2f194b80",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/hbm.h",
+      "bytes": 155,
+      "sha256": "340c84ac6a1c83d2218a15d6d71c1efb6ba1a5517162c2fde4baa0a9204af26b",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/llamafile/sgemm.cpp",
+      "bytes": 162829,
+      "sha256": "e226380b05393302ba91b38d22718d9521700ee2cb7943f83ad316a7a9dcd597",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/llamafile/sgemm.h",
+      "bytes": 524,
+      "sha256": "6ec12aa9244a8ffb13ae56b2e391f905b1d152ae25ff45da6a66e18daf650b3b",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/ops.cpp",
+      "bytes": 412155,
+      "sha256": "50bcaa65ae93e35667dbda670ac87ef6551638cfd1a9500948cd795faa72b586",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/ops.h",
+      "bytes": 10103,
+      "sha256": "15c27f1127f0c9edd9dcd4e684eb8b2bd5d2038b4b32594d4a4b8b827407d33a",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/quants.c",
+      "bytes": 45124,
+      "sha256": "a61f1011e49d05b5f99d352b158d5b8e36cf008294bb0db309f72bdd7f1d4e35",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/quants.h",
+      "bytes": 10862,
+      "sha256": "918d6755b3e601ec7bb83c7dbf1d73304490651ccbb4072b0d31a2b45df751da",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/repack.cpp",
+      "bytes": 195909,
+      "sha256": "4ff9c018a0514664a5df0e65bebac47be27f6becf0c81145b372ee80dad5ed89",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/repack.h",
+      "bytes": 19905,
+      "sha256": "fe472315b4106400d7890fca308659c74bcdedad1b011a9ba60c02dcd5bef57b",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/simd-gemm.h",
+      "bytes": 7471,
+      "sha256": "ce613195325cea048ede4c7a86c382ac6abf4c701c91eee640bd3cc78b39ce5e",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/simd-mappings.h",
+      "bytes": 54751,
+      "sha256": "d1ca849419a643d4304d82d3921d11b02722ccf69d607a86c2c579b864f700b2",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/traits.cpp",
+      "bytes": 1231,
+      "sha256": "a85bd3ff50c91cb67d14221988544664dfe5975db0811b330dc4a2f385239de4",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/traits.h",
+      "bytes": 1157,
+      "sha256": "26e1b41879091a663325848aa82a4023b459fd1e688b3b0e2a9bde3e72a3a764",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/unary-ops.cpp",
+      "bytes": 11553,
+      "sha256": "6a0b3ad94fa22b543360995864e2cc385c48eed85e1d8882c9b1071bc6cbdd1b",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/unary-ops.h",
+      "bytes": 2442,
+      "sha256": "280b7979055079d43bdde7790a7290bf04f75640481c59abc2364c46d6ac6d8e",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/vec.cpp",
+      "bytes": 25309,
+      "sha256": "cda0babb53f9c8ff1faa7459b2c49019d15e5970dfe0c613d58e2659e919f524",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-cpu/vec.h",
+      "bytes": 66026,
+      "sha256": "280e451b679b8c52674288390d2146dcfd57edf837e3fa1556d1ac7141a01db9",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-feats.h",
+      "bytes": 4885,
+      "sha256": "4490179fd8c6df80fe29fc602ed7236eb828c51e9c379efb0dd510cb5cb81fec",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-impl.h",
+      "bytes": 25604,
+      "sha256": "2ed56e264202906d107e26d08eabb242d3107b026ebfb78096fa1e5f94bdbbb8",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal-common.cpp",
+      "bytes": 13994,
+      "sha256": "59977f06933b580c87b0652aa9f0ea9fdfc8a9b02a843079ed9bbbd45feca38d",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal-common.h",
+      "bytes": 1770,
+      "sha256": "4c69de12a20585115b7dd544aa0509c950ed580ec8ba2e8c4cc7097db8e7e795",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal-context.h",
+      "bytes": 1453,
+      "sha256": "b8729c5cfc8ec0dcf8f9485b9c8d1af83af37fa53d83c910f0ae6ee88eb6aef5",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal-context.m",
+      "bytes": 24896,
+      "sha256": "3da71094df36ef0c8078f471085e20ce072315dfe07e80e76481489546c54d98",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal-device.cpp",
+      "bytes": 74419,
+      "sha256": "a72a62e4345004f1e90329a0d81e2e83427630edbf9c940cd3a2f4be37115ba3",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal-device.h",
+      "bytes": 18306,
+      "sha256": "949da90091fae6053e7e3afad0b8dc4962526d309ab1c2d9d0fcf5aef18addca",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal-device.m",
+      "bytes": 60539,
+      "sha256": "c5abfb19fb923df70350764e88aab1b1aac7546829d257c90728da3ead6014c0",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal-impl.h",
+      "bytes": 25383,
+      "sha256": "aa8a60a492110993541391ab3ab2696716780dadd64543f7d62307dee68b3350",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal-ops.cpp",
+      "bytes": 179960,
+      "sha256": "b85bc1a1bdea5c2de2bd37af08c9cfd9f7875b0b7a4f2b8600af587b2ac8c45b",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal-ops.h",
+      "bytes": 4981,
+      "sha256": "ea5dc484e403e67b54a3a70ccdda60ddbc3cb04a8db894767b5df427696c0a56",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal.cpp",
+      "bytes": 34131,
+      "sha256": "df5c6491110c9463c535c1fe5856331a3354516c8a60f3f1b1d723a105439344",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml-metal/ggml-metal.metal",
+      "bytes": 495945,
+      "sha256": "96b93a70a9f5d55ae1f144f4b86262bb8e0a38f2c233587d6056a6f8f4e008f2",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-opt.cpp",
+      "bytes": 42081,
+      "sha256": "e35fd27856e37f3611d3bc6f17ee963be51bfe92bec96fad0a9fa2c7ebbe9c46",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-quants.c",
+      "bytes": 228250,
+      "sha256": "07143d7068936ae46b3c528b2f3d4bbb666e74d88992165716174d243573965d",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-quants.h",
+      "bytes": 9803,
+      "sha256": "28ae5fca1f3be636b36cd6c4fa2ca74fd42d229bfbd5352eaf66f3727bb8a6da",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-threading.cpp",
+      "bytes": 250,
+      "sha256": "13a18d885393722b7c9f42d4cf8575a4d41699926d656f78a867fa4fac9dad20",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml-threading.h",
+      "bytes": 198,
+      "sha256": "9652729043ed91482392c1aa08af5d813190d0ace2e7982d2539d28240ab8d8b",
+      "origin": "upstream"
+    },
+    {
+      "path": "ggml/src/ggml.c",
+      "bytes": 256284,
+      "sha256": "41d33a01616df7d537ce9f2b48c1f108e2aa3dd1a85e8c7c770aa2745a3b4381",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/ggml.cpp",
+      "bytes": 615,
+      "sha256": "2a728cbf7309bcaeee548e8132733074d494cc00fdcc3d07d7111721eb9ff278",
+      "origin": "patched"
+    },
+    {
+      "path": "ggml/src/gguf.cpp",
+      "bytes": 57618,
+      "sha256": "5269404605b2c07449683b67a0cca346839b9a3206230d7243769170faf9c67b",
+      "origin": "patched"
+    },
+    {
+      "path": "include/LlamaLocal.h",
+      "bytes": 123,
+      "sha256": "37b7f17b8cc4e1f85580ac5641c6079ad97b35677fc901535ad024c9eee66838",
+      "origin": "local"
+    },
+    {
+      "path": "include/llama.h",
+      "bytes": 84256,
+      "sha256": "1fbcba4003cfc089fa9681973acb3d9e24e465f32c3506ceb0ec7fa29952bdae",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-adapter.cpp",
+      "bytes": 18454,
+      "sha256": "e0abe8c4905db55c5ba4e75012798551e95d93bc5b697cba25d8e3cc86175d3b",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-adapter.h",
+      "bytes": 2240,
+      "sha256": "b63d8654358d6141fac1f45b1b56247d7c8360e609a55323d30e7dcb6a6ffc00",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-arch.cpp",
+      "bytes": 75709,
+      "sha256": "c6e40631f4c79c02115a5a324d00dba24ae64169614982d2648f7e5674c2c58e",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-arch.h",
+      "bytes": 21671,
+      "sha256": "2c79cc9cf35df2871671108e58483965aa70e73314e004dfd4dceb1968609154",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-batch.cpp",
+      "bytes": 30998,
+      "sha256": "801776d2f8e5586e1dd4d7a4d20732dcdfb36eaea805b526c6d4c20c49c5cb53",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-batch.h",
+      "bytes": 6580,
+      "sha256": "7000dfd8750e06c544642dd7b84c882191702ad46ced1a4d6ad109462d1a1013",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-chat.cpp",
+      "bytes": 41872,
+      "sha256": "0029616465e6d641c1e75a0e0e6e132f3ea6177593735d7f16c89e7edfbbe9a8",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-chat.h",
+      "bytes": 2275,
+      "sha256": "15d7f3257e01e3f095d79350f969658abfb0f0305a4f9bc734ebfafb067ed80c",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-context.cpp",
+      "bytes": 147980,
+      "sha256": "fab72fcd38a826cf81a199c1b30c1f37aa62a02d543026fc6fbed01fd8196acd",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-context.h",
+      "bytes": 12890,
+      "sha256": "7cd1b39819442f1f3c556bec487fdd8d1501967cd1fbe33feea59d5bbc556fc8",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-cparams.cpp",
+      "bytes": 100,
+      "sha256": "95ab4b7b72851eb381a3d2ff2e9f18731103ba5f9f5f216882a034319e709297",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-cparams.h",
+      "bytes": 2105,
+      "sha256": "aefc211ffe0fb1401a6459ef2d3bc74f0c25f280fb87797f4fda9469694330e4",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-ext.h",
+      "bytes": 5203,
+      "sha256": "da3da8089082cc2872427fffd414802a3d20871df750d7de4917ed28e064caeb",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-grammar.cpp",
+      "bytes": 56222,
+      "sha256": "e65069d45e6f77cfb32461605792e4efb31c02cd918c50cb8a2f9a8968072ed7",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-grammar.h",
+      "bytes": 6961,
+      "sha256": "db730e5aff77f96274aba4a43670f036400d89c7ed44b6e98d3ced41c7b9d193",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-graph.cpp",
+      "bytes": 134312,
+      "sha256": "62ebfa3fcbd9586157a4bd7794025d16052a6c3ccce73b9a9cc9f4d65d7a0378",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-graph.h",
+      "bytes": 46755,
+      "sha256": "d82a5ea44ea86e1c0c906fccc86baca112465b476f6ef80b4f1fbe56c2cc0ea0",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-hparams.cpp",
+      "bytes": 8175,
+      "sha256": "403df9d73792519375cadfe3f63af3221207b288d0cbb31ff8b4f3e88220acfb",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-hparams.h",
+      "bytes": 15231,
+      "sha256": "c36ac0f930ed1308adbea70ef905c93697da1d1d2df9793f89dbda03fe7c3364",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-impl.cpp",
+      "bytes": 6131,
+      "sha256": "b01ad5b5ec7b314a73205ff7a7168769d72bb2e200b87bc39c48dcb9dc712ee8",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-impl.h",
+      "bytes": 3076,
+      "sha256": "c9346ca1cb12c31e838380773eb822b97b4f467ab4ca85fa4e91a8a573d2a502",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-io.cpp",
+      "bytes": 447,
+      "sha256": "4ed1a8b75a4e82dd765f7b6ca8970bb8a2ae371c56c833af0355231072e70045",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-io.h",
+      "bytes": 812,
+      "sha256": "d4fab09cdc38af97d2d4b08b55944b25af0d9f0deff11f22daac7876f23c1389",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-kv-cache-dsa.cpp",
+      "bytes": 8340,
+      "sha256": "85d76ec2cf3f796aaed04557bdccc9fa151b84128046d48ba1017696e7801eef",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-kv-cache-dsa.h",
+      "bytes": 4271,
+      "sha256": "169d2bb004e1cbebfafab2b283621a00eaf998f69fbf00172f7855c8d31fa6dd",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-kv-cache-dsv4.cpp",
+      "bytes": 74958,
+      "sha256": "8cd4801df83fea03ff63e0b2681c381c7ac57ac5102a9cf175624a1074d7fede",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-kv-cache-dsv4.h",
+      "bytes": 14530,
+      "sha256": "edef4ce05dd9169fa15b56ec4fec79d5ab5441ce3ba5bf6c1264e83c5abc41b2",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-kv-cache-iswa.cpp",
+      "bytes": 11389,
+      "sha256": "d951c5736edecd11dd38bf3eec2e7a0484484bd4fd5b665e62169d562e3d2dc7",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-kv-cache-iswa.h",
+      "bytes": 4842,
+      "sha256": "b42f1b166b92f1a7eadde2995ac7457c2e6ec845e1a9c72258df1e880c1f2c90",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-kv-cache-msa.cpp",
+      "bytes": 12540,
+      "sha256": "eb8001f9dbb87e909b0f24e316d941cfba0bd98e97292fd8fb0014f9ef9491bb",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-kv-cache-msa.h",
+      "bytes": 5714,
+      "sha256": "7a5f891f976b5638117feecba216e4f0e87afad75330957e2557b2dd67d956bd",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-kv-cache.cpp",
+      "bytes": 86201,
+      "sha256": "471857a5dc611017d5794389c66111f6918b0e36c636ab62e63a1af6433f354c",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-kv-cache.h",
+      "bytes": 14549,
+      "sha256": "64d18a4890684113e7e794e3c84dc4f5334ac374d215bdb457ffad61eeabfde5",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-kv-cells.h",
+      "bytes": 13245,
+      "sha256": "c0a9e9571adcc2521c7cc278cb6da83086afb7d19d10bcf88ce3c83df6ae5545",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-memory-hybrid-iswa.cpp",
+      "bytes": 10166,
+      "sha256": "74b00eb779e216ac2447784ba1e34950aa8cb168899868e7195a590bc7daf6e3",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-memory-hybrid-iswa.h",
+      "bytes": 4565,
+      "sha256": "340e3e77765fb7439ef6fa956a67d043452ded15adfc1299cdcf0913ce3ff48f",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-memory-hybrid.cpp",
+      "bytes": 9539,
+      "sha256": "b2b193c4a412a91b1fe15a3c239d3b2664b5208ff49d6dba244ff8fec0880f92",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-memory-hybrid.h",
+      "bytes": 4382,
+      "sha256": "45919f9364e401eabb80eafab0e396166f21e92d75eb4d4ef4e52fe6d9b92cd5",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-memory-recurrent.cpp",
+      "bytes": 42254,
+      "sha256": "1a18e8f1a1424d2e4f869f0f0d5148a961763d403122283dff8ee7e9cd32a7de",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-memory-recurrent.h",
+      "bytes": 6059,
+      "sha256": "f41a2c8eb8509141c48709ebc1caeb1ba866c128fa442a1ff7c16b868ec58317",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-memory.cpp",
+      "bytes": 1534,
+      "sha256": "1bf48d324cfa5fa57d5c486ec17ddd12b844fc40ec82d72ba113a3fe76a1f2c6",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-memory.h",
+      "bytes": 4669,
+      "sha256": "c9ed12cafb89336408a700739a0d985daca1de599c7baa9db8ba62ecbedb1bd3",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-mmap.cpp",
+      "bytes": 24474,
+      "sha256": "d0e460b75e0aa547ec83da9af0ed13ab5c0ac5a5c0810705bbb63a649677a139",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-mmap.h",
+      "bytes": 1663,
+      "sha256": "778d279d36bdbcf55b22480ebf8a4d16cc78db66780e33234ed08a496a66295d",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-model-loader.cpp",
+      "bytes": 74157,
+      "sha256": "706ae41a50f6e61b6a16cea77fe2fe3d8e1a14d9cf315252c6130cb89e88c064",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-model-loader.h",
+      "bytes": 7701,
+      "sha256": "72f5eb5c6f9fefc4b1e5b3f76139f0e868098c335be22df1bfcf978fe6551328",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-model.cpp",
+      "bytes": 137074,
+      "sha256": "bd82b1e49043379b53f28393a109e994d25f38eb790798f86a5278bc2a7128c9",
+      "origin": "patched"
+    },
+    {
+      "path": "src/llama-model.h",
+      "bytes": 30462,
+      "sha256": "9fa2abb9b33cda41322143224dd7fbeb79a6e3cb28b74bd644e6e78e8f50196a",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-quant.h",
+      "bytes": 13,
+      "sha256": "b3adf106d95b8934f690943f2921308b90be5b766c4c8ba250c792de56400201",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-sampler.cpp",
+      "bytes": 151735,
+      "sha256": "ade0e3fee8ae823ee1fe0c527e5c3fbe66189b0201ce42327cd6940f83883026",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-sampler.h",
+      "bytes": 982,
+      "sha256": "d39c6bfd6c966acde7bfaeb55f08c176b3d9078bc5e8e8de2eee504fc66c258b",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-vocab.cpp",
+      "bytes": 182463,
+      "sha256": "32b8b7ac4a023bc6367eb7832e56e988ab7373a676ddcca4977665f78932ab88",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama-vocab.h",
+      "bytes": 7276,
+      "sha256": "864acfeaa8b14c871bc31f9c94e50e26b3a1274219bbb9b99c94263be63af91c",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/llama.cpp",
+      "bytes": 22028,
+      "sha256": "29edb57e8976e5b2d5b1ca6bd1d845da3f0aed30312aeb8323d3ebaf895abac9",
+      "origin": "patched"
+    },
+    {
+      "path": "src/models/models.h",
+      "bytes": 95542,
+      "sha256": "7ec52aa50cebd90449e7f9fa27692f96e1bd356bb163b641927a7788c60923a7",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/models/qwen3.cpp",
+      "bytes": 5872,
+      "sha256": "06f400665980d30fd357886a5d14b541adda06d159a5b7f0ce929ca36788778c",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/unicode-data.cpp",
+      "bytes": 168374,
+      "sha256": "95170cd1c105a5b41a1b2dce73b0fae8ce8011ef7897600828bb2babe8b26e5d",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/unicode-data.h",
+      "bytes": 630,
+      "sha256": "1854f4494e5666db6036f0bf4cf818e01588b40b48a89e3372e775c4d5174402",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/unicode.cpp",
+      "bytes": 55284,
+      "sha256": "b1f3a18646197e21f7300c6d3b45c9faf52a123d58a38d7d54f3f225018da45d",
+      "origin": "upstream"
+    },
+    {
+      "path": "src/unicode.h",
+      "bytes": 3967,
+      "sha256": "f1562388d5b9d2dac1152ad8eda56e0bcae25dd407cf15d9dd2e96fe0124f4e7",
+      "origin": "upstream"
+    }
+  ],
+  "license": {
+    "path": "LICENSES/llama.cpp-MIT.txt",
+    "bytes": 1078,
+    "sha256": "94f29bbed6a22c35b992c5c6ebf0e7c92f13b836b90f36f461c9cf2f0f1d010d"
+  }
+}

@@ -29,6 +29,8 @@ python3 scripts/verify-model.py --manifest-only
 python3 scripts/verify-model.py \
   --manifest Models/parakeet-tdt-ctc-110m-coreml.json \
   --manifest-only
+python3 scripts/check-vendored-llama.py
+python3 scripts/check-vendored-llama.py --self-test
 plutil -lint Documentation/Distribution/Info.plist >/dev/null
 plutil -lint Documentation/Distribution/VoxHearth.entitlements >/dev/null
 [[ "$(plutil -extract LSMultipleInstancesProhibited raw -o - Documentation/Distribution/Info.plist)" == "true" ]] || {
@@ -118,7 +120,7 @@ fi
 
 if git grep -n -E \
   'URLSession|URLRequest|URLProtocol|NW(Connection|Listener|Browser|PathMonitor)|import[[:space:]]+Network|CFSocket|CFStream|NSStream|NetworkExtension|WebSocket|(^|[^[:alnum:]_])socket[[:space:]]*\(|getaddrinfo|Sparkle|SUUpdater|SUFeedURL|Alamofire|Sentry|Telemetry|Analytics|HFClient|FileDownloader|AssetDownloader|downloadAndLoad|ModelHub' \
-  -- Sources Tests Vendor/FluidAudioLocal; then
+  -- Sources Tests Vendor/FluidAudioLocal Vendor/LlamaLocal; then
   printf 'error: runtime or test source contains a forbidden networking, updater, or telemetry API\n' >&2
   exit 1
 fi
