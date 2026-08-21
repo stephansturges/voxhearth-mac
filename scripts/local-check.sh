@@ -34,6 +34,8 @@ python3 scripts/verify-model.py \
   --manifest-only
 python3 scripts/verify-model-bundle.py --self-test
 python3 scripts/verify-metallib.py --self-test
+python3 scripts/check-attribution.py
+python3 scripts/check-attribution.py --self-test
 scripts/s1-mini-eval.sh verify
 python3 scripts/check-vendored-llama.py
 python3 scripts/check-vendored-llama.py --self-test
@@ -103,8 +105,11 @@ for required_file in \
   Documentation/MODEL_PROVENANCE.md Documentation/BUILDING.md \
   Documentation/LOCAL_RELEASE_0.3.0-dev.3.diag2.md \
   Documentation/VERIFY_RELEASE.md Documentation/RELEASE.md \
+  LICENSES/S1-mini-LICENSE.txt LICENSES/Qwen3-0.6B-Apache-2.0.txt \
   .github/release-notes-v0.3.0-dev.3.md \
-  .github/release-notes-v0.3.0.md; do
+  .github/release-notes-v0.3.0.md \
+  .github/release-notes-v0.4.0-dev.1.md \
+  .github/release-notes-v0.4.0.md; do
   [[ -f "$required_file" ]] || {
     printf 'error: required project document is missing: %s\n' "$required_file" >&2
     exit 1
@@ -190,6 +195,29 @@ swift build --configuration release
 
 binary_dir="$(swift build --configuration release --show-bin-path)"
 ./scripts/check-release-binary.sh "$binary_dir/VoxHearth"
+
+metadata_dir="$inert_eval_dir/metadata"
+mkdir -p "$metadata_dir"
+metadata_artifact="$metadata_dir/artifact.bin"
+printf 'local attribution fixture\n' > "$metadata_artifact"
+source_revision="$(git rev-parse HEAD)"
+SOURCE_DATE_EPOCH=1 ./scripts/generate-sbom.py \
+  --version 0.4.0-dev.1 \
+  --source-revision "$source_revision" \
+  --artifact "$metadata_artifact" \
+  --output "$metadata_dir/voxhearth.spdx.json"
+SOURCE_DATE_EPOCH=1 ./scripts/generate-provenance.py \
+  --version 0.4.0-dev.1 \
+  --source-revision "$source_revision" \
+  --source-tag v0.4.0-dev.1 \
+  --release-channel development-prerelease \
+  --signature 'anonymous ad-hoc signature; no publisher identity' \
+  --notarization 'absent; development preview' \
+  --artifact "$metadata_artifact" \
+  --output "$metadata_dir/voxhearth-provenance.json"
+python3 scripts/check-attribution.py \
+  --sbom "$metadata_dir/voxhearth.spdx.json" \
+  --provenance "$metadata_dir/voxhearth-provenance.json"
 
 for manifest in \
   Models/parakeet-tdt-0.6b-v3-coreml.json \

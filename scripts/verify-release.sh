@@ -93,5 +93,6 @@ fi
 
 "$repo_root/scripts/verify-model-bundle.py" "$app/Contents/Resources/Models"
 "$repo_root/scripts/verify-metallib.py" "$app/Contents/Resources/Metal"
+"$repo_root/scripts/check-attribution.py" --app "$app"
 
 printf 'release verified: %s\n' "$dmg"

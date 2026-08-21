@@ -5,7 +5,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app_name="VoxHearth"
 bundle_id="com.stephansturges.voxhearth"
-version="${VERSION:-0.3.0}"
+version="${VERSION:-0.4.0}"
 build_number="${BUILD_NUMBER:-1}"
 architecture="${ARCHITECTURE:-arm64}"
 model_dir="${MODEL_DIR:-$repo_root/.build/models/parakeet-tdt-0.6b-v3-coreml}"
@@ -19,7 +19,7 @@ usage() {
 Usage: scripts/build-app-bundle.sh [options]
 
 Options:
-  --version VERSION       Marketing version (default: VERSION or 0.3.0)
+  --version VERSION       Marketing version (default: VERSION or 0.4.0)
   --build NUMBER          Integer build number (default: BUILD_NUMBER or 1)
   --model-dir PATH        Verified model directory
   --compact-model-dir PATH  Verified compact English model directory
@@ -66,6 +66,7 @@ done
 "$repo_root/scripts/verify-model.py" \
   --manifest "$repo_root/Models/s1-mini-gguf.json" \
   "$s1_model_dir"
+"$repo_root/scripts/check-attribution.py"
 
 metallib_manifest="$repo_root/Vendor/LlamaLocal/METALLIB.json"
 python3 - "$metallib" "$metallib_manifest" <<'PY'
@@ -180,6 +181,7 @@ plutil -lint "$contents/Info.plist" >/dev/null
 "$repo_root/scripts/check-release-binary.sh" "$contents/MacOS/$app_name"
 "$repo_root/scripts/verify-model-bundle.py" "$resources/Models"
 "$repo_root/scripts/verify-metallib.py" "$resources/Metal"
+"$repo_root/scripts/check-attribution.py" --app "$app"
 
 # Exercise both structural failure directions against the exact pre-signing
 # tree, then restore it before signing. No payload bytes are duplicated.
@@ -198,6 +200,7 @@ if "$repo_root/scripts/verify-model-bundle.py" "$resources/Models" >/dev/null 2>
 fi
 mv "$held_manifest" "$resources/Models/Manifests/s1-mini-gguf.json"
 "$repo_root/scripts/verify-model-bundle.py" "$resources/Models"
+"$repo_root/scripts/check-attribution.py" --app "$app"
 
 # Seal the complete development bundle so LaunchServices can validate its
 # Info.plist and resources. This anonymous ad-hoc signature carries no trusted

@@ -24,6 +24,37 @@ Developer ID-signed, Apple-notarized releases.
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
 
+## [0.4.0] - 2026-08-21
+
+### Added
+
+- Optional, default-checked English transcript cleanup with S1-mini by
+  Superwhisper after an explicit setup disclosure.
+- Semi-formal default styling plus independent default-on, session-leading
+  `list` and `email` format commands with exact first-word-only parsing.
+- Raw-versus-cleaned setup examples, a live test area, cleanup progress in the
+  top overlay, cancellation, and session-keyed recovery actions.
+- A sealed, statically linked llama.cpp/ggml Metal runtime, exact S1-mini GGUF
+  and metallib manifests, CPU fallback/control, bounded generation, and safe
+  command-stripped fallback.
+- Complete S1-mini naming license, Qwen3-0.6B and llama.cpp attribution, SPDX
+  relationships, provenance, app Legal inventory, and fail-closed checks.
+
+### Security
+
+- Cleanup receives final English text only and has no runtime networking,
+  downloads, telemetry, environment-selected backend, dynamic loading, or
+  runtime shader compilation.
+- Typed session ownership and exactly-once insertion prevent late cleanup from
+  mutating or inserting into a newer dictation session.
+
+## [0.4.0-dev.1] - 2026-08-21
+
+### Added
+
+- First unsigned development preview of the complete 0.4 transcript-cleanup
+  feature and its model/runtime/legal packaging.
+
 ## [0.3.0-dev.3] - 2026-08-18
 
 ### Fixed
@@ -149,7 +180,9 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.3...HEAD
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.4.0
+[0.4.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.4.0-dev.1
 [0.3.0-dev.3]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.3
 [0.3.0-dev.2]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.2
 [0.3.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.1

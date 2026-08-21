@@ -1,6 +1,7 @@
 # Privacy
 
-VoxHearth 0.3 has one purpose: turn microphone audio into text on the same Mac.
+VoxHearth 0.4 turns microphone audio into text on the same Mac and can
+optionally clean the final English transcript with S1-mini by Superwhisper.
 There is no online mode.
 
 ## Runtime data flow
@@ -16,6 +17,13 @@ selected bundled Parakeet Core ML model through a network-free FluidAudio subset
    │
    ▼
 memory-only transcript
+   │
+   ├── cleanup disabled or unavailable ───────────────────────────────┐
+   │                                                                 │
+   ▼                                                                 │
+S1-mini by Superwhisper through sealed local llama.cpp/Metal          │
+   │                                                                 │
+   └──────────────── memory-only selected text ◀─────────────────────┘
    │
    ▼
 focused application through Accessibility or Unicode events
@@ -35,10 +43,25 @@ operations are not present in the installed runtime application.
 | Data | Processing and lifetime |
 | --- | --- |
 | Microphone audio | Captured into process memory only, capped at ten minutes per dictation, then released after transcription, cancellation, failure, or process exit. If live preview is enabled, a bounded copy of the most recent audio is periodically passed to the same local model. VoxHearth does not create an audio file. |
-| Transcript | Exists in process memory while it is previewed or inserted. The optional preview panel is not a Notification Center notification and creates no notification history. If insertion fails, VoxHearth may retain the final transcript in memory for a Retry/Discard prompt for at most two minutes, then discards it automatically. Quitting or choosing Discard clears it sooner. VoxHearth does not save a transcript history. |
-| Preferences | Shortcut, selected microphone identifier, selected speech model, language, launch-at-login choice, live-preview choice, clipboard-fallback choice, and onboarding completion are stored in macOS UserDefaults for bundle ID `com.stephansturges.voxhearth`. |
+| Transcript | Exists in process memory while it is previewed, cleaned, recovered, or inserted. S1-mini receives text only after final English transcription and never receives audio or preview snapshots. The optional preview panel is not a Notification Center notification and creates no notification history. If cleanup or insertion fails, VoxHearth may retain the original/fallback text in memory for a recovery prompt for at most two minutes, then discards it automatically. Quitting or choosing Discard clears it sooner. VoxHearth does not save a transcript history. |
+| Preferences | Shortcut, selected microphone identifier, selected speech model, language, launch-at-login choice, live-preview choice, clipboard-fallback choice, cleanup choice/style, list/email prefix choices, and onboarding/disclosure completion are stored in macOS UserDefaults for bundle ID `com.stephansturges.voxhearth`. Transcript content is never stored in preferences. |
 | Logs | Apple Unified Logging receives fixed operation identifiers and error type names. Log calls cannot accept audio, transcript text, clipboard contents, arbitrary paths, or free-form user text. |
-| Models | Two immutable model payloads are read from the application bundle. Only the selected model is loaded for inference; switching releases the previous manager. No model cache or runtime download is created by VoxHearth. |
+| Models | Three immutable model payloads and one sealed Metal library are read only from the signed application bundle. Only the selected speech model is loaded for ASR. S1-mini may remain resident while enabled to avoid per-session startup cost and is released when cleanup is disabled or under memory pressure. There is no runtime model download, model cache, backend discovery, or runtime shader compilation. |
+
+## Optional transcript cleanup
+
+Cleanup is checked by default only after its setup disclosure is shown. It is
+English-only, uses semi-formal style by default, and can be disabled at any
+time. Independent default-on settings recognize `list` or `email` only as the
+first complete word of a new dictation session. A recognized command is
+removed before cleanup and from automatic fallback text. Mentioning either
+word later in a dictation does not select a format.
+
+Cleanup adds local model work, memory use, and a short delay after final ASR.
+The top overlay reports that work. A new hotkey press can start capture without
+waiting for an older cleanup request; results remain session-isolated. Failure,
+timeout, cancellation, invalid output, missing assets, or memory pressure falls
+back locally and never causes a network request.
 
 The application into which VoxHearth inserts text receives the transcript and
 may store, sync, or transmit it under that application's own policy. macOS and

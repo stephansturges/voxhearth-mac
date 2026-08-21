@@ -5,8 +5,9 @@
 [![Build](https://github.com/stephansturges/voxhearth-mac/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/stephansturges/voxhearth-mac/actions/workflows/build.yml)
 
 VoxHearth is a small, open-source macOS menu bar app for private dictation. It
-records into memory, transcribes with one of two bundled Core ML models, and inserts the
-result into the focused app. The installed app has no account, telemetry,
+records into memory, transcribes with one of two bundled Core ML models, can
+optionally clean the final English text with S1-mini by Superwhisper, and
+inserts the result into the focused app. The installed app has no account, telemetry,
 automatic updater, remote API, or runtime model download.
 
 ![VoxHearth app icon](Brand/VoxHearthIcon.svg)
@@ -23,7 +24,7 @@ and a summary of the changes are documented in [UPSTREAM.md](UPSTREAM.md).
 ## What “local” means
 
 ```text
-microphone → in-memory audio → bundled Core ML model → in-memory text → focused app
+microphone → in-memory audio → bundled Core ML model → optional local S1-mini cleanup → focused app
 ```
 
 - Audio and transcripts are not written to a VoxHearth history or cache. If
@@ -34,6 +35,10 @@ microphone → in-memory audio → bundled Core ML model → in-memory text → 
   text in a passive panel; it does not create Notification Center history.
 - Both selectable models are part of the app and are loaded through a reviewed,
   network-free FluidAudio subset; downloader and cache clients are not linked.
+- Optional cleanup uses the bundled S1-mini by Superwhisper GGUF through a
+  manifest-locked, statically linked llama.cpp subset and sealed Metal library.
+  It receives only final English text and has no network, telemetry, runtime
+  model download, environment-selected backend, or runtime shader compilation.
 - The normal insertion paths use macOS Accessibility or Unicode keyboard
   events. An optional clipboard compatibility fallback is off by default.
 - Logs contain fixed operation names and error types, never audio, transcript
@@ -86,11 +91,11 @@ current build for Accessibility. macOS may still require you to remove the old
 entry and add the current `/Applications/VoxHearth.app` with **+**; applications
 cannot modify or approve entries in the protected Accessibility list themselves.
 
-The future official `v0.3.0` release remains reserved for a DMG signed with a
-Developer ID Application certificate, notarized by Apple, and given a stapled
-ticket. No such official build exists yet because the project does not have the
-required Apple notarization credentials. VoxHearth has no automatic updater; install
-future versions manually from GitHub Releases.
+The next release line is `v0.4.0`. Its workflows and documentation may exist
+before an artifact is published, but an official release exists only after its
+DMG is signed with a Developer ID Application certificate, notarized by Apple,
+stapled, independently verified, and attached to the matching tag. VoxHearth
+has no automatic updater; install future versions manually from GitHub Releases.
 
 ## Use
 
@@ -102,6 +107,21 @@ current macOS system-default input and clears the unavailable selection.
 The multilingual 600M model remains the default and supports 25 European
 languages. The compact 110M model is English-only and is intended for faster
 startup and lower memory use on smaller Apple silicon Macs.
+
+Transcript cleanup is disclosed during setup, checked by default after that
+disclosure, and can be disabled independently. Its default is `semi-formal`.
+It removes fillers, resolves many false starts, and improves punctuation,
+capitalization, numbers, dates, and addresses. It is an additional local AI
+pass, so it uses more memory/compute and adds a short post-transcription delay;
+the overlay shows a cleanup spinner while it runs. Invalid, cancelled, timed
+out, or unavailable cleanup falls back to safe original text.
+
+Two independent settings recognize a session-leading `list` or a
+session-leading `email`, both on by default. Recognition happens only when that
+complete word begins a new dictation. `list` asks the model to format a real
+enumeration; `email` enables greeting/body/sign-off layout. Saying either word
+later in the session does nothing. A recognized command is removed before
+cleanup and insertion.
 
 The menu panel and **Settings → Dictation → Feedback** include an optional
 **Show live transcript overlay** checkbox. It displays recent approximate text
@@ -189,9 +209,16 @@ bundling, and the exact release credentials.
   `aed02740059203c4a87495924f685de3722ae9ce`.
 - The compact English model is pinned to Hugging Face revision
   `9bc92ead6e8f17eca92a869fd578ae76842b82ba`.
+- S1-mini by Superwhisper is pinned to GGUF revision
+  `8eab4779866f477ae6e7f237ca45fc2c65153f50`; its Qwen3-0.6B base-model
+  attribution is pinned to revision `c1899de289a04d12100db370d81485cdf75e47ca`.
+- The local llama.cpp runtime is pinned to revision
+  `9ee9fc04c136ef2ae729bfc60d18961b23c13ddf`; the reviewed Metal library and
+  source closure have exact manifests.
 - [`Models/parakeet-tdt-0.6b-v3-coreml.json`](Models/parakeet-tdt-0.6b-v3-coreml.json)
-  and [`Models/parakeet-tdt-ctc-110m-coreml.json`](Models/parakeet-tdt-ctc-110m-coreml.json)
-  lock every permitted model file by byte count and SHA-256.
+  [`Models/parakeet-tdt-ctc-110m-coreml.json`](Models/parakeet-tdt-ctc-110m-coreml.json),
+  and [`Models/s1-mini-gguf.json`](Models/s1-mini-gguf.json) lock every permitted
+  model file by byte count and SHA-256.
 - Each published build includes checksums, SPDX 2.3 SBOM, provenance metadata, a
   complete source archive containing the reviewed FluidAudio subset, and GitHub
   provenance and SBOM attestations.
@@ -214,9 +241,13 @@ VoxHearth is GPL-3.0-or-later. It is a renamed, independent fork of TypeWhisper
 v1.5.1. See [LICENSE](LICENSE), [NOTICE](NOTICE), and [UPSTREAM.md](UPSTREAM.md).
 
 The bundled FluidAudio code is Apache-2.0, its incorporated components retain
-their notices, and the model is conservatively redistributed under CC BY 4.0.
+their notices, and the Parakeet models are conservatively redistributed under
+CC BY 4.0. S1-mini is distributed under
+`Apache-2.0 AND LicenseRef-S1-mini-Naming-Clause`; Qwen3-0.6B is Apache-2.0 and
+llama.cpp is MIT.
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md),
 [MODEL_PROVENANCE.md](Documentation/MODEL_PROVENANCE.md), and [LICENSES](LICENSES).
 
 TypeWhisper is a trademark of its respective owner. VoxHearth is not affiliated
-with or endorsed by TypeWhisper, NVIDIA, FluidInference, or Apple.
+with or endorsed by TypeWhisper, NVIDIA, FluidInference, Superwhisper, Qwen,
+Alibaba Cloud, llama.cpp contributors, or Apple.

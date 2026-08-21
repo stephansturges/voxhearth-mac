@@ -19,11 +19,13 @@ GPL-3.0-or-later. The complete license text is in LICENSE. Corresponding source
 and build instructions are published with each VoxHearth binary release.
 
 VoxHearth release binaries also contain an adapted, network-free FluidAudio
-subset and a Core ML conversion of NVIDIA Parakeet-TDT-0.6B-v3. Their
+subset, two Core ML conversions of NVIDIA Parakeet models,
+S1-mini by Superwhisper, a fine-tune of Qwen3-0.6B, and a statically linked subset of
+llama.cpp at revision 9ee9fc04c136ef2ae729bfc60d18961b23c13ddf. Their
 attribution and license texts are in
 THIRD_PARTY_NOTICES.md, Documentation/MODEL_PROVENANCE.md, and LICENSES/.
 
 "TypeWhisper" and its original artwork are not used as VoxHearth product
 identity. TypeWhisper is a trademark of its respective owner. VoxHearth is
-independent and is not endorsed by TypeWhisper, NVIDIA, FluidInference, or
-Apple.
+independent and is not endorsed by TypeWhisper, NVIDIA, FluidInference,
+Superwhisper, Qwen, Alibaba Cloud, llama.cpp contributors, or Apple.
