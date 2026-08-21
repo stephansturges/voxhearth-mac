@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "hashAlgorithm": "sha256-tree-v1",
   "fileCount": 82,
-  "treeSha256": "46ef998882e4efe55202cb21b5327a63a79abfd95ba6c279390b7bb9a7bd611e",
+  "treeSha256": "58fc8365b1231bf89e89f7a49d2e4a42348cbf0c958e7b563e21b232a0068cf2",
   "roots": [
     "Package.swift",
     "Models/parakeet-tdt-0.6b-v3-coreml.json",

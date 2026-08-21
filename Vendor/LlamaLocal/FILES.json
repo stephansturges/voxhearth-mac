@@ -69,6 +69,12 @@
   ],
   "files": [
     {
+      "path": "METALLIB.json",
+      "bytes": 621,
+      "sha256": "a677f3022ddf51f2121742fe8d6a8c8530ff08855d0c1bfc16abff9b49644033",
+      "origin": "local"
+    },
+    {
       "path": "ggml/include/ggml-alloc.h",
       "bytes": 3753,
       "sha256": "94e4cd069b9313b2ceb35dacec901981e0bb478d8bb31035b7126be091998c23",

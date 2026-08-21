@@ -10,7 +10,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/fetch-model.sh [--manifest PATH] [--destination PATH]
 
-Download one exact, build-only Parakeet model revision recorded in Models/.
+Download one exact, build-only model revision recorded in Models/.
 The destination must not already contain an incomplete or changed payload.
 EOF
 }

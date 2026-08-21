@@ -1,0 +1,17 @@
+{
+  "artifact": "Metal/ggml-llama.metallib",
+  "artifactBytes": 8445733,
+  "artifactSHA256": "97897d540709e3819756049c07d67ed5653136d28638e17159c4940ccaf42ea8",
+  "compiler": "Apple metal version 32023.864 (metalfe-32023.864)",
+  "compilerTarget": "Target: air64-apple-darwin25.4.0",
+  "defines": [
+    "GGML_METAL_HAS_BF16=1",
+    "GGML_METAL_HAS_TENSOR=1"
+  ],
+  "macOSSDK": "26.2",
+  "metalStandard": "metal4.0",
+  "minimumMacOS": "14.0",
+  "schemaVersion": 1,
+  "source": "Vendor/LlamaLocal/ggml/src/ggml-metal/ggml-metal.metal",
+  "sourceSHA256": "96b93a70a9f5d55ae1f144f4b86262bb8e0a38f2c233587d6056a6f8f4e008f2"
+}

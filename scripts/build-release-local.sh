@@ -16,6 +16,7 @@ dmg="$distribution/VoxHearth-v$version-unsigned.dmg"
 
 "$repo_root/scripts/local-check.sh"
 "$repo_root/scripts/fetch-models.sh"
+"$repo_root/scripts/build-metallib.sh"
 "$repo_root/scripts/build-app-bundle.sh" --version "$version" --build "$build_number" --output "$app"
 "$repo_root/scripts/create-dmg.sh" "$app" "$dmg"
 

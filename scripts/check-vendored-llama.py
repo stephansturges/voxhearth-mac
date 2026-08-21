@@ -48,6 +48,7 @@ PATCHED = {
     "src/llama.cpp",
 }
 LOCAL = {
+    "METALLIB.json",
     "include/LlamaLocal.h",
     "include/ggml.h",
     "include/ggml-alloc.h",

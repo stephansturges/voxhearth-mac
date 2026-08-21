@@ -24,6 +24,7 @@ env:
   FLUIDAUDIO_REVISION: 19600a485baa4998812e4654b70d2bab8f2c9949
   MODEL_REVISION: aed02740059203c4a87495924f685de3722ae9ce
   COMPACT_MODEL_REVISION: 9bc92ead6e8f17eca92a869fd578ae76842b82ba
+  S1_MODEL_REVISION: 8eab4779866f477ae6e7f237ca45fc2c65153f50
 
 jobs:
   release:
@@ -55,6 +56,7 @@ jobs:
           grep -Fq "$FLUIDAUDIO_REVISION" Vendor/FluidAudioLocal/UPSTREAM.md
           grep -Fq "$MODEL_REVISION" Models/parakeet-tdt-0.6b-v3-coreml.json
           grep -Fq "$COMPACT_MODEL_REVISION" Models/parakeet-tdt-ctc-110m-coreml.json
+          grep -Fq "$S1_MODEL_REVISION" Models/s1-mini-gguf.json
           grep -Fq "## [$VERSION]" CHANGELOG.md
           printf 'SOURCE_REVISION=%s\n' "$source_revision" >> "$GITHUB_ENV"
           printf 'SOURCE_DATE_EPOCH=%s\n' "$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
@@ -71,11 +73,32 @@ jobs:
       - name: Fetch and verify the locked models
         run: ./scripts/fetch-models.sh
 
+      - name: Build and verify the sealed Metal library
+        run: |
+          set -euo pipefail
+          xcodebuild -downloadComponent MetalToolchain
+          component="$(xcodebuild -showComponent MetalToolchain -json)"
+          toolchain="$(jq -r '.toolchainSearchPath' <<< "$component")"
+          if [[ ! -x "$toolchain/usr/bin/metallib" ]]; then
+            asset="$(jq -r '.assetPath' <<< "$component")"
+            dmg="$(find "$asset/Restore" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+            mount="$RUNNER_TEMP/voxhearth-metal-toolchain"
+            mkdir -p "$mount"
+            hdiutil attach -quiet -readonly -nobrowse -mountpoint "$mount" "$dmg"
+            toolchain="$mount/Metal.xctoolchain"
+          fi
+          printf 'VOXHEARTH_METAL_TOOLCHAIN_ROOT=%s\n' "$toolchain" >> "$GITHUB_ENV"
+          ./scripts/build-metallib.sh
+
       - name: Run offline real-model transcription smoke tests
         run: |
           ./scripts/model-smoke.sh
           ./scripts/model-smoke.sh \
             --manifest Models/parakeet-tdt-ctc-110m-coreml.json
+          VOXHEARTH_S1_MODEL_PATH=.build/models/s1-mini-gguf/s1-mini-q4_k_m.gguf \
+          VOXHEARTH_S1_METALLIB_PATH=.build/s1-mini/Metal/ggml-llama.metallib \
+          VOXHEARTH_S1_EVAL_REPEATS=3 \
+            ./scripts/s1-mini-eval.sh run
 
       - name: Import Developer ID and notarization credentials
         env:

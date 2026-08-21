@@ -35,6 +35,11 @@ APPROVED_MODELS = {
             "parakeet_vocab.json",
         },
     },
+    "superwhisper/s1-mini-GGUF": {
+        "revision": "8eab4779866f477ae6e7f237ca45fc2c65153f50",
+        "bundleRoot": "s1-mini-gguf",
+        "allowedTopLevel": {"s1-mini-q4_k_m.gguf"},
+    },
 }
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 

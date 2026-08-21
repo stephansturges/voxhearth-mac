@@ -29,6 +29,12 @@ python3 scripts/verify-model.py --manifest-only
 python3 scripts/verify-model.py \
   --manifest Models/parakeet-tdt-ctc-110m-coreml.json \
   --manifest-only
+python3 scripts/verify-model.py \
+  --manifest Models/s1-mini-gguf.json \
+  --manifest-only
+python3 scripts/verify-model-bundle.py --self-test
+python3 scripts/verify-metallib.py --self-test
+scripts/s1-mini-eval.sh verify
 python3 scripts/check-vendored-llama.py
 python3 scripts/check-vendored-llama.py --self-test
 plutil -lint Documentation/Distribution/Info.plist >/dev/null
@@ -105,7 +111,7 @@ for required_file in \
   }
 done
 
-if git ls-files | grep -E -i '(^|/)([^/]+\.dmg|[^/]+\.p12|AuthKey_[^/]+\.p8)$|\.mlmodelc/' >/dev/null; then
+if git ls-files | grep -E -i '(^|/)([^/]+\.(dmg|gguf|metallib|p12)|AuthKey_[^/]+\.p8)$|\.mlmodelc/' >/dev/null; then
   printf 'error: release/model/signing binaries must not be tracked by Git\n' >&2
   git ls-files | grep -E -i '(^|/)([^/]+\.dmg|[^/]+\.p12|AuthKey_[^/]+\.p8)$|\.mlmodelc/' >&2
   exit 1
