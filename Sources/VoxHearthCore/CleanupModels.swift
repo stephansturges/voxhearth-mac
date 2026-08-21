@@ -41,21 +41,124 @@ public enum CleanupStyling: String, CaseIterable, Sendable, Codable {
 }
 
 public struct CleanupSettings: Equatable, Sendable, Codable {
-    public var enabled: Bool
+    public var isEnabled: Bool
     public var styling: CleanupStyling
-    public var detectListDirective: Bool
-    public var detectEmailDirective: Bool
+    public var listDirectiveEnabled: Bool
+    public var emailDirectiveEnabled: Bool
 
     public init(
-        enabled: Bool = true,
+        isEnabled: Bool = true,
         styling: CleanupStyling = .semiFormal,
-        detectListDirective: Bool = true,
-        detectEmailDirective: Bool = true
+        listDirectiveEnabled: Bool = true,
+        emailDirectiveEnabled: Bool = true
     ) {
-        self.enabled = enabled
+        self.isEnabled = isEnabled
         self.styling = styling
-        self.detectListDirective = detectListDirective
-        self.detectEmailDirective = detectEmailDirective
+        self.listDirectiveEnabled = listDirectiveEnabled
+        self.emailDirectiveEnabled = emailDirectiveEnabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case isEnabled
+        case styling
+        case listDirectiveEnabled
+        case emailDirectiveEnabled
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            isEnabled: try values.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true,
+            styling: try values.decodeIfPresent(CleanupStyling.self, forKey: .styling)
+                ?? .semiFormal,
+            listDirectiveEnabled: try values.decodeIfPresent(
+                Bool.self,
+                forKey: .listDirectiveEnabled
+            ) ?? true,
+            emailDirectiveEnabled: try values.decodeIfPresent(
+                Bool.self,
+                forKey: .emailDirectiveEnabled
+            ) ?? true
+        )
+    }
+}
+
+public enum CleanupDisclosure {
+    public static let requiredVersion = 1
+    public static let defaultsKey = "VoxHearth.cleanupDisclosureVersion.v1"
+}
+
+public enum S1MiniModelAsset {
+    public static let bundleRoot = "s1-mini-gguf"
+    public static let fileName = "s1-mini-q4_k_m.gguf"
+    public static let byteCount = 484_219_808
+    public static let sha256 = "3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634"
+
+    /// Performs the cheap, cacheable runtime-presence check. Full SHA-256
+    /// verification belongs to build/package validation and once-per-process
+    /// preparation, never the per-dictation path.
+    public static func verifiedBundledURL(resourceURL: URL?) -> URL? {
+        guard let resourceURL, resourceURL.isFileURL else { return nil }
+        let root = resourceURL.standardizedFileURL
+        let candidate = root
+            .appendingPathComponent("Models", isDirectory: true)
+            .appendingPathComponent(bundleRoot, isDirectory: true)
+            .appendingPathComponent(fileName, isDirectory: false)
+            .standardizedFileURL
+        let rootPrefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
+        guard candidate.path.hasPrefix(rootPrefix),
+              let values = try? candidate.resourceValues(forKeys: [
+                .isRegularFileKey,
+                .isSymbolicLinkKey,
+                .fileSizeKey,
+              ]),
+              values.isRegularFile == true,
+              values.isSymbolicLink != true,
+              values.fileSize == byteCount else {
+            return nil
+        }
+        return candidate
+    }
+}
+
+public enum CleanupIneffectiveReason: Equatable, Sendable {
+    case disabled
+    case disclosureRequired
+    case unsupportedLanguage
+    case modelUnavailable
+}
+
+public struct CleanupEnablement: Equatable, Sendable {
+    public let isEffective: Bool
+    public let listDirectiveEnabled: Bool
+    public let emailDirectiveEnabled: Bool
+    public let ineffectiveReason: CleanupIneffectiveReason?
+
+    public static func resolve(
+        settings: AppSettings,
+        disclosureVersion: Int,
+        modelAssetVerified: Bool
+    ) -> CleanupEnablement {
+        let settings = settings.normalizedForSelectedModel()
+        let reason: CleanupIneffectiveReason?
+        if !settings.cleanup.isEnabled {
+            reason = .disabled
+        } else if disclosureVersion < CleanupDisclosure.requiredVersion {
+            reason = .disclosureRequired
+        } else if settings.language != .english {
+            reason = .unsupportedLanguage
+        } else if !modelAssetVerified {
+            reason = .modelUnavailable
+        } else {
+            reason = nil
+        }
+        let effective = reason == nil
+        return CleanupEnablement(
+            isEffective: effective,
+            listDirectiveEnabled: effective && settings.cleanup.listDirectiveEnabled,
+            emailDirectiveEnabled: effective && settings.cleanup.emailDirectiveEnabled,
+            ineffectiveReason: reason
+        )
     }
 }
 

@@ -108,6 +108,14 @@ struct FrontendPresentationTests {
                 currentBuildIdentity: "0.2.1 (10)"
             ) == nil
         )
+        #expect(
+            LaunchPresentationPolicy.reason(
+                previouslyCompleted: true,
+                completedBuildIdentity: "0.2.1 (10)",
+                currentBuildIdentity: "0.2.1 (10)",
+                cleanupDisclosureVersion: 0
+            ) == .cleanupDisclosureRequired
+        )
     }
 
     @Test("A second process yields to an older VoxHearth instance")

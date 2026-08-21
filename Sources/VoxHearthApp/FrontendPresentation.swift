@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VoxHearthCore
 
 enum SessionPresentationState: Equatable, Sendable {
     case idle
@@ -179,6 +180,7 @@ enum AccessibilityRecoveryGuidance {
 enum OnboardingLaunchReason: Equatable {
     case firstInstall
     case updatedBuild
+    case cleanupDisclosureRequired
     case manualReview
 }
 
@@ -186,10 +188,14 @@ enum LaunchPresentationPolicy {
     static func reason(
         previouslyCompleted: Bool,
         completedBuildIdentity: String?,
-        currentBuildIdentity: String
+        currentBuildIdentity: String,
+        cleanupDisclosureVersion: Int = CleanupDisclosure.requiredVersion
     ) -> OnboardingLaunchReason? {
         guard previouslyCompleted else { return .firstInstall }
         guard completedBuildIdentity == currentBuildIdentity else { return .updatedBuild }
+        guard cleanupDisclosureVersion >= CleanupDisclosure.requiredVersion else {
+            return .cleanupDisclosureRequired
+        }
         return nil
     }
 }

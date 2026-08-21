@@ -89,7 +89,7 @@ final class S1MiniQueueState: @unchecked Sendable {
         started: DispatchTime,
         deadline: DispatchTime
     ) -> DictationOutcome {
-        guard settings.enabled else {
+        guard settings.isEnabled else {
             return .insert(policy.fallback(for: input, reason: .modelUnavailable))
         }
         guard let session else {

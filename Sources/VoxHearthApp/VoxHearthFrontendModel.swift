@@ -44,6 +44,8 @@ final class VoxHearthFrontendModel {
     private(set) var accessibilityPermission: PermissionPresentation = .notDetermined
     private(set) var interfaceError: String?
     private(set) var microphoneFallbackNotice: String?
+    private(set) var cleanupDisclosureVersion: Int
+    private(set) var verifiedCleanupModelURL: URL?
 
     var onboardingStep: OnboardingStep = .privacy
     var onboardingLaunchReason: OnboardingLaunchReason
@@ -66,6 +68,11 @@ final class VoxHearthFrontendModel {
         self.defaults = defaults
         self.audioCapture = audioCapture
         self.currentBuildIdentity = currentBuildIdentity
+        let disclosureVersion = defaults.integer(forKey: CleanupDisclosure.defaultsKey)
+        cleanupDisclosureVersion = disclosureVersion
+        verifiedCleanupModelURL = S1MiniModelAsset.verifiedBundledURL(
+            resourceURL: Bundle.main.resourceURL
+        )
         let startCuePlayer = DictationStartCuePlayer()
         self.startCuePlayer = startCuePlayer
         let liveTranscriptOverlayController = LiveTranscriptOverlayController()
@@ -73,7 +80,8 @@ final class VoxHearthFrontendModel {
         let launchReason = LaunchPresentationPolicy.reason(
             previouslyCompleted: defaults.bool(forKey: DefaultsKey.completedOnboarding),
             completedBuildIdentity: defaults.string(forKey: DefaultsKey.completedOnboardingBuild),
-            currentBuildIdentity: currentBuildIdentity
+            currentBuildIdentity: currentBuildIdentity,
+            cleanupDisclosureVersion: disclosureVersion
         )
         onboardingLaunchReason = launchReason ?? .manualReview
         hasCompletedOnboarding = launchReason == nil
@@ -150,6 +158,14 @@ final class VoxHearthFrontendModel {
         controller.pendingTranscript != nil
     }
 
+    var cleanupEnablement: CleanupEnablement {
+        CleanupEnablement.resolve(
+            settings: settings,
+            disclosureVersion: cleanupDisclosureVersion,
+            modelAssetVerified: verifiedCleanupModelURL != nil
+        )
+    }
+
     var onboardingCanAdvance: Bool {
         switch onboardingStep {
         case .privacy, .tryIt:
@@ -201,6 +217,14 @@ final class VoxHearthFrontendModel {
         hasCompletedOnboarding = true
         defaults.set(true, forKey: DefaultsKey.completedOnboarding)
         defaults.set(currentBuildIdentity, forKey: DefaultsKey.completedOnboardingBuild)
+    }
+
+    func completeCleanupDisclosure() {
+        cleanupDisclosureVersion = CleanupDisclosure.requiredVersion
+        defaults.set(
+            CleanupDisclosure.requiredVersion,
+            forKey: CleanupDisclosure.defaultsKey
+        )
     }
 
     func restartOnboarding() {
@@ -357,6 +381,30 @@ final class VoxHearthFrontendModel {
     func setClipboardCompatibility(_ enabled: Bool) {
         var next = settings
         next.clipboardCompatibilityEnabled = enabled
+        apply(next)
+    }
+
+    func setCleanupEnabled(_ enabled: Bool) {
+        var next = settings
+        next.cleanup.isEnabled = enabled
+        apply(next)
+    }
+
+    func setCleanupStyling(_ styling: CleanupStyling) {
+        var next = settings
+        next.cleanup.styling = styling
+        apply(next)
+    }
+
+    func setListDirectiveEnabled(_ enabled: Bool) {
+        var next = settings
+        next.cleanup.listDirectiveEnabled = enabled
+        apply(next)
+    }
+
+    func setEmailDirectiveEnabled(_ enabled: Bool) {
+        var next = settings
+        next.cleanup.emailDirectiveEnabled = enabled
         apply(next)
     }
 

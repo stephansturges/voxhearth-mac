@@ -466,8 +466,8 @@
     },
     {
       "path": "include/LlamaLocal.h",
-      "bytes": 232,
-      "sha256": "a08bcdd3f882dc94e7dcf7ae044058df0a34794b41b6d224c252ca15f2c3a738",
+      "bytes": 414,
+      "sha256": "36b1dd95410c396b7178f91440e888bd9fca5b38abbe7a4991cf15ae93b9b194",
       "origin": "local"
     },
     {
@@ -486,12 +486,6 @@
       "path": "include/ggml-blas.h",
       "bytes": 53,
       "sha256": "02b3703d8cc8154e593a83539be44f47d3414f9fc9d61436c0e7a0fe19a0f909",
-      "origin": "local"
-    },
-    {
-      "path": "include/ggml-cpp.h",
-      "bytes": 52,
-      "sha256": "acce1cfbfd6e524021f1e6638b250ce3394083dc58089183c620fe89eb6a24a1",
       "origin": "local"
     },
     {
