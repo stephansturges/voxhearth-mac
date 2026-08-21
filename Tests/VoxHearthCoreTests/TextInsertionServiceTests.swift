@@ -4,6 +4,12 @@ import Foundation
 import Testing
 @testable import VoxHearthCore
 
+private func insertable(_ text: String) -> InsertableTranscript {
+    CleanupPolicy().passthrough(
+        FinalTranscript(sessionID: DictationSessionID(), text: text)
+    )
+}
+
 @Test func testProcessesUseIsolatedLoggingSubsystem() {
     #expect(
         PrivacyLogSubsystem.resolved(
@@ -49,7 +55,7 @@ private final class MockInsertionBackend: TextInsertionBackend {
     backend.accessibilityResult = .inserted
     let service = TextInsertionService(backend: backend)
 
-    let method = try await service.insert("private transcript", clipboardFallbackEnabled: true)
+    let method = try await service.insert(insertable("private transcript"), clipboardFallbackEnabled: true)
     #expect(method == .accessibility)
     #expect(backend.calls == ["accessibility"])
 }
@@ -62,7 +68,7 @@ private final class MockInsertionBackend: TextInsertionBackend {
     let service = TextInsertionService(backend: backend)
 
     await #expect(throws: TextInsertionError.insertionUncertain) {
-        try await service.insert("hello", clipboardFallbackEnabled: true)
+        try await service.insert(insertable("hello"), clipboardFallbackEnabled: true)
     }
     #expect(backend.calls == ["accessibility"])
 }
@@ -163,7 +169,7 @@ private final class MockInsertionBackend: TextInsertionBackend {
     backend.unicodeResult = true
     let service = TextInsertionService(backend: backend)
 
-    let method = try await service.insert("hello", clipboardFallbackEnabled: true)
+    let method = try await service.insert(insertable("hello"), clipboardFallbackEnabled: true)
     #expect(method == .unicodeEvents)
     #expect(backend.calls == ["accessibility", "unicode"])
 }
@@ -174,7 +180,7 @@ private final class MockInsertionBackend: TextInsertionBackend {
     let service = TextInsertionService(backend: backend)
 
     await #expect(throws: TextInsertionError.clipboardFallbackDisabled) {
-        try await service.insert("hello", clipboardFallbackEnabled: false)
+        try await service.insert(insertable("hello"), clipboardFallbackEnabled: false)
     }
     #expect(backend.calls == ["accessibility", "unicode"])
 }
@@ -184,7 +190,7 @@ private final class MockInsertionBackend: TextInsertionBackend {
     backend.clipboardResult = true
     let service = TextInsertionService(backend: backend)
 
-    let method = try await service.insert("hello", clipboardFallbackEnabled: true)
+    let method = try await service.insert(insertable("hello"), clipboardFallbackEnabled: true)
     #expect(method == .clipboard)
     #expect(backend.calls == ["accessibility", "unicode", "clipboard"])
 }
@@ -195,7 +201,7 @@ private final class MockInsertionBackend: TextInsertionBackend {
     let service = TextInsertionService(backend: backend)
 
     await #expect(throws: TextInsertionError.accessibilityPermissionRequired) {
-        try await service.insert("hello", clipboardFallbackEnabled: true)
+        try await service.insert(insertable("hello"), clipboardFallbackEnabled: true)
     }
     #expect(backend.calls.isEmpty)
 }

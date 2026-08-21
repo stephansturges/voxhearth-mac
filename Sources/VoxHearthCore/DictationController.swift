@@ -54,6 +54,8 @@ public final class DictationController {
     @ObservationIgnored private var modelMaintenanceTask: Task<Void, Never>?
     @ObservationIgnored private var activationIsPressed = false
     @ObservationIgnored private var sessionEpoch = 0
+    @ObservationIgnored private var currentSessionID: DictationSessionID?
+    @ObservationIgnored private var pendingInsertableTranscript: InsertableTranscript?
     @ObservationIgnored private let pendingTranscriptLifetime: Duration
     @ObservationIgnored private let livePreviewInterval: Duration
     @ObservationIgnored private let livePreviewMinimumDuration: TimeInterval
@@ -219,6 +221,7 @@ public final class DictationController {
         predecessorStart?.cancel()
         sessionEpoch &+= 1
         let epoch = sessionEpoch
+        currentSessionID = DictationSessionID()
         pathologicalPreviewCount = 0
         clearPendingTranscript()
         activityScope.beginAudioCritical()
@@ -321,7 +324,7 @@ public final class DictationController {
     /// longer wait behind preview or overlay MainActor work.
     @discardableResult
     public func requestStop() -> Bool {
-        guard state == .recording else { return false }
+        guard state == .recording, let sessionID = currentSessionID else { return false }
         sessionEpoch &+= 1
         let epoch = sessionEpoch
         logger.info(.dictationStopAccepted)
@@ -334,13 +337,18 @@ public final class DictationController {
         pendingPreviewJoin = nil
 
         activationStopTask = Task(priority: .userInitiated) { [weak self] in
-            await self?.runAcceptedStop(epoch: epoch, joining: cancelledPreviewTask)
+            await self?.runAcceptedStop(
+                epoch: epoch,
+                sessionID: sessionID,
+                joining: cancelledPreviewTask
+            )
         }
         return true
     }
 
     private func runAcceptedStop(
         epoch: Int,
+        sessionID: DictationSessionID,
         joining cancelledPreviewTask: Task<Void, Never>?
     ) async {
         defer {
@@ -368,7 +376,7 @@ public final class DictationController {
                 }
                 logger.info(.livePreviewCancellationJoined)
             }
-            await transcribeAndInsert(audio)
+            await transcribeAndInsert(audio, sessionID: sessionID)
         } catch is CancellationError {
             guard epoch == sessionEpoch else {
                 logger.info(.dictationStopAbandoned)
@@ -408,10 +416,12 @@ public final class DictationController {
         }
 
         clearPendingTranscript()
+        let sessionID = DictationSessionID()
+        currentSessionID = sessionID
         recordingStartedAt = nil
         activityScope.beginUserInitiated()
         transition(to: .transcribing)
-        await transcribeAndInsert(audio)
+        await transcribeAndInsert(audio, sessionID: sessionID)
         return .accepted
     }
 
@@ -420,18 +430,18 @@ public final class DictationController {
     /// to the same two-minute expiry.
     public func retryPendingInsertion() async {
         guard state == .idle || Self.isFailureState(state) else { return }
-        guard let pendingTranscript else { return }
+        guard let pending = pendingInsertableTranscript else { return }
         activityScope.beginUserInitiated()
         transition(to: .inserting)
         do {
             _ = try await textInserter.insert(
-                pendingTranscript,
+                pending,
                 clipboardFallbackEnabled: settings.clipboardCompatibilityEnabled
             )
             clearPendingTranscript()
             transition(to: .idle)
         } catch {
-            retainPendingTranscript(pendingTranscript)
+            retainPendingTranscript(pending)
             handleCompletionError(error)
         }
     }
@@ -466,12 +476,14 @@ public final class DictationController {
             return
         }
         recordingStartedAt = nil
+        currentSessionID = nil
         transition(to: .idle)
     }
 
-    private func retainPendingTranscript(_ transcript: String) {
+    private func retainPendingTranscript(_ transcript: InsertableTranscript) {
         pendingTranscriptExpiryTask?.cancel()
-        pendingTranscript = transcript
+        pendingInsertableTranscript = transcript
+        pendingTranscript = transcript.text
         let lifetime = pendingTranscriptLifetime
         pendingTranscriptExpiryTask = Task { [weak self, lifetime] in
             try? await Task.sleep(for: lifetime)
@@ -483,11 +495,15 @@ public final class DictationController {
     private func clearPendingTranscript() {
         pendingTranscriptExpiryTask?.cancel()
         pendingTranscriptExpiryTask = nil
+        pendingInsertableTranscript = nil
         pendingTranscript = nil
     }
 
-    private func transcribeAndInsert(_ audio: CapturedAudio) async {
-        var transcriptForRecovery: String?
+    private func transcribeAndInsert(
+        _ audio: CapturedAudio,
+        sessionID: DictationSessionID
+    ) async {
+        var transcriptForRecovery: InsertableTranscript?
         do {
             let selectedLanguage = settings.language
             let selectedModel = settings.transcriptionModel
@@ -509,7 +525,9 @@ public final class DictationController {
                 finishSessionReturningToIdle()
                 return
             }
-            transcriptForRecovery = transcript
+            let finalTranscript = FinalTranscript(sessionID: sessionID, text: transcript)
+            let insertableTranscript = CleanupPolicy().passthrough(finalTranscript)
+            transcriptForRecovery = insertableTranscript
             if settings.liveTranscriptOverlayEnabled {
                 publishLiveTranscriptPreview(transcript)
             }
@@ -517,7 +535,7 @@ public final class DictationController {
             transition(to: .inserting)
             logger.info(.textInsertionStarted)
             _ = try await textInserter.insert(
-                transcript,
+                insertableTranscript,
                 clipboardFallbackEnabled: settings.clipboardCompatibilityEnabled
             )
             clearPendingTranscript()
@@ -733,6 +751,7 @@ public final class DictationController {
     }
 
     private func finishSessionReturningToIdle() {
+        currentSessionID = nil
         transition(to: .idle)
         logger.info(.sessionReturnedToIdle)
         scheduleIdleModelMaintenance()

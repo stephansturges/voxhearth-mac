@@ -466,8 +466,62 @@
     },
     {
       "path": "include/LlamaLocal.h",
-      "bytes": 123,
-      "sha256": "37b7f17b8cc4e1f85580ac5641c6079ad97b35677fc901535ad024c9eee66838",
+      "bytes": 232,
+      "sha256": "a08bcdd3f882dc94e7dcf7ae044058df0a34794b41b6d224c252ca15f2c3a738",
+      "origin": "local"
+    },
+    {
+      "path": "include/ggml-alloc.h",
+      "bytes": 54,
+      "sha256": "15a687aedd9c743ba908d8de7e7f7498bfbeb2dbbe235657260e485061fdd8ef",
+      "origin": "local"
+    },
+    {
+      "path": "include/ggml-backend.h",
+      "bytes": 56,
+      "sha256": "f2ee27a04365f02b02ac9b702420226a5ab79b04724184dfd8a538594a9df63f",
+      "origin": "local"
+    },
+    {
+      "path": "include/ggml-blas.h",
+      "bytes": 53,
+      "sha256": "02b3703d8cc8154e593a83539be44f47d3414f9fc9d61436c0e7a0fe19a0f909",
+      "origin": "local"
+    },
+    {
+      "path": "include/ggml-cpp.h",
+      "bytes": 52,
+      "sha256": "acce1cfbfd6e524021f1e6638b250ce3394083dc58089183c620fe89eb6a24a1",
+      "origin": "local"
+    },
+    {
+      "path": "include/ggml-cpu.h",
+      "bytes": 52,
+      "sha256": "dd2363fa44f27dd5639c134f1d96ec4d42bba0cad968cd695841af6d76c65d5c",
+      "origin": "local"
+    },
+    {
+      "path": "include/ggml-metal.h",
+      "bytes": 54,
+      "sha256": "2770c78a6d7ce8d79da511fb43348f37b897f4817c8f2e056baacbd1ca02daf9",
+      "origin": "local"
+    },
+    {
+      "path": "include/ggml-opt.h",
+      "bytes": 52,
+      "sha256": "68c5e68efd90c5f6ac3748d55b329ce8a4191fca610aeb1852d232faab4dff71",
+      "origin": "local"
+    },
+    {
+      "path": "include/ggml.h",
+      "bytes": 48,
+      "sha256": "bd46cc9dc9e638e8b0e5421757255c8e92185f06a14fbdd1b40bf7eed532efec",
+      "origin": "local"
+    },
+    {
+      "path": "include/gguf.h",
+      "bytes": 48,
+      "sha256": "11bdde711fe6b0da341ef218e27acabbc3c497b9aae5cbc0c5461fdf5d52e6fa",
       "origin": "local"
     },
     {

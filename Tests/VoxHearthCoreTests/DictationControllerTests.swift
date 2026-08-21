@@ -193,17 +193,19 @@ private actor NonCooperativePreviewEngine: LocalTranscriptionEngine {
 @MainActor
 private final class MockTextInserter: TextInserting {
     private(set) var insertedTexts: [String] = []
+    private(set) var attemptedSessionIDs: [DictationSessionID] = []
     private(set) var clipboardFlags: [Bool] = []
     private(set) var priorities: [TaskPriority] = []
     var error: TextInsertionError?
 
     func insert(
-        _ text: String,
+        _ transcript: InsertableTranscript,
         clipboardFallbackEnabled: Bool
     ) async throws -> TextInsertionMethod {
+        attemptedSessionIDs.append(transcript.sessionID)
         if let error { throw error }
         priorities.append(Task.currentPriority)
-        insertedTexts.append(text)
+        insertedTexts.append(transcript.text)
         clipboardFlags.append(clipboardFallbackEnabled)
         return .accessibility
     }
@@ -216,10 +218,10 @@ private final class BlockingRetryInserter: TextInserting {
     private var continuation: CheckedContinuation<Void, Never>?
 
     func insert(
-        _ text: String,
+        _ transcript: InsertableTranscript,
         clipboardFallbackEnabled: Bool
     ) async throws -> TextInsertionMethod {
-        _ = text
+        _ = transcript
         _ = clipboardFallbackEnabled
         if shouldFail {
             shouldFail = false
@@ -719,6 +721,8 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(controller.pendingTranscript == nil)
     #expect(controller.state == .idle)
     #expect(inserter.insertedTexts == ["dictated locally"])
+    #expect(inserter.attemptedSessionIDs.count == 2)
+    #expect(Set(inserter.attemptedSessionIDs).count == 1)
 }
 
 @Test @MainActor func concurrentRetryRequestsInsertOnlyOnce() async {

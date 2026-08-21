@@ -186,11 +186,11 @@ final class RecordingInserter: TextInserting {
     }
 
     func insert(
-        _ text: String,
+        _ transcript: InsertableTranscript,
         clipboardFallbackEnabled: Bool
     ) async throws -> TextInsertionMethod {
         await events.stamp(.insertEntry)
-        insertedTexts.append(text)
+        insertedTexts.append(transcript.text)
         clipboardFlags.append(clipboardFallbackEnabled)
         await events.stamp(.insertExit)
         return method

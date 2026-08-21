@@ -139,7 +139,7 @@ let package = Package(
         ),
         .target(
             name: "VoxHearthCore",
-            dependencies: ["FluidAudioLocal"]
+            dependencies: ["FluidAudioLocal", "LlamaLocal"]
         ),
         .executableTarget(
             name: "VoxHearthApp",
@@ -147,7 +147,8 @@ let package = Package(
         ),
         .testTarget(
             name: "VoxHearthCoreTests",
-            dependencies: ["VoxHearthCore", "FluidAudioLocal"]
+            dependencies: ["VoxHearthCore", "FluidAudioLocal"],
+            resources: [.process("Fixtures")]
         ),
         .testTarget(
             name: "VoxHearthAppTests",

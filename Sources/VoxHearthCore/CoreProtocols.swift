@@ -42,7 +42,7 @@ public extension LocalTranscriptionEngine {
 @MainActor
 public protocol TextInserting: AnyObject {
     func insert(
-        _ text: String,
+        _ transcript: InsertableTranscript,
         clipboardFallbackEnabled: Bool
     ) async throws -> TextInsertionMethod
 }

@@ -2,27 +2,93 @@
   "schemaVersion": 1,
   "hashAlgorithm": "sha256",
   "files": [
-    {"path": "Package.swift", "sha256": "ab23cbe0e86e1826e39aefd27468c85f0b3f0dc1a19425fd4c67c80e72e689b4"},
-    {"path": "Research/latency/README.md", "sha256": "744afc96f8e12574057b0c1bb52c464500bbc43c0ca7188ed658ccf5bed372c4"},
-    {"path": "Research/latency/fixtures.manifest.json", "sha256": "cad221a5d56555ae0a2a923d1df0ed38120244c9764e32c4a87ee4aa6bcf0fe5"},
-    {"path": "Research/latency/fixtures/guardrail-chunked.aiff", "sha256": "bed2769f96079748cbbe563bd9c138dc08b40635b28ea8bc08c14caefae6edb9"},
-    {"path": "Research/latency/fixtures/guardrail-french.aiff", "sha256": "f199af07d38fb4afb2bdd7520807a8700e5e02327d51dd9f81320c28fd7593d9"},
-    {"path": "Research/latency/fixtures/guardrail-long.aiff", "sha256": "d6dd686c5f0cbf4f58abfc73ee766a961fa2c54bb561e75cb82d38cf32790e9a"},
-    {"path": "Research/latency/fixtures/guardrail-short.aiff", "sha256": "3a3cda233a4ed33fc82b305f4e2bcdd8d43e7e1b357d532a2cbdac4b78b60d68"},
-    {"path": "Research/latency/fixtures/scored-01.aiff", "sha256": "e7c59795e2943372f7aa76d4558916c4ef6deea3afa82f67599de5bbdae61ff0"},
-    {"path": "Research/latency/fixtures/scored-02.aiff", "sha256": "3823577292e7b7eaff345c0848930b911f6eb6746936687bdd370410589f3fed"},
-    {"path": "Research/latency/fixtures/scored-03.aiff", "sha256": "1bc74c2b1946ba5cd7e28333d4358c01bb1b82c9afa45a5d4a5ab16746e253ec"},
-    {"path": "Research/latency/fixtures/scored-04.aiff", "sha256": "c262ab7a7004bb38bc85fd105284c90d2a774ea712bcda602c0aaa4fd86695e6"},
-    {"path": "Research/latency/fixtures/scored-05.aiff", "sha256": "5b10761f97a5cab40b62c6a16778554c0e45785d468477c3947cdfed9cd0e590"},
-    {"path": "Research/latency/fixtures/scored-06.aiff", "sha256": "9de33e17b8367d4b5ad5de971040726fe516bb3830826d3a13162b275fe2335f"},
-    {"path": "Research/latency/fixtures/scored-07.aiff", "sha256": "032d62d700dab21c1fbb1c3212a0ce383e3061239814fe1b257974aac8de20eb"},
-    {"path": "Research/latency/fixtures/scored-08.aiff", "sha256": "e08577d38d92a05c117c234684d7be2a758f64a76f02c610756e455aa93ab4c9"},
-    {"path": "Research/latency/fixtures/scored-09.aiff", "sha256": "a8a69ced826c30a45f248f3f14cf653ace84481dd53e98f4fd7ad5cb0a3021f9"},
-    {"path": "Research/latency/fixtures/scored-10.aiff", "sha256": "4fb748b4979d58f2892cf152a0653ce26718ab4ae5ec4eb9757a5c2e7739def5"},
-    {"path": "Research/latency/model-capabilities.json", "sha256": "597ed76b502762a919b359fbfa42eba7f7d68dd4b671cb340124466e472ef3ca"},
-    {"path": "Tests/VoxHearthLatencyEval/EvaluatorFakes.swift", "sha256": "d7bad74a942cbc727e921ada66653d7ee491661314be8d375ec47f14b26b81d2"},
-    {"path": "Tests/VoxHearthLatencyEval/LatencyEvaluator.swift", "sha256": "439535794324e1d1add3ecbf14b470cea998939e6f02ff6dafb4358e98a2267d"},
-    {"path": "docs/ai/plans/ux-latency-autoresearch.md", "sha256": "bea7a15491a8c4b36e288c2eea0738d1f148085bdc872144e83fdc6240ceacc2"},
-    {"path": "scripts/latency-eval.sh", "sha256": "ee9d43208233946e49d2e4695df0976501b24b4f081522518de0db931274f083"}
+    {
+      "path": "Package.swift",
+      "sha256": "966ab37b2b5b6af3abcb08fc587eff7a06e97de3b90a0df20f50e3816a77e0bf"
+    },
+    {
+      "path": "Research/latency/README.md",
+      "sha256": "744afc96f8e12574057b0c1bb52c464500bbc43c0ca7188ed658ccf5bed372c4"
+    },
+    {
+      "path": "Research/latency/fixtures.manifest.json",
+      "sha256": "cad221a5d56555ae0a2a923d1df0ed38120244c9764e32c4a87ee4aa6bcf0fe5"
+    },
+    {
+      "path": "Research/latency/fixtures/guardrail-chunked.aiff",
+      "sha256": "bed2769f96079748cbbe563bd9c138dc08b40635b28ea8bc08c14caefae6edb9"
+    },
+    {
+      "path": "Research/latency/fixtures/guardrail-french.aiff",
+      "sha256": "f199af07d38fb4afb2bdd7520807a8700e5e02327d51dd9f81320c28fd7593d9"
+    },
+    {
+      "path": "Research/latency/fixtures/guardrail-long.aiff",
+      "sha256": "d6dd686c5f0cbf4f58abfc73ee766a961fa2c54bb561e75cb82d38cf32790e9a"
+    },
+    {
+      "path": "Research/latency/fixtures/guardrail-short.aiff",
+      "sha256": "3a3cda233a4ed33fc82b305f4e2bcdd8d43e7e1b357d532a2cbdac4b78b60d68"
+    },
+    {
+      "path": "Research/latency/fixtures/scored-01.aiff",
+      "sha256": "e7c59795e2943372f7aa76d4558916c4ef6deea3afa82f67599de5bbdae61ff0"
+    },
+    {
+      "path": "Research/latency/fixtures/scored-02.aiff",
+      "sha256": "3823577292e7b7eaff345c0848930b911f6eb6746936687bdd370410589f3fed"
+    },
+    {
+      "path": "Research/latency/fixtures/scored-03.aiff",
+      "sha256": "1bc74c2b1946ba5cd7e28333d4358c01bb1b82c9afa45a5d4a5ab16746e253ec"
+    },
+    {
+      "path": "Research/latency/fixtures/scored-04.aiff",
+      "sha256": "c262ab7a7004bb38bc85fd105284c90d2a774ea712bcda602c0aaa4fd86695e6"
+    },
+    {
+      "path": "Research/latency/fixtures/scored-05.aiff",
+      "sha256": "5b10761f97a5cab40b62c6a16778554c0e45785d468477c3947cdfed9cd0e590"
+    },
+    {
+      "path": "Research/latency/fixtures/scored-06.aiff",
+      "sha256": "9de33e17b8367d4b5ad5de971040726fe516bb3830826d3a13162b275fe2335f"
+    },
+    {
+      "path": "Research/latency/fixtures/scored-07.aiff",
+      "sha256": "032d62d700dab21c1fbb1c3212a0ce383e3061239814fe1b257974aac8de20eb"
+    },
+    {
+      "path": "Research/latency/fixtures/scored-08.aiff",
+      "sha256": "e08577d38d92a05c117c234684d7be2a758f64a76f02c610756e455aa93ab4c9"
+    },
+    {
+      "path": "Research/latency/fixtures/scored-09.aiff",
+      "sha256": "a8a69ced826c30a45f248f3f14cf653ace84481dd53e98f4fd7ad5cb0a3021f9"
+    },
+    {
+      "path": "Research/latency/fixtures/scored-10.aiff",
+      "sha256": "4fb748b4979d58f2892cf152a0653ce26718ab4ae5ec4eb9757a5c2e7739def5"
+    },
+    {
+      "path": "Research/latency/model-capabilities.json",
+      "sha256": "597ed76b502762a919b359fbfa42eba7f7d68dd4b671cb340124466e472ef3ca"
+    },
+    {
+      "path": "Tests/VoxHearthLatencyEval/EvaluatorFakes.swift",
+      "sha256": "3b5cfb619878f4efbf13542bcd788aa0de2cb34a984a7f918e5313b953bfa5a5"
+    },
+    {
+      "path": "Tests/VoxHearthLatencyEval/LatencyEvaluator.swift",
+      "sha256": "439535794324e1d1add3ecbf14b470cea998939e6f02ff6dafb4358e98a2267d"
+    },
+    {
+      "path": "docs/ai/plans/ux-latency-autoresearch.md",
+      "sha256": "bea7a15491a8c4b36e288c2eea0738d1f148085bdc872144e83fdc6240ceacc2"
+    },
+    {
+      "path": "scripts/latency-eval.sh",
+      "sha256": "ee9d43208233946e49d2e4695df0976501b24b4f081522518de0db931274f083"
+    }
   ]
 }

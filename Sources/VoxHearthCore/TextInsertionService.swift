@@ -31,9 +31,10 @@ public final class TextInsertionService: TextInserting {
     }
 
     public func insert(
-        _ text: String,
+        _ transcript: InsertableTranscript,
         clipboardFallbackEnabled: Bool
     ) async throws -> TextInsertionMethod {
+        let text = transcript.text
         guard !text.isEmpty else { throw TextInsertionError.insertionFailed }
         guard backend.isAccessibilityTrusted else {
             throw TextInsertionError.accessibilityPermissionRequired

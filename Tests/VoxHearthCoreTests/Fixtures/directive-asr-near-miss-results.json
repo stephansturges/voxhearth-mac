@@ -1,0 +1,353 @@
+{
+  "schemaVersion": 1,
+  "corpus": "near-miss",
+  "generatedFixtureContract": {
+    "voice": "Samantha",
+    "rate": 190,
+    "sampleRate": 16000,
+    "channels": 1,
+    "encoding": "pcm_s16be",
+    "sourceManifest": "Tools/S1MiniSpike/fixtures/directive-asr-near-miss/fixtures.json"
+  },
+  "repeatDeterminism": {
+    "runsPerModel": 2,
+    "multilingualByteIdentical": true,
+    "compactByteIdentical": true
+  },
+  "models": [
+    {
+      "fixtureCount": 20,
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "results": [
+        {
+          "audioSHA256": "752e6012a634f56baa599c10f42a2583f42c288b8d0f342ea22cee33a9868f42",
+          "directive": "list",
+          "id": "near-list-01-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "In reference to the list Michael sent."
+        },
+        {
+          "audioSHA256": "a69f0f5ac411e9900062889531a148fa0723cda677b78a6695d306e1b52090fb",
+          "directive": "list",
+          "id": "near-list-02-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Please review the list after lunch."
+        },
+        {
+          "audioSHA256": "424d7c4d13cc70146100700862f6eb6409963d74876ae39a231a1dddd59a6a79",
+          "directive": "list",
+          "id": "near-list-03-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Listing the available options takes time."
+        },
+        {
+          "audioSHA256": "8dbb59753cb9c88481017b0d8d849e5bbc71f24dbae8bfddce089d6a033c515f",
+          "directive": "list",
+          "id": "near-list-04-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Listening to Michael helps me focus."
+        },
+        {
+          "audioSHA256": "92eb3a795ba6c87f2a276d95ad90e63e00e511afbe9778576dc6c66a90e23e98",
+          "directive": "list",
+          "id": "near-list-05-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "My shopping list includes apples and pears."
+        },
+        {
+          "audioSHA256": "8626903fe74a03ceb8f4be69d7be69d82ab9aeb1fec6011b4d73ffeae8d5216e",
+          "directive": "list",
+          "id": "near-list-06-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "The list begins with the project goals."
+        },
+        {
+          "audioSHA256": "b7f8ca3003fbc18e5041cb6a6ce8aeb440c8337bfd618cdcbd6725788f409ac6",
+          "directive": "list",
+          "id": "near-list-07-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "I'll list milk eggs and bread."
+        },
+        {
+          "audioSHA256": "75d11e09fc9d8fbd42caf2dbad7f9c6b2f72136fe92f1f272b68a86978ee9354",
+          "directive": "list",
+          "id": "near-list-08-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Could you list the remaining tasks?"
+        },
+        {
+          "audioSHA256": "f3604e954b364717ae7bcce8a4c7b59543267d469d289f06629b288d533032ce",
+          "directive": "list",
+          "id": "near-list-09-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Enlist Michael to help tomorrow."
+        },
+        {
+          "audioSHA256": "777a4b71fd97b182fe53f061428531fda958e77090e607b6e224963c9d1c209f",
+          "directive": "list",
+          "id": "near-list-10-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Blacklisted accounts. Require manual review."
+        },
+        {
+          "audioSHA256": "8174003a4a7a5b5df3ca6c16de11fbf3573e09b45f803f98cdafd2ee6a361976",
+          "directive": "email",
+          "id": "near-email-01-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "My email is Steven at example.com."
+        },
+        {
+          "audioSHA256": "aecfb3ebb347312870d2fce6cbc76f1c573cd297b01f7ee7d8d53d7810c5f271",
+          "directive": "email",
+          "id": "near-email-02-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Please email John today."
+        },
+        {
+          "audioSHA256": "25481b3fb2179e61301e5e965f33fc8a30f112336bc761435261aa09f85191f4",
+          "directive": "email",
+          "id": "near-email-03-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Emailing John today will be helpful."
+        },
+        {
+          "audioSHA256": "14137cfb47b5051270069e0104d15dbca7c09e3097083f6b9efb026e36cb1b50",
+          "directive": "email",
+          "id": "near-email-04-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "The email from Michael arrived."
+        },
+        {
+          "audioSHA256": "4791d29534aa5ab23e7776dab44c2fdc4b6d26b30659e38aae498cd8d08019e5",
+          "directive": "email",
+          "id": "near-email-05-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "In reference to the email you sent."
+        },
+        {
+          "audioSHA256": "b20211988f48e811c4b319f42b015ab31c123ceedc52c8f7a08bef07cb262d05",
+          "directive": "email",
+          "id": "near-email-06-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Uh email hi John thanks for the update."
+        },
+        {
+          "audioSHA256": "792673d96067954e205ce5c60b5962154ffea7b47fe4240471b6b5cdec0a8ae4",
+          "directive": "email",
+          "id": "near-email-07-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Send an email to Sarah."
+        },
+        {
+          "audioSHA256": "be3de85fde0994a8ddf497d1b06193815f369a30d79c9656e0c4a1c8efc3684f",
+          "directive": "email",
+          "id": "near-email-08-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Emailed receipts. Are archived."
+        },
+        {
+          "audioSHA256": "a82fdd40d68aefb28325ece847367d4da45f7443b94bb6d03547c8e946fa5b9c",
+          "directive": "email",
+          "id": "near-email-09-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Our email address changed."
+        },
+        {
+          "audioSHA256": "863d28fc127b3a7e6bddcc7f2368aec6dcb43260aa8b2952d05534d36df6b7af",
+          "directive": "email",
+          "id": "near-email-10-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "The team discussed email privacy."
+        }
+      ],
+      "schemaVersion": 1
+    },
+    {
+      "fixtureCount": 20,
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "results": [
+        {
+          "audioSHA256": "752e6012a634f56baa599c10f42a2583f42c288b8d0f342ea22cee33a9868f42",
+          "directive": "list",
+          "id": "near-list-01-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "in reference to the list Michael sent."
+        },
+        {
+          "audioSHA256": "a69f0f5ac411e9900062889531a148fa0723cda677b78a6695d306e1b52090fb",
+          "directive": "list",
+          "id": "near-list-02-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Please review The List After Lunge."
+        },
+        {
+          "audioSHA256": "424d7c4d13cc70146100700862f6eb6409963d74876ae39a231a1dddd59a6a79",
+          "directive": "list",
+          "id": "near-list-03-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Listing the available options takes time."
+        },
+        {
+          "audioSHA256": "8dbb59753cb9c88481017b0d8d849e5bbc71f24dbae8bfddce089d6a033c515f",
+          "directive": "list",
+          "id": "near-list-04-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Listening, to Michael helps me focus."
+        },
+        {
+          "audioSHA256": "92eb3a795ba6c87f2a276d95ad90e63e00e511afbe9778576dc6c66a90e23e98",
+          "directive": "list",
+          "id": "near-list-05-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "My shopping list includes apples and pears"
+        },
+        {
+          "audioSHA256": "8626903fe74a03ceb8f4be69d7be69d82ab9aeb1fec6011b4d73ffeae8d5216e",
+          "directive": "list",
+          "id": "near-list-06-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "The list begins with the project goals."
+        },
+        {
+          "audioSHA256": "b7f8ca3003fbc18e5041cb6a6ce8aeb440c8337bfd618cdcbd6725788f409ac6",
+          "directive": "list",
+          "id": "near-list-07-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Olist milk eggs and bread."
+        },
+        {
+          "audioSHA256": "75d11e09fc9d8fbd42caf2dbad7f9c6b2f72136fe92f1f272b68a86978ee9354",
+          "directive": "list",
+          "id": "near-list-08-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Could you list the remaining tasks?"
+        },
+        {
+          "audioSHA256": "f3604e954b364717ae7bcce8a4c7b59543267d469d289f06629b288d533032ce",
+          "directive": "list",
+          "id": "near-list-09-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Enlist Michael to help tomorrow."
+        },
+        {
+          "audioSHA256": "777a4b71fd97b182fe53f061428531fda958e77090e607b6e224963c9d1c209f",
+          "directive": "list",
+          "id": "near-list-10-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Blacklisted accounts require manual review."
+        },
+        {
+          "audioSHA256": "8174003a4a7a5b5df3ca6c16de11fbf3573e09b45f803f98cdafd2ee6a361976",
+          "directive": "email",
+          "id": "near-email-01-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "My email is Steven at example. com"
+        },
+        {
+          "audioSHA256": "aecfb3ebb347312870d2fce6cbc76f1c573cd297b01f7ee7d8d53d7810c5f271",
+          "directive": "email",
+          "id": "near-email-02-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Please, email John today."
+        },
+        {
+          "audioSHA256": "25481b3fb2179e61301e5e965f33fc8a30f112336bc761435261aa09f85191f4",
+          "directive": "email",
+          "id": "near-email-03-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Emailing John today will be helpful."
+        },
+        {
+          "audioSHA256": "14137cfb47b5051270069e0104d15dbca7c09e3097083f6b9efb026e36cb1b50",
+          "directive": "email",
+          "id": "near-email-04-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "The email from Michael arrived"
+        },
+        {
+          "audioSHA256": "4791d29534aa5ab23e7776dab44c2fdc4b6d26b30659e38aae498cd8d08019e5",
+          "directive": "email",
+          "id": "near-email-05-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "in reference to the email you sent."
+        },
+        {
+          "audioSHA256": "b20211988f48e811c4b319f42b015ab31c123ceedc52c8f7a08bef07cb262d05",
+          "directive": "email",
+          "id": "near-email-06-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Ah, email hi John. Thanks for the update."
+        },
+        {
+          "audioSHA256": "792673d96067954e205ce5c60b5962154ffea7b47fe4240471b6b5cdec0a8ae4",
+          "directive": "email",
+          "id": "near-email-07-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Send an email to Sarah."
+        },
+        {
+          "audioSHA256": "be3de85fde0994a8ddf497d1b06193815f369a30d79c9656e0c4a1c8efc3684f",
+          "directive": "email",
+          "id": "near-email-08-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Emailed receipts are archived."
+        },
+        {
+          "audioSHA256": "a82fdd40d68aefb28325ece847367d4da45f7443b94bb6d03547c8e946fa5b9c",
+          "directive": "email",
+          "id": "near-email-09-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Our email address changed."
+        },
+        {
+          "audioSHA256": "863d28fc127b3a7e6bddcc7f2368aec6dcb43260aa8b2952d05534d36df6b7af",
+          "directive": "email",
+          "id": "near-email-10-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "The team discussed email privacy."
+        }
+      ],
+      "schemaVersion": 1
+    }
+  ]
+}
