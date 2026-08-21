@@ -5,6 +5,11 @@ import VoxHearthCore
 
 private actor CleanupSettingsEngine: LocalTranscriptionEngine {
     private(set) var prepareCount = 0
+    private var transcript: String
+
+    init(transcript: String = "") {
+        self.transcript = transcript
+    }
 
     func prepare(model: TranscriptionModel) async throws {
         _ = model
@@ -19,7 +24,11 @@ private actor CleanupSettingsEngine: LocalTranscriptionEngine {
         _ = audio
         _ = language
         _ = model
-        return ""
+        return transcript
+    }
+
+    func setTranscript(_ transcript: String) {
+        self.transcript = transcript
     }
 }
 
@@ -101,6 +110,7 @@ private final class CleanupSettingsPointer: GlobalPointerButtonRegistering {
         currentBuildIdentity: "test-build"
     )
     #expect(model.onboardingLaunchReason == .cleanupDisclosureRequired)
+    #expect(model.onboardingStep == .cleanup)
     #expect(model.cleanupDisclosureVersion == 0)
     #expect(model.cleanupEnablement.ineffectiveReason == .disclosureRequired)
 
@@ -132,4 +142,80 @@ private final class CleanupSettingsPointer: GlobalPointerButtonRegistering {
     let persisted = try #require(defaults.data(forKey: "VoxHearth.appSettings.v1"))
     let decoded = try JSONDecoder().decode(AppSettings.self, from: persisted)
     #expect(decoded.cleanup == model.settings.cleanup)
+}
+
+@Test @MainActor func cleanupDisclosureCanBeDeferredForOneLaunchWithoutEnablingCleanup() throws {
+    let suite = "VoxHearth.CleanupDisclosureDeferral.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    defaults.set(true, forKey: "VoxHearth.completedOnboarding.v1")
+    defaults.set("test-build", forKey: "VoxHearth.completedOnboardingBuild.v1")
+
+    let controller = DictationController(
+        transcriptionEngine: CleanupSettingsEngine(),
+        audioCapture: CleanupSettingsAudio(),
+        textInserter: CleanupSettingsInserter(),
+        hotkeyService: CleanupSettingsHotkey(),
+        pointerButtonService: CleanupSettingsPointer()
+    )
+    let model = VoxHearthFrontendModel(
+        controller: controller,
+        defaults: defaults,
+        currentBuildIdentity: "test-build"
+    )
+
+    model.dismissCleanupDisclosureForThisLaunch()
+    #expect(model.hasCompletedOnboarding)
+    #expect(model.cleanupDisclosureVersion == 0)
+    #expect(defaults.integer(forKey: CleanupDisclosure.defaultsKey) == 0)
+    #expect(model.cleanupEnablement.ineffectiveReason == .disclosureRequired)
+
+    model.completeCleanupSetupFromSettings()
+    #expect(!model.hasCompletedOnboarding)
+    #expect(model.onboardingStep == .cleanup)
+}
+
+@Test @MainActor func cleanupTrialRecordsOneTypedRawAndSelectedPairUntilCleared() async throws {
+    let suite = "VoxHearth.CleanupTrial.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    defaults.set(true, forKey: "VoxHearth.completedOnboarding.v1")
+    defaults.set("test-build", forKey: "VoxHearth.completedOnboardingBuild.v1")
+
+    let engine = CleanupSettingsEngine(transcript: "first raw transcript")
+    var settings = AppSettings.default
+    settings.cleanup.isEnabled = false
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: settings,
+        audioCapture: CleanupSettingsAudio(),
+        textInserter: CleanupSettingsInserter(),
+        hotkeyService: CleanupSettingsHotkey(),
+        pointerButtonService: CleanupSettingsPointer()
+    )
+    let model = VoxHearthFrontendModel(
+        controller: controller,
+        defaults: defaults,
+        currentBuildIdentity: "test-build"
+    )
+
+    model.beginCleanupTrial()
+    await controller.startDictation()
+    await controller.stopDictation()
+    #expect(model.cleanupTrialComparison?.original == "first raw transcript")
+    #expect(model.cleanupTrialComparison?.selected == "first raw transcript")
+
+    await engine.setTranscript("second raw transcript")
+    await controller.startDictation()
+    await controller.stopDictation()
+    #expect(model.cleanupTrialComparison?.original == "first raw transcript")
+
+    await model.clearCleanupTrial()
+    for _ in 0..<100 where model.cleanupTrialComparison != nil {
+        await Task.yield()
+    }
+    await engine.setTranscript("third raw transcript")
+    await controller.startDictation()
+    await controller.stopDictation()
+    #expect(model.cleanupTrialComparison?.original == "third raw transcript")
 }

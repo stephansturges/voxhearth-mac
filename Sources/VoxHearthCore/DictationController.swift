@@ -39,6 +39,18 @@ public final class DictationController {
     @ObservationIgnored
     public var onLiveTranscriptPreview: (@MainActor @Sendable (String?) -> Void)?
 
+    @ObservationIgnored
+    public var onDictationProgress: (@MainActor @Sendable (DictationProgress) -> Void)?
+
+    /// A transient, memory-only UI seam used by onboarding to compare the raw
+    /// final transcript with the exact typed value selected for insertion.
+    @ObservationIgnored
+    public var onFinalSelection: (@MainActor @Sendable (
+        FinalTranscript,
+        InsertableTranscript,
+        RecognizedDirective?
+    ) -> Void)?
+
     @ObservationIgnored private let audioCapture: any AudioCapturing
     @ObservationIgnored private let transcriptionEngine: any LocalTranscriptionEngine
     @ObservationIgnored private let textInserter: any TextInserting
@@ -396,7 +408,7 @@ public final class DictationController {
             if case let .cleaning(format) = state {
                 let fallback = CleanupFallbackReason.cancelled
                 cleanupStatus = .fallingBack(currentSessionID, fallback)
-                _ = format
+                publishProgress(.fallingBack(format, fallback), for: currentSessionID)
             }
         }
         let delay = expediteRestartDelay
@@ -511,6 +523,7 @@ public final class DictationController {
         let epoch = sessionEpoch
         logger.info(.dictationStopAccepted)
         transition(to: .transcribing)
+        publishProgress(.finalizing, for: sessionID)
         recordingStartedAt = nil
         let cancelledPreviewTask = mergePreviewJoins(
             pendingPreviewJoin,
@@ -678,6 +691,12 @@ public final class DictationController {
         sessionEpoch &+= 1
         let epoch = sessionEpoch
         let cancelledSessionID = currentSessionID
+        if state == .recording {
+            // Close the preview publication gate before awaiting cancellation;
+            // an in-flight snapshot must not repopulate an overlay already
+            // cleared by this whole-session cancel.
+            transition(to: .transcribing)
+        }
         if let cancelledSessionID {
             explicitlyCancelledSessions.insert(cancelledSessionID)
             cleanupCancellationTokens[cancelledSessionID]?.cancel()
@@ -805,6 +824,7 @@ public final class DictationController {
             let policy = CleanupPolicy()
             let enablement = cleanupEnablement
             let insertableTranscript: InsertableTranscript
+            let recognizedDirective: RecognizedDirective?
             if enablement.isEffective, let cleanupNormalizer {
                 let parse = CleanupDirectiveParser().parse(
                     finalTranscript,
@@ -815,6 +835,7 @@ public final class DictationController {
                 let cancellation = S1MiniCancellationToken()
                 cleanupCancellationTokens[sessionID] = cancellation
                 transition(to: .cleaning(parse.format), for: sessionID)
+                publishProgress(.cleaning(parse.format), for: sessionID)
                 logger.info(.cleanupGenerationStarted, format: parse.format)
                 setCleanupStatus(.cleaning(sessionID), for: sessionID)
                 let outcome = await cleanupNormalizer.normalize(
@@ -833,16 +854,23 @@ public final class DictationController {
                     insertableTranscript = selected
                 case let .recover(fallback, reason):
                     setCleanupStatus(.fallingBack(sessionID, reason), for: sessionID)
+                    publishProgress(.fallingBack(parse.format, reason), for: sessionID)
                     insertableTranscript = fallback
                 case .cancelled:
                     let reason = CleanupFallbackReason.cancelled
                     setCleanupStatus(.fallingBack(sessionID, reason), for: sessionID)
+                    publishProgress(.fallingBack(parse.format, reason), for: sessionID)
                     insertableTranscript = policy.fallback(for: input, reason: reason)
                 }
+                recognizedDirective = parse.directive
             } else {
                 insertableTranscript = policy.passthrough(finalTranscript)
+                recognizedDirective = nil
             }
             transcriptForRecovery = insertableTranscript
+            if currentSessionID == sessionID {
+                onFinalSelection?(finalTranscript, insertableTranscript, recognizedDirective)
+            }
             if currentSessionID == sessionID, settings.liveTranscriptOverlayEnabled {
                 publishLiveTranscriptPreview(insertableTranscript.text)
             }
@@ -867,10 +895,12 @@ public final class DictationController {
         } catch {
             transcriptionTasks[sessionID] = nil
             if let transcriptForRecovery {
+                let reason = pendingReason(for: error)
                 retainPendingTranscript(
                     transcriptForRecovery,
-                    reason: pendingReason(for: error)
+                    reason: reason
                 )
+                publishProgress(.formattedTextReady(reason), for: sessionID)
             } else {
                 recoveryReservations.remove(sessionID)
             }
@@ -1128,6 +1158,14 @@ public final class DictationController {
     ) {
         guard currentSessionID == sessionID else { return }
         cleanupStatus = status
+    }
+
+    private func publishProgress(
+        _ progress: DictationProgress,
+        for sessionID: DictationSessionID
+    ) {
+        guard currentSessionID == sessionID else { return }
+        onDictationProgress?(progress)
     }
 
     private func pendingReason(for error: any Error) -> PendingInsertionReason {

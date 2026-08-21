@@ -320,6 +320,29 @@ private final class MockTextInserter: TextInserting {
 }
 
 @MainActor
+private final class DictationPresentationRecorder {
+    private(set) var progress: [DictationProgress] = []
+    private(set) var selections: [(FinalTranscript, InsertableTranscript, RecognizedDirective?)] = []
+    private(set) var overlayValues: [String?] = []
+
+    func record(_ progress: DictationProgress) {
+        self.progress.append(progress)
+    }
+
+    func record(
+        original: FinalTranscript,
+        selected: InsertableTranscript,
+        directive: RecognizedDirective?
+    ) {
+        selections.append((original, selected, directive))
+    }
+
+    func recordOverlay(_ text: String?) {
+        overlayValues.append(text)
+    }
+}
+
+@MainActor
 private final class BlockingRetryInserter: TextInserting {
     private(set) var insertCount = 0
     private var shouldFail = true
@@ -1273,6 +1296,63 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(inserter.insertedTexts == ["- Milk\n- Eggs\n- Bread"])
     #expect(inserter.attemptedSessionIDs == [input.sessionID])
     #expect(controller.state == .idle)
+}
+
+@Test @MainActor func cleanupPublishesTypedProgressAndOnlyTheSelectedOverlayValue() async throws {
+    let engine = MockTranscriptionEngine()
+    await engine.setTranscript("list milk eggs bread")
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("- Milk\n- Eggs\n- Bread"))
+    let recorder = DictationPresentationRecorder()
+    var settings = AppSettings.default
+    settings.liveTranscriptOverlayEnabled = true
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: settings,
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        livePreviewMinimumDuration: 100,
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+    controller.onDictationProgress = { recorder.record($0) }
+    controller.onFinalSelection = { original, selected, directive in
+        recorder.record(original: original, selected: selected, directive: directive)
+    }
+    controller.onLiveTranscriptPreview = { recorder.recordOverlay($0) }
+
+    await controller.startDictation()
+    await controller.stopDictation()
+
+    #expect(recorder.progress == [.finalizing, .cleaning(.listGeneral)])
+    let selection = try #require(recorder.selections.first)
+    #expect(recorder.selections.count == 1)
+    #expect(selection.0.sessionID == selection.1.sessionID)
+    #expect(selection.0.text == "list milk eggs bread")
+    #expect(selection.1.text == "- Milk\n- Eggs\n- Bread")
+    #expect(selection.2 == .list)
+    #expect(!recorder.overlayValues.contains("list milk eggs bread"))
+    #expect(recorder.overlayValues.contains("- Milk\n- Eggs\n- Bread"))
+}
+
+@Test @MainActor func failedSelectedInsertionPublishesTypedFormattedReadyReason() async {
+    let inserter = MockTextInserter()
+    inserter.error = .insertionUncertain
+    let recorder = DictationPresentationRecorder()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService()
+    )
+    controller.onDictationProgress = { recorder.record($0) }
+
+    await controller.startDictation()
+    await controller.stopDictation()
+
+    #expect(recorder.progress == [.finalizing, .formattedTextReady(.insertionUncertain)])
+    #expect(controller.pendingInsertions.entries.first?.reason == .insertionUncertain)
 }
 
 @Test @MainActor func inactiveCleanupDoesNotParseOrCallTheSecondModel() async {

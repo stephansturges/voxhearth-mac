@@ -53,6 +53,15 @@ public enum DictationSessionState: Equatable, Sendable {
     }
 }
 
+/// Content-free progress for passive UI surfaces. Transcript text continues to
+/// travel only through the existing typed final/insertable callback boundary.
+public enum DictationProgress: Equatable, Sendable {
+    case finalizing
+    case cleaning(CleanupFormat)
+    case fallingBack(CleanupFormat, CleanupFallbackReason)
+    case formattedTextReady(PendingInsertionReason)
+}
+
 public enum DictationFailure: String, Error, Equatable, Sendable {
     case microphonePermissionDenied
     case microphoneUnavailable

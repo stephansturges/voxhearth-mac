@@ -39,6 +39,8 @@ enum OverlayPresentationPolicy {
 @MainActor
 private final class LiveTranscriptOverlayState {
     var text = "Listening for speech…"
+    var accessibilityText = "Listening for speech…"
+    var isWorking = false
     var isVisible = false
 }
 
@@ -49,6 +51,8 @@ final class LiveTranscriptOverlayController: NSObject {
     private let state = LiveTranscriptOverlayState()
     private let panel: PassiveTranscriptPanel
     private let logger = PrivacySafeLogger(category: "Overlay")
+    private var progressTimeoutTask: Task<Void, Never>?
+    private var presentationEpoch = 0
 
     override init() {
         panel = PassiveTranscriptPanel(
@@ -78,10 +82,12 @@ final class LiveTranscriptOverlayController: NSObject {
     }
 
     deinit {
+        progressTimeoutTask?.cancel()
         NotificationCenter.default.removeObserver(self)
     }
 
     func update(transcript: String?) {
+        cancelProgressTimeout()
         guard let transcript else {
             guard panel.isVisible else { return }
             state.isVisible = false
@@ -91,6 +97,65 @@ final class LiveTranscriptOverlayController: NSObject {
         }
 
         let displayText = LiveTranscriptOverlayPresentation.displayText(for: transcript)
+        state.isWorking = false
+        state.accessibilityText = displayText
+        apply(displayText: displayText)
+    }
+
+    func update(progress: DictationProgress) {
+        cancelProgressTimeout()
+        let displayText: String
+        switch progress {
+        case .finalizing:
+            displayText = "Finishing transcription…"
+        case let .cleaning(format):
+            displayText = CleanupProgressPresentation.cleaningDetail(for: format)
+        case let .fallingBack(format, reason):
+            displayText = CleanupProgressPresentation.fallbackDetail(
+                format: format,
+                reason: reason
+            )
+        case .formattedTextReady:
+            displayText = "Formatted text ready — open VoxHearth"
+        }
+        state.isWorking = {
+            if case .cleaning = progress { return true }
+            return false
+        }()
+        state.accessibilityText = {
+            if case .formattedTextReady = progress {
+                return "Formatted text ready. Open the VoxHearth menu-bar popover to copy or insert it. Available for 2 minutes."
+            }
+            return displayText
+        }()
+        apply(displayText: displayText)
+        if case .cleaning = progress {
+            scheduleIndependentCleanupTimeout()
+        }
+    }
+
+    private func cancelProgressTimeout() {
+        presentationEpoch &+= 1
+        progressTimeoutTask?.cancel()
+        progressTimeoutTask = nil
+    }
+
+    private func scheduleIndependentCleanupTimeout() {
+        let epoch = presentationEpoch
+        progressTimeoutTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled,
+                  let self,
+                  self.presentationEpoch == epoch else { return }
+            self.state.isWorking = false
+            let message = "Cleanup is taking longer — the original text remains protected"
+            self.state.accessibilityText = message
+            self.apply(displayText: message)
+            self.progressTimeoutTask = nil
+        }
+    }
+
+    private func apply(displayText: String) {
         let decision = OverlayPresentationPolicy.decide(
             isVisible: panel.isVisible,
             currentText: state.text,
@@ -149,6 +214,14 @@ private struct LiveTranscriptOverlayView: View {
             Image(systemName: "waveform")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Color.voxHearthAmber)
+                .opacity(state.isWorking ? 0 : 1)
+                .overlay {
+                    if state.isWorking {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(Color.voxHearthAmber)
+                    }
+                }
 
             Text(state.text)
                 .font(.system(size: 18, weight: .medium, design: .rounded))
@@ -170,5 +243,7 @@ private struct LiveTranscriptOverlayView: View {
                 .stroke(Color.voxHearthAmber.opacity(0.42), lineWidth: 1)
         }
         .padding(2)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(state.accessibilityText)
     }
 }

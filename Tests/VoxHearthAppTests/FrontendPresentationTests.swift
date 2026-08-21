@@ -13,12 +13,100 @@ struct FrontendPresentationTests {
         #expect(SessionPresentationState.listening.title == "Listening")
         #expect(SessionPresentationState.listening.primaryActionTitle == "Stop & Transcribe")
 
-        #expect(SessionPresentationState.transcribing.title == "Transcribing on this Mac")
-        #expect(SessionPresentationState.transcribing.isBusy)
+        #expect(SessionPresentationState.finalizing.title == "Transcribing on this Mac")
+        #expect(SessionPresentationState.finalizing.isBusy)
+
+        let cleaning = SessionPresentationState.cleaning(.listGeneral)
+        #expect(cleaning.title == "Cleaning up on this Mac")
+        #expect(cleaning.detail.contains("Formatting list"))
+        #expect(cleaning.isBusy)
+        #expect(cleaning.canCancelCurrentSession)
+
+        #expect(SessionPresentationState.inserting.title == "Inserting text")
+        #expect(SessionPresentationState.inserting.isBusy)
 
         let error = SessionPresentationState.error("Microphone unavailable")
         #expect(error.title == "Dictation unavailable")
         #expect(error.detail == "Microphone unavailable")
+    }
+
+    @Test("Cleanup copy exposes exact formats, dynamic payload size, and safe fallback states")
+    func cleanupPresentationCopy() {
+        #expect(CleanupSettingsPresentation.modelPayloadSize.contains("484"))
+        #expect(CleanupSettingsPresentation.modelPayloadSize.contains("462 MiB"))
+        #expect(
+            CleanupSettingsPresentation.ineffectiveReason(.disclosureRequired)
+                == "Cleanup is off until the new model disclosure is completed."
+        )
+        #expect(
+            CleanupProgressPresentation.cleaningDetail(for: .proseGeneral)
+                == "Cleaning up with S1-mini by Superwhisper…"
+        )
+        #expect(
+            CleanupProgressPresentation.cleaningDetail(for: .listGeneral)
+                == "Formatting list with S1-mini by Superwhisper…"
+        )
+        #expect(
+            CleanupProgressPresentation.cleaningDetail(for: .proseEmail)
+                == "Formatting email with S1-mini by Superwhisper…"
+        )
+        #expect(
+            CleanupProgressPresentation.fallbackDetail(
+                format: .listGeneral,
+                reason: .inputTooLong
+            ) == "Too long to format — inserted without the command"
+        )
+    }
+
+    @Test("Static cleanup examples cover commands and near misses without a runtime seam")
+    func cleanupExamplesAreFixedData() {
+        #expect(CleanupExamples.all.map(\.id) == ["ordinary", "list", "email", "near-misses"])
+        #expect(CleanupExamples.all.first { $0.id == "list" }?.cleaned.contains("\n") == true)
+        #expect(CleanupExamples.all.first { $0.id == "email" }?.cleaned.contains("\n\n") == true)
+        let nearMiss = CleanupExamples.all.first { $0.id == "near-misses" }
+        #expect(nearMiss?.original == nearMiss?.cleaned)
+    }
+
+    @Test("Every pending reason exposes only its safe recovery actions")
+    func pendingInsertionPresentation() {
+        let sessionID = DictationSessionID()
+        let ordinary = PendingInsertionPresentation(
+            id: sessionID,
+            position: 1,
+            total: 1,
+            reason: .insertionFailed
+        )
+        #expect(ordinary.allowsRetry)
+        #expect(!ordinary.allowsInsertAnyway)
+
+        let uncertain = PendingInsertionPresentation(
+            id: sessionID,
+            position: 1,
+            total: 2,
+            reason: .insertionUncertain
+        )
+        #expect(uncertain.retryNeedsConfirmation)
+        #expect(uncertain.detail.contains("avoid a duplicate"))
+
+        let terminal = PendingInsertionPresentation(
+            id: sessionID,
+            position: 2,
+            total: 2,
+            reason: .blockedTerminal
+        )
+        #expect(!terminal.allowsRetry)
+        #expect(terminal.allowsInsertAnyway)
+        #expect(terminal.insertAnywayWarning.contains("run pasted lines as commands"))
+        #expect(terminal.insertAnywayWarning.contains("remove trailing line breaks"))
+
+        let disabled = PendingInsertionPresentation(
+            id: sessionID,
+            position: 1,
+            total: 1,
+            reason: .multilineClipboardDisabled
+        )
+        #expect(disabled.allowsInsertAnyway)
+        #expect(disabled.insertAnywayWarning.contains("setting will remain off"))
     }
 
     @Test("Default hold-to-talk shortcut is Control-Option-Space")
@@ -94,6 +182,7 @@ struct FrontendPresentationTests {
                 currentBuildIdentity: "0.2.1 (10)"
             ) == .firstInstall
         )
+        #expect(OnboardingStep.allCases == [.privacy, .cleanup, .permissions, .tryIt])
         #expect(
             LaunchPresentationPolicy.reason(
                 previouslyCompleted: true,

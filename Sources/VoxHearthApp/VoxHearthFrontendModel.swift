@@ -46,6 +46,8 @@ final class VoxHearthFrontendModel {
     private(set) var microphoneFallbackNotice: String?
     private(set) var cleanupDisclosureVersion: Int
     private(set) var verifiedCleanupModelURL: URL?
+    private(set) var cleanupTrialComparison: CleanupTrialComparison?
+    private(set) var recoveryNotice: String?
 
     var onboardingStep: OnboardingStep = .privacy
     var onboardingLaunchReason: OnboardingLaunchReason
@@ -58,6 +60,8 @@ final class VoxHearthFrontendModel {
     private let liveTranscriptOverlayController: LiveTranscriptOverlayController
     private let currentBuildIdentity: String
     @ObservationIgnored private var didRequestAccessibilityForUpdatedBuild = false
+    @ObservationIgnored private var cleanupTrialIsActive = false
+    @ObservationIgnored private var cleanupTrialCaptureIsArmed = false
 
     init(
         controller: DictationController? = nil,
@@ -86,6 +90,9 @@ final class VoxHearthFrontendModel {
         )
         onboardingLaunchReason = launchReason ?? .manualReview
         hasCompletedOnboarding = launchReason == nil
+        if launchReason == .cleanupDisclosureRequired {
+            onboardingStep = .cleanup
+        }
 
         let settings = Self.loadSettings(from: defaults)
         if let controller {
@@ -127,6 +134,23 @@ final class VoxHearthFrontendModel {
         self.controller.onLiveTranscriptPreview = { [weak liveTranscriptOverlayController] text in
             liveTranscriptOverlayController?.update(transcript: text)
         }
+        self.controller.onDictationProgress = { [weak self, weak liveTranscriptOverlayController] progress in
+            ApplicationPresentation.announce(progress)
+            guard self?.settings.liveTranscriptOverlayEnabled == true else { return }
+            liveTranscriptOverlayController?.update(progress: progress)
+        }
+        self.controller.onFinalSelection = { [weak self] original, selected, directive in
+            guard let self,
+                  self.cleanupTrialIsActive,
+                  self.cleanupTrialCaptureIsArmed else { return }
+            self.cleanupTrialCaptureIsArmed = false
+            self.cleanupTrialComparison = CleanupTrialComparison(
+                sessionID: original.sessionID,
+                original: original.text,
+                selected: selected.text,
+                directive: directive
+            )
+        }
 
         do {
             try self.controller.activate()
@@ -152,8 +176,12 @@ final class VoxHearthFrontendModel {
             return .idle
         case .recording:
             return .listening
-        case .preparing, .transcribing, .cleaning, .inserting:
-            return .transcribing
+        case .preparing, .transcribing:
+            return .finalizing
+        case let .cleaning(format):
+            return .cleaning(format)
+        case .inserting:
+            return .inserting
         case let .failed(failure):
             return .error(Self.userFacingMessage(for: failure))
         }
@@ -167,16 +195,30 @@ final class VoxHearthFrontendModel {
         controller.pendingTranscript != nil
     }
 
+    var pendingInsertionPresentations: [PendingInsertionPresentation] {
+        let entries = controller.pendingInsertions.entries
+        return entries.enumerated().map { index, entry in
+            PendingInsertionPresentation(
+                id: entry.id,
+                position: index + 1,
+                total: entries.count,
+                reason: entry.reason
+            )
+        }
+    }
+
     var cleanupEnablement: CleanupEnablement {
         controller.cleanupEnablement
     }
 
     var onboardingCanAdvance: Bool {
         switch onboardingStep {
-        case .privacy, .tryIt:
+        case .privacy, .cleanup:
             true
         case .permissions:
             microphonePermission == .granted && accessibilityPermission == .granted
+        case .tryIt:
+            !controller.state.isBusy
         }
     }
 
@@ -200,12 +242,42 @@ final class VoxHearthFrontendModel {
         Task { await controller.retryPendingInsertion() }
     }
 
+    func retryPendingInsertion(sessionID: DictationSessionID) {
+        recoveryNotice = nil
+        Task { await controller.retryPendingInsertion(sessionID: sessionID) }
+    }
+
+    func copyPendingInsertion(sessionID: DictationSessionID) {
+        do {
+            try controller.copyPendingInsertion(sessionID: sessionID)
+            recoveryNotice = "Copied. The text will remain on the clipboard until another app replaces it."
+            ApplicationPresentation.announceRecovery(.copied)
+        } catch {
+            recoveryNotice = "VoxHearth could not copy that text."
+            ApplicationPresentation.announceRecovery(.copyFailed)
+        }
+    }
+
+    func insertPendingAnyway(sessionID: DictationSessionID) {
+        recoveryNotice = nil
+        Task { await controller.insertPendingAnyway(sessionID: sessionID) }
+    }
+
+    func discardPendingInsertion(sessionID: DictationSessionID) {
+        controller.discardPendingInsertion(sessionID: sessionID)
+        recoveryNotice = "Discarded the selected in-memory dictation."
+        ApplicationPresentation.announceRecovery(.discarded)
+    }
+
     func discardPendingTranscript() {
         controller.discardPendingTranscript()
     }
 
     func advanceOnboarding() {
         guard onboardingCanAdvance else { return }
+        if onboardingStep == .cleanup {
+            completeCleanupDisclosure()
+        }
         guard let next = OnboardingStep(rawValue: onboardingStep.rawValue + 1) else {
             completeOnboarding()
             return
@@ -219,6 +291,9 @@ final class VoxHearthFrontendModel {
     }
 
     func completeOnboarding() {
+        cleanupTrialIsActive = false
+        cleanupTrialCaptureIsArmed = false
+        cleanupTrialComparison = nil
         hasCompletedOnboarding = true
         defaults.set(true, forKey: DefaultsKey.completedOnboarding)
         defaults.set(currentBuildIdentity, forKey: DefaultsKey.completedOnboardingBuild)
@@ -235,6 +310,47 @@ final class VoxHearthFrontendModel {
             disclosureVersion: cleanupDisclosureVersion
         )
         Task { await controller.prepareCleanupModelIfEffective() }
+    }
+
+    func dismissCleanupDisclosureForThisLaunch() {
+        guard onboardingLaunchReason == .cleanupDisclosureRequired else { return }
+        cleanupTrialIsActive = false
+        cleanupTrialCaptureIsArmed = false
+        cleanupTrialComparison = nil
+        hasCompletedOnboarding = true
+    }
+
+    func beginCleanupTrial() {
+        cleanupTrialIsActive = true
+        cleanupTrialCaptureIsArmed = true
+        cleanupTrialComparison = nil
+    }
+
+    func clearCleanupTrial() async {
+        cleanupTrialCaptureIsArmed = false
+        if controller.state.isBusy {
+            await controller.cancelDictation()
+        }
+        guard cleanupTrialIsActive else { return }
+        cleanupTrialComparison = nil
+        cleanupTrialCaptureIsArmed = true
+    }
+
+    func endCleanupTrial() {
+        cleanupTrialIsActive = false
+        cleanupTrialCaptureIsArmed = false
+        Task {
+            if controller.state.isBusy {
+                await controller.cancelDictation()
+            }
+            cleanupTrialComparison = nil
+        }
+    }
+
+    func completeCleanupSetupFromSettings() {
+        onboardingStep = .cleanup
+        onboardingLaunchReason = .cleanupDisclosureRequired
+        hasCompletedOnboarding = false
     }
 
     func restartOnboarding() {
