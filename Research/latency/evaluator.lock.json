@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "Package.swift",
-      "sha256": "966ab37b2b5b6af3abcb08fc587eff7a06e97de3b90a0df20f50e3816a77e0bf"
+      "sha256": "368284a9bf5b507252bb5978fb21ad4b47a7a2df0f5026e04521d21c9475dfd1"
     },
     {
       "path": "Research/latency/README.md",

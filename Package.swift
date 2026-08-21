@@ -102,6 +102,7 @@ let package = Package(
         .library(name: "FluidAudioLocal", targets: ["FluidAudioLocal"]),
         .library(name: "LlamaLocal", targets: ["LlamaLocal"]),
         .executable(name: "VoxHearth", targets: ["VoxHearthApp"]),
+        .executable(name: "VoxHearthS1MiniEval", targets: ["VoxHearthS1MiniEval"]),
     ],
     targets: [
         .target(
@@ -157,6 +158,11 @@ let package = Package(
         .testTarget(
             name: "VoxHearthLatencyEval",
             dependencies: ["VoxHearthCore"]
+        ),
+        .executableTarget(
+            name: "VoxHearthS1MiniEval",
+            dependencies: ["VoxHearthCore"],
+            path: "Tests/VoxHearthS1MiniEval"
         ),
     ],
     cLanguageStandard: .gnu11,

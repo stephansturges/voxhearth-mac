@@ -83,6 +83,18 @@ func rejectsNearMissesWithoutTransformingPayload(text: String) {
     #expect(String(email.effectiveText) == "list milk eggs and bread")
 }
 
+@Test func parserCostIsBoundedByThePrefixForMaximumSizeInput() {
+    let tail = String(repeating: " ordinary transcript text", count: 50_000)
+    let transcript = "opening words" + tail + " list this later mention is not a command"
+    let started = ContinuousClock.now
+    let result = parsed(transcript)
+    let elapsed = started.duration(to: .now)
+    #expect(result.directive == nil)
+    #expect(result.payloadUTF8Offset == 0)
+    #expect(result.effectiveText.utf8.count == transcript.utf8.count)
+    #expect(elapsed < .milliseconds(50))
+}
+
 @Test func UTF8OffsetIsValidAfterUnicodeWhitespace() {
     let result = parsed("\u{2003}\u{00A0}LIST. crème brûlée")
     #expect(result.directive == .list)

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "fixtureCount": 15,
+  "requiredFixturePasses": 15,
+  "requiredDeterministicRepeat": true,
+  "maximumP95Milliseconds": {
+    "cpu": 1800,
+    "metal": 1800
+  },
+  "maximumPeakRSSBytes": {
+    "cpu": 1700000000,
+    "metal": 1350000000
+  },
+  "maximumModelLoads": 1,
+  "maximumContextCreations": 1,
+  "requiredWarmups": 1
+}
