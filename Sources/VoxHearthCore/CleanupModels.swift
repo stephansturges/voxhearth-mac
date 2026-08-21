@@ -88,6 +88,10 @@ public enum CleanupDisclosure {
     public static let defaultsKey = "VoxHearth.cleanupDisclosureVersion.v1"
 }
 
+public enum CleanupRuntimeLimits {
+    public static let productionDeadlineMilliseconds = 2_000
+}
+
 public enum S1MiniModelAsset {
     public static let bundleRoot = "s1-mini-gguf"
     public static let fileName = "s1-mini-q4_k_m.gguf"

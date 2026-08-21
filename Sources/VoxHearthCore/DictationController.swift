@@ -115,6 +115,7 @@ public final class DictationController {
     @ObservationIgnored private let cleanupPressureCooldown: Duration
     @ObservationIgnored private var cleanupIsPrepared = false
     @ObservationIgnored private var cleanupPreparationEpoch = 0
+    @ObservationIgnored private var cleanupPreparationInFlight = false
     @ObservationIgnored private var cleanupUnloadPending = false
     @ObservationIgnored private var cleanupPreparationSuppressedUntil: ContinuousClock.Instant?
     @ObservationIgnored private var cleanupMemoryPressureMonitor: CleanupMemoryPressureMonitor?
@@ -143,7 +144,7 @@ public final class DictationController {
         cleanupNormalizer: (any TranscriptNormalizing)? = nil,
         cleanupModelURL: URL? = nil,
         cleanupDisclosureVersion: Int = 0,
-        cleanupDeadlineMilliseconds: Int = 2_000,
+        cleanupDeadlineMilliseconds: Int = CleanupRuntimeLimits.productionDeadlineMilliseconds,
         cleanupIdleUnloadDelay: Duration = .seconds(15 * 60),
         cleanupPressureCooldown: Duration = .seconds(5 * 60),
         monitorCleanupMemoryPressure: Bool = true
@@ -295,14 +296,23 @@ public final class DictationController {
     }
 
     public func prepareCleanupModelIfEffective() async {
+        await prepareCleanupModelIfEffective(allowDuringRecording: false)
+    }
+
+    private func prepareCleanupModelIfEffective(allowDuringRecording: Bool) async {
         guard cleanupEnablement.isEffective,
               let cleanupNormalizer,
               let cleanupModelURL else {
             cleanupStatus = .disabled
             return
         }
-        guard state == .idle || Self.isFailureState(state) else { return }
+        guard !cleanupPreparationInFlight else { return }
+        guard state == .idle
+                || Self.isFailureState(state)
+                || (allowDuringRecording && state == .recording) else { return }
         let preparationEpoch = cleanupPreparationEpoch
+        cleanupPreparationInFlight = true
+        defer { cleanupPreparationInFlight = false }
         cleanupStatus = .preparing
         do {
             _ = try await cleanupNormalizer.prepare(
@@ -318,7 +328,9 @@ public final class DictationController {
                 return
             }
             cleanupIsPrepared = true
-            cleanupStatus = .ready
+            if !Self.isCleanupActive(cleanupStatus) {
+                cleanupStatus = .ready
+            }
             scheduleCleanupIdleUnloadIfNeeded()
         } catch {
             cleanupIsPrepared = false
@@ -563,6 +575,7 @@ public final class DictationController {
             recordingStartedAt = Date()
             transition(to: .recording)
             beginLiveTranscriptPreview()
+            scheduleCleanupPreparationForActiveCaptureIfNeeded()
         } catch is CancellationError {
             await audioCapture.cancel()
             recoveryReservations.remove(sessionID)
@@ -725,7 +738,9 @@ public final class DictationController {
                 clipboardFallbackEnabled: settings.clipboardCompatibilityEnabled
             )
             removePendingInsertion(sessionID: sessionID)
-            transition(to: .idle)
+            if currentSessionID == nil, state == .inserting {
+                transition(to: .idle)
+            }
         } catch {
             retainPendingTranscript(entry.transcript, reason: pendingReason(for: error))
             handleCompletionError(error, for: sessionID)
@@ -772,7 +787,9 @@ public final class DictationController {
         do {
             _ = try await textInserter.insertConfirmedMultiline(entry.transcript)
             removePendingInsertion(sessionID: sessionID)
-            transition(to: .idle)
+            if currentSessionID == nil, state == .inserting {
+                transition(to: .idle)
+            }
         } catch {
             retainPendingTranscript(entry.transcript, reason: entry.reason)
             handleCompletionError(error, for: sessionID)
@@ -849,6 +866,7 @@ public final class DictationController {
         }
         synchronizePendingPresentation()
         schedulePendingExpiry()
+        scheduleCleanupIdleUnloadIfNeeded()
     }
 
     private func expirePendingInsertions(now: Date = Date()) {
@@ -862,6 +880,7 @@ public final class DictationController {
         if pendingInsertions.entries.isEmpty, Self.isFailureState(state) {
             transition(to: .idle)
         }
+        scheduleCleanupIdleUnloadIfNeeded()
     }
 
     private func synchronizePendingPresentation() {
@@ -971,7 +990,9 @@ public final class DictationController {
                 onFinalSelection?(finalTranscript, insertableTranscript, recognizedDirective)
             }
             if currentSessionID == sessionID, settings.liveTranscriptOverlayEnabled {
-                publishLiveTranscriptPreview(insertableTranscript.text)
+                publishLiveTranscriptPreview(
+                    insertableTranscript.text.isEmpty ? nil : insertableTranscript.text
+                )
             }
 
             guard beginAutomaticInsertion(for: sessionID) else { return }
@@ -1341,6 +1362,21 @@ public final class DictationController {
             await Task.yield()
             guard let self, self.state == .idle else { return }
             await self.prepareCleanupModelIfEffective()
+        }
+    }
+
+    private func scheduleCleanupPreparationForActiveCaptureIfNeeded() {
+        guard cleanupEnablement.isEffective,
+              !cleanupIsPrepared,
+              !cleanupPreparationInFlight else { return }
+        if let suppressedUntil = cleanupPreparationSuppressedUntil,
+           ContinuousClock.now < suppressedUntil {
+            return
+        }
+        Task(priority: .utility) { [weak self] in
+            await Task.yield()
+            guard let self, self.state == .recording else { return }
+            await self.prepareCleanupModelIfEffective(allowDuringRecording: true)
         }
     }
 

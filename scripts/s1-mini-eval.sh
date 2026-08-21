@@ -31,6 +31,9 @@ verify_contract() {
     .fixtureCount == $count and
     .requiredFixturePasses == $count and
     .requiredDeterministicRepeat == true and
+    .productionDeadlineMilliseconds == 2000 and
+    (.maximumLatencyMilliseconds.cpu < .productionDeadlineMilliseconds) and
+    (.maximumLatencyMilliseconds.metal < .productionDeadlineMilliseconds) and
     .maximumModelLoads == 1 and
     .maximumContextCreations == 1 and
     .requiredWarmups == 1
@@ -81,9 +84,14 @@ run_measured() {
     local rss_kb
     local threads
     rss_kb="$(ps -o rss= -p "$eval_pid" 2>/dev/null | tr -d ' ' || true)"
-    threads="$(ps -M -p "$eval_pid" 2>/dev/null | awk 'NR > 1 { count += 1 } END { print count + 0 }')"
-    [[ "$rss_kb" =~ ^[0-9]+$ ]] && (( rss_kb > maximum_rss_kb )) && maximum_rss_kb=$rss_kb
-    [[ "$threads" =~ ^[0-9]+$ ]] && (( threads > maximum_threads )) && maximum_threads=$threads
+    threads="$(ps -M -p "$eval_pid" 2>/dev/null \
+      | awk 'NR > 1 { count += 1 } END { print count + 0 }' || true)"
+    if [[ "$rss_kb" =~ ^[0-9]+$ ]] && (( rss_kb > maximum_rss_kb )); then
+      maximum_rss_kb=$rss_kb
+    fi
+    if [[ "$threads" =~ ^[0-9]+$ ]] && (( threads > maximum_threads )); then
+      maximum_threads=$threads
+    fi
     sleep 0.02
   done
   local eval_status=0
@@ -105,7 +113,9 @@ assert_report() {
     .fixtureCount == $ratchet[0].fixtureCount and
     .passedFixtureCount == $ratchet[0].requiredFixturePasses and
     .deterministicRepeat == $ratchet[0].requiredDeterministicRepeat and
+    .deadlineMilliseconds == $ratchet[0].productionDeadlineMilliseconds and
     .latenciesMilliseconds.p95 <= $ratchet[0].maximumP95Milliseconds[$backend] and
+    .latenciesMilliseconds.maximum <= $ratchet[0].maximumLatencyMilliseconds[$backend] and
     .counters.modelLoads <= $ratchet[0].maximumModelLoads and
     .counters.contextCreations <= $ratchet[0].maximumContextCreations and
     .counters.warmups == $ratchet[0].requiredWarmups and

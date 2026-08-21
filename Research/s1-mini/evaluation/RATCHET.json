@@ -3,9 +3,14 @@
   "fixtureCount": 15,
   "requiredFixturePasses": 15,
   "requiredDeterministicRepeat": true,
+  "productionDeadlineMilliseconds": 2000,
   "maximumP95Milliseconds": {
     "cpu": 1800,
     "metal": 1800
+  },
+  "maximumLatencyMilliseconds": {
+    "cpu": 1900,
+    "metal": 1900
   },
   "maximumPeakRSSBytes": {
     "cpu": 1700000000,

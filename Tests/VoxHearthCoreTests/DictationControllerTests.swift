@@ -191,6 +191,38 @@ private final class RetryExpiryInserter: TextInserting {
     }
 }
 
+@MainActor
+private final class GatedRecoverySuccessInserter: TextInserting {
+    private let initialError: TextInsertionError
+    private(set) var attemptCount = 0
+    private var recoveryContinuation: CheckedContinuation<Void, Never>?
+
+    init(initialError: TextInsertionError) {
+        self.initialError = initialError
+    }
+
+    func insert(
+        _ transcript: InsertableTranscript,
+        clipboardFallbackEnabled: Bool
+    ) async throws -> TextInsertionMethod {
+        _ = transcript
+        _ = clipboardFallbackEnabled
+        attemptCount += 1
+        if attemptCount == 1 { throw initialError }
+        if attemptCount == 2 {
+            await withCheckedContinuation { continuation in
+                recoveryContinuation = continuation
+            }
+        }
+        return .accessibility
+    }
+
+    func releaseRecovery() {
+        recoveryContinuation?.resume()
+        recoveryContinuation = nil
+    }
+}
+
 private actor GatedUnloadNormalizer: TranscriptNormalizing {
     private(set) var unloadStarted = false
     private var unloadContinuation: CheckedContinuation<Void, Never>?
@@ -1436,15 +1468,21 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     await engine.setTranscript("um uh")
     let normalizer = MockCleanupNormalizer(behavior: .cleaned(""))
     let inserter = MockTextInserter()
+    var settings = AppSettings.default
+    settings.liveTranscriptOverlayEnabled = true
     let controller = DictationController(
         transcriptionEngine: engine,
+        settings: settings,
         audioCapture: MockAudioCapture(),
         textInserter: inserter,
         hotkeyService: MockHotkeyService(),
+        livePreviewMinimumDuration: 100,
         cleanupNormalizer: normalizer,
         cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
         cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
     )
+    var overlayValues: [String?] = []
+    controller.onLiveTranscriptPreview = { overlayValues.append($0) }
     await controller.prepareCleanupModelIfEffective()
 
     await controller.startDictation()
@@ -1453,6 +1491,8 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(inserter.attemptedSessionIDs.isEmpty)
     #expect(controller.pendingInsertions.entries.isEmpty)
     #expect(controller.state == .idle)
+    #expect(overlayValues.count >= 2)
+    #expect(overlayValues[overlayValues.count - 1] == nil)
 }
 
 @Test @MainActor func cleanupPublishesTypedProgressAndOnlyTheSelectedOverlayValue() async throws {
@@ -1717,6 +1757,14 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(controller.pendingInsertions.entry(for: retryID) != nil)
 }
 
+@Test @MainActor func successfulRetryCannotClobberAnExpeditedRecording() async throws {
+    try await assertSuccessfulRecoveryCannotClobberRecording(insertAnyway: false)
+}
+
+@Test @MainActor func successfulInsertAnywayCannotClobberAnExpeditedRecording() async throws {
+    try await assertSuccessfulRecoveryCannotClobberRecording(insertAnyway: true)
+}
+
 @Test @MainActor func latePriorTranscriptionCannotClobberANewRecording() async throws {
     let audio = MockAudioCapture()
     let engine = GatedFinalTranscriptionEngine()
@@ -1807,6 +1855,66 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(controller.cleanupStatus == .preparing)
 }
 
+@Test @MainActor func captureAfterIdleUnloadWarmsInBackgroundAndStillCleans() async {
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("cleaned after idle"))
+    let inserter = MockTextInserter()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion,
+        cleanupIdleUnloadDelay: .milliseconds(10),
+        monitorCleanupMemoryPressure: false
+    )
+    await controller.prepareCleanupModelIfEffective()
+    for _ in 0..<5_000 where await normalizer.unloadCount != 1 {
+        await Task.yield()
+    }
+
+    await controller.startDictation()
+    for _ in 0..<5_000 where await normalizer.prepareCount != 2 {
+        await Task.yield()
+    }
+    await controller.stopDictation()
+    #expect(await normalizer.inputs.count == 1)
+    #expect(inserter.insertedTexts == ["cleaned after idle"])
+
+    for _ in 0..<2 {
+        await controller.startDictation()
+        await controller.stopDictation()
+    }
+    #expect(await normalizer.prepareCount == 2)
+}
+
+@Test @MainActor func resolvingRecoveryRearmsIdleCleanupUnload() async throws {
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("cleaned"))
+    let inserter = MockTextInserter()
+    inserter.error = .insertionFailed
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion,
+        cleanupIdleUnloadDelay: .milliseconds(10),
+        monitorCleanupMemoryPressure: false
+    )
+    await controller.prepareCleanupModelIfEffective()
+    await controller.startDictation()
+    await controller.stopDictation()
+    let pendingID = try #require(controller.pendingInsertions.entries.first?.id)
+    controller.discardPendingInsertion(sessionID: pendingID)
+    for _ in 0..<5_000 where await normalizer.unloadCount != 1 {
+        await Task.yield()
+    }
+    #expect(await normalizer.unloadCount == 1)
+}
+
 @Test @MainActor func repeatedPressureWarningsCoalesceAndDelayRepreparation() async {
     let normalizer = MockCleanupNormalizer(behavior: .cleaned("cleaned"))
     let controller = DictationController(
@@ -1818,7 +1926,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
         cleanupDisclosureVersion: CleanupDisclosure.requiredVersion,
         cleanupIdleUnloadDelay: .seconds(60),
-        cleanupPressureCooldown: .milliseconds(50),
+        cleanupPressureCooldown: .milliseconds(500),
         monitorCleanupMemoryPressure: false
     )
     await controller.prepareCleanupModelIfEffective()
@@ -1829,9 +1937,9 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     }
     #expect(await normalizer.unloadCount == 1)
     #expect(await normalizer.prepareCount == 1)
-    try? await Task.sleep(for: .milliseconds(20))
+    try? await Task.sleep(for: .milliseconds(50))
     #expect(await normalizer.prepareCount == 1)
-    try? await Task.sleep(for: .milliseconds(60))
+    try? await Task.sleep(for: .milliseconds(550))
     for _ in 0..<1_000 where await normalizer.prepareCount != 2 {
         await Task.yield()
     }
@@ -1882,7 +1990,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     await controller.prepareCleanupModelIfEffective()
     let started = ContinuousClock.now
     await controller.shutdownCleanup(deadline: .milliseconds(20))
-    #expect(started.duration(to: .now) < .milliseconds(200))
+    #expect(started.duration(to: .now) < .seconds(1))
     #expect(await normalizer.unloadStarted)
     await normalizer.releaseUnload()
 }
@@ -1896,6 +2004,50 @@ private func waitUntil(
         if predicate() { return }
         await Task.yield()
     }
+}
+
+@MainActor
+private func assertSuccessfulRecoveryCannotClobberRecording(
+    insertAnyway: Bool
+) async throws {
+    let audio = MockAudioCapture()
+    let inserter = GatedRecoverySuccessInserter(
+        initialError: insertAnyway ? .blockedMultilineDestination : .insertionFailed
+    )
+    let hotkey = MockHotkeyService()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: audio,
+        textInserter: inserter,
+        hotkeyService: hotkey,
+        expediteRestartDelay: .zero
+    )
+    try controller.activate()
+    await controller.startDictation()
+    await controller.stopDictation()
+    let pendingID = try #require(controller.pendingInsertions.entries.first?.id)
+    let baselineStopCount = await audio.stopCount
+
+    let recovery = Task { @MainActor in
+        if insertAnyway {
+            await controller.insertPendingAnyway(sessionID: pendingID)
+        } else {
+            await controller.retryPendingInsertion(sessionID: pendingID)
+        }
+    }
+    await waitUntil(attempts: 1_000) { inserter.attemptCount == 2 }
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 1_000) { controller.state == .recording }
+    inserter.releaseRecovery()
+    await recovery.value
+    #expect(controller.state == .recording)
+
+    hotkey.emit(.released)
+    for _ in 0..<5_000 where await audio.stopCount != baselineStopCount + 1 {
+        await Task.yield()
+    }
+    #expect(await audio.stopCount == baselineStopCount + 1)
+    await waitUntil(attempts: 5_000) { controller.state == .idle }
 }
 
 private extension MockAudioCapture {

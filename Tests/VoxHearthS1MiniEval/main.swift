@@ -45,6 +45,7 @@ private struct Report: Encodable {
     let backend: String
     let modelSHA256: String
     let modelBytes: Int
+    let deadlineMilliseconds: Int
     let fixtureCount: Int
     let passedFixtureCount: Int
     let deterministicRepeat: Bool
@@ -167,6 +168,7 @@ private enum S1MiniEvaluator {
             backend: configuration.backend.rawValue,
             modelSHA256: modelDigest,
             modelBytes: modelValues.fileSize ?? 0,
+            deadlineMilliseconds: CleanupRuntimeLimits.productionDeadlineMilliseconds,
             fixtureCount: results.count,
             passedFixtureCount: results.filter(\.passed).count,
             deterministicRepeat: Set(repeatIdentities).count == 1,
@@ -206,7 +208,7 @@ private enum S1MiniEvaluator {
         let outcome = await normalizer.normalize(
             NormalizationInput(parse: parse),
             settings: settings,
-            deadlineMilliseconds: 3_000
+            deadlineMilliseconds: CleanupRuntimeLimits.productionDeadlineMilliseconds
         )
         let latency = milliseconds(started.duration(to: .now))
         let generations = await normalizer.resourceCounters().generations - generationsBefore

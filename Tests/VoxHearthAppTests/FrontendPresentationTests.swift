@@ -269,10 +269,14 @@ struct FrontendPresentationTests {
         let onboarding = try String(contentsOf: repository.appendingPathComponent(
             "Sources/VoxHearthApp/OnboardingView.swift"
         ))
+        let privacy = try String(contentsOf: repository.appendingPathComponent(
+            "Documentation/PRIVACY.md"
+        ))
         #expect(settings.contains("Text(CleanupSettingsPresentation.lengthDisclosure)"))
         #expect(onboarding.contains("Text(CleanupSettingsPresentation.lengthDisclosure)"))
         #expect(settings.contains("PrivacySettingsPresentation.localPreferences"))
         #expect(settings.contains("ThirdPartyLicensePresentation.cleanupDependencies"))
+        #expect(privacy.contains(PrivacySettingsPresentation.localPreferences))
     }
 
     @Test("Recovery insertion controls are inert only while the session is busy")
