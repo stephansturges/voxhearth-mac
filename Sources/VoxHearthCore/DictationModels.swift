@@ -41,12 +41,13 @@ public enum DictationSessionState: Equatable, Sendable {
     case preparing
     case recording
     case transcribing
+    case cleaning(CleanupFormat)
     case inserting
     case failed(DictationFailure)
 
     public var isBusy: Bool {
         switch self {
-        case .preparing, .recording, .transcribing, .inserting: true
+        case .preparing, .recording, .transcribing, .cleaning, .inserting: true
         case .idle, .failed: false
         }
     }
@@ -62,6 +63,7 @@ public enum DictationFailure: String, Error, Equatable, Sendable {
     case accessibilityPermissionRequired
     case insertionFailed
     case insertionUncertain
+    case recoveryRequired
 }
 
 extension DictationFailure: LocalizedError {
@@ -85,6 +87,8 @@ extension DictationFailure: LocalizedError {
             "VoxHearth could not type the transcript into the active app."
         case .insertionUncertain:
             "VoxHearth could not confirm the transcript reached the app. Retry or discard it."
+        case .recoveryRequired:
+            "Resolve an earlier transcript before starting another dictation."
         }
     }
 }
@@ -139,4 +143,6 @@ public enum TextInsertionError: Error, Equatable, Sendable {
     case pasteEventCreationFailed
     case insertionFailed
     case insertionUncertain
+    case multilineClipboardFallbackDisabled
+    case blockedMultilineDestination
 }

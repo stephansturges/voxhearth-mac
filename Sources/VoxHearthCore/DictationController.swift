@@ -18,6 +18,8 @@ public final class DictationController {
     public private(set) var settings: AppSettings
     public private(set) var recordingStartedAt: Date?
     public private(set) var pendingTranscript: String?
+    public private(set) var pendingInsertions = PendingInsertionStore()
+    public private(set) var cleanupStatus: CleanupStatus = .disabled
     /// Approximate, memory-only text for the optional overlay. This is never
     /// used for insertion; the final full recording is transcribed separately.
     public private(set) var liveTranscriptPreview: String?
@@ -43,11 +45,12 @@ public final class DictationController {
     @ObservationIgnored private let hotkeyService: any GlobalHotkeyRegistering
     @ObservationIgnored private let pointerButtonService: any GlobalPointerButtonRegistering
     @ObservationIgnored private var isActive = false
-    @ObservationIgnored private var transcriptionTask: Task<String, Error>?
+    @ObservationIgnored private var transcriptionTasks: [DictationSessionID: Task<String, Error>] = [:]
     @ObservationIgnored private var enginePreparationTask: Task<Void, Error>?
     @ObservationIgnored private var pendingTranscriptExpiryTask: Task<Void, Never>?
     @ObservationIgnored private var activationStartTask: Task<Void, Never>?
     @ObservationIgnored private var activationStopTask: Task<Void, Never>?
+    @ObservationIgnored private var deferredStartTask: Task<Void, Never>?
     @ObservationIgnored private var livePreviewTask: Task<Void, Never>?
     @ObservationIgnored private var pendingPreviewJoin: Task<Void, Never>?
     @ObservationIgnored private var livePreviewDismissTask: Task<Void, Never>?
@@ -55,8 +58,15 @@ public final class DictationController {
     @ObservationIgnored private var activationIsPressed = false
     @ObservationIgnored private var sessionEpoch = 0
     @ObservationIgnored private var currentSessionID: DictationSessionID?
-    @ObservationIgnored private var pendingInsertableTranscript: InsertableTranscript?
+    @ObservationIgnored private var cleanupCancellationTokens: [DictationSessionID: S1MiniCancellationToken] = [:]
+    @ObservationIgnored private var explicitlyCancelledSessions: Set<DictationSessionID> = []
+    @ObservationIgnored private var automaticInsertionSessions: Set<DictationSessionID> = []
+    @ObservationIgnored private var automaticInsertionOrder: [DictationSessionID] = []
+    @ObservationIgnored private var retryingSessions: Set<DictationSessionID> = []
+    @ObservationIgnored private var recoveryReservations: Set<DictationSessionID> = []
     @ObservationIgnored private let pendingTranscriptLifetime: Duration
+    @ObservationIgnored private let pendingTranscriptLifetimeSeconds: TimeInterval
+    @ObservationIgnored private let expediteRestartDelay: Duration
     @ObservationIgnored private let livePreviewInterval: Duration
     @ObservationIgnored private let livePreviewMinimumDuration: TimeInterval
     @ObservationIgnored private let livePreviewWindow: TimeInterval
@@ -66,6 +76,12 @@ public final class DictationController {
     @ObservationIgnored private let recoveryPolicy = ModelRecoveryPolicy()
     @ObservationIgnored private let releasePooledBuffersWhenIdle: Bool
     @ObservationIgnored private let modelReloadOnStall: Bool
+    @ObservationIgnored private let cleanupNormalizer: (any TranscriptNormalizing)?
+    @ObservationIgnored private var cleanupModelURL: URL?
+    @ObservationIgnored private var cleanupDisclosureVersion: Int
+    @ObservationIgnored private let cleanupDeadlineMilliseconds: Int
+    @ObservationIgnored private var cleanupIsPrepared = false
+    @ObservationIgnored private var cleanupMemoryPressureMonitor: CleanupMemoryPressureMonitor?
     @ObservationIgnored private var pathologicalPreviewCount = 0
     @ObservationIgnored private var modelRecoveryAttempted = false
     @ObservationIgnored private let logger = PrivacySafeLogger(category: "Dictation")
@@ -79,6 +95,7 @@ public final class DictationController {
         hotkeyService: any GlobalHotkeyRegistering = CarbonGlobalHotkeyService(),
         pointerButtonService: any GlobalPointerButtonRegistering = GlobalPointerButtonService(),
         pendingTranscriptLifetime: Duration = .seconds(120),
+        expediteRestartDelay: Duration = .milliseconds(100),
         livePreviewInterval: Duration = defaultLivePreviewInterval,
         livePreviewMinimumDuration: TimeInterval = 0.6,
         livePreviewWindow: TimeInterval = defaultLivePreviewWindow,
@@ -86,8 +103,14 @@ public final class DictationController {
         livePreviewLatencyBudget: Duration? = nil,
         lifecycleActivityAsserter: (any LifecycleActivityAsserting)? = nil,
         releasePooledBuffersWhenIdle: Bool? = nil,
-        modelReloadOnStall: Bool? = nil
+        modelReloadOnStall: Bool? = nil,
+        cleanupNormalizer: (any TranscriptNormalizing)? = nil,
+        cleanupModelURL: URL? = nil,
+        cleanupDisclosureVersion: Int = 0,
+        cleanupDeadlineMilliseconds: Int = 2_000,
+        monitorCleanupMemoryPressure: Bool = true
     ) {
+        precondition(cleanupDeadlineMilliseconds > 0)
         self.transcriptionEngine = transcriptionEngine
         self.settings = settings.normalizedForSelectedModel()
         self.audioCapture = audioCapture
@@ -95,6 +118,8 @@ public final class DictationController {
         self.hotkeyService = hotkeyService
         self.pointerButtonService = pointerButtonService
         self.pendingTranscriptLifetime = pendingTranscriptLifetime
+        pendingTranscriptLifetimeSeconds = Self.seconds(pendingTranscriptLifetime)
+        self.expediteRestartDelay = expediteRestartDelay
         self.livePreviewInterval = livePreviewInterval
         self.livePreviewMinimumDuration = livePreviewMinimumDuration
         self.livePreviewWindow = livePreviewWindow
@@ -110,14 +135,28 @@ public final class DictationController {
             ?? UserDefaults.standard.bool(
                 forKey: "VoxHearth.diagnostics.modelReloadOnStall"
             )
+        self.cleanupNormalizer = cleanupNormalizer
+        self.cleanupModelURL = cleanupModelURL
+        self.cleanupDisclosureVersion = cleanupDisclosureVersion
+        self.cleanupDeadlineMilliseconds = cleanupDeadlineMilliseconds
+        cleanupStatus = cleanupEnablement.isEffective ? .preparing : .disabled
+        if cleanupNormalizer != nil, monitorCleanupMemoryPressure {
+            cleanupMemoryPressureMonitor = CleanupMemoryPressureMonitor { [weak self] level in
+                Task { @MainActor [weak self] in
+                    self?.handleCleanupMemoryPressure(level)
+                }
+            }
+        }
     }
 
     deinit {
-        transcriptionTask?.cancel()
+        transcriptionTasks.values.forEach { $0.cancel() }
+        cleanupCancellationTokens.values.forEach { $0.cancel() }
         enginePreparationTask?.cancel()
         pendingTranscriptExpiryTask?.cancel()
         activationStartTask?.cancel()
         activationStopTask?.cancel()
+        deferredStartTask?.cancel()
         enginePreparationTask?.cancel()
         livePreviewTask?.cancel()
         pendingPreviewJoin?.cancel()
@@ -139,6 +178,9 @@ public final class DictationController {
         sessionEpoch &+= 1
         activationStartTask?.cancel()
         activationStopTask?.cancel()
+        deferredStartTask?.cancel()
+        cleanupCancellationTokens.values.forEach { $0.cancel() }
+        transcriptionTasks.values.forEach { $0.cancel() }
         livePreviewTask?.cancel()
         pendingPreviewJoin?.cancel()
         activityScope.end()
@@ -148,6 +190,7 @@ public final class DictationController {
     public func applySettings(_ settings: AppSettings) throws {
         let settings = settings.normalizedForSelectedModel()
         let previousSettings = self.settings
+        let wasCleanupEffective = cleanupEnablement.isEffective
         if isActive, settings.hotkey != previousSettings.hotkey {
             do {
                 try registerHotkey(settings.hotkey)
@@ -160,6 +203,14 @@ public final class DictationController {
             registerPointerButton(settings.pointerButton)
         }
         self.settings = settings
+        let enablement = cleanupEnablement
+        if !enablement.isEffective, !Self.isCleanupActive(cleanupStatus) {
+            cleanupStatus = .disabled
+            cleanupIsPrepared = false
+            if wasCleanupEffective, let cleanupNormalizer {
+                Task(priority: .utility) { await cleanupNormalizer.unload() }
+            }
+        }
         if state == .recording,
            settings.liveTranscriptOverlayEnabled != previousSettings.liveTranscriptOverlayEnabled {
             if settings.liveTranscriptOverlayEnabled {
@@ -169,6 +220,72 @@ public final class DictationController {
             }
         } else if !settings.liveTranscriptOverlayEnabled {
             retainPreviewJoin(stopLiveTranscriptPreview(clearText: true))
+        }
+    }
+
+    public var cleanupEnablement: CleanupEnablement {
+        CleanupEnablement.resolve(
+            settings: settings,
+            disclosureVersion: cleanupDisclosureVersion,
+            modelAssetVerified: cleanupNormalizer != nil && cleanupModelURL != nil
+        )
+    }
+
+    public func configureCleanup(
+        modelURL: URL?,
+        disclosureVersion: Int
+    ) {
+        if cleanupModelURL != modelURL {
+            cleanupIsPrepared = false
+        }
+        cleanupModelURL = modelURL
+        cleanupDisclosureVersion = disclosureVersion
+        if !cleanupEnablement.isEffective, !Self.isCleanupActive(cleanupStatus) {
+            cleanupStatus = .disabled
+        }
+    }
+
+    public func prepareCleanupModelIfEffective() async {
+        guard state == .idle || Self.isFailureState(state),
+              cleanupEnablement.isEffective,
+              let cleanupNormalizer,
+              let cleanupModelURL else {
+            cleanupStatus = .disabled
+            return
+        }
+        cleanupStatus = .preparing
+        do {
+            _ = try await cleanupNormalizer.prepare(
+                modelURL: cleanupModelURL,
+                selection: .production(),
+                warmUp: true,
+                deadlineMilliseconds: 30_000
+            )
+            guard cleanupEnablement.isEffective else {
+                cleanupIsPrepared = false
+                cleanupStatus = .disabled
+                return
+            }
+            cleanupIsPrepared = true
+            cleanupStatus = .ready
+        } catch {
+            cleanupIsPrepared = false
+            logger.error(.operationFailed, error: error)
+            cleanupStatus = .disabled
+        }
+    }
+
+    public func handleCleanupMemoryPressure(_ level: CleanupMemoryPressureLevel) {
+        guard let cleanupNormalizer else { return }
+        if level == .critical, let currentSessionID {
+            cleanupCancellationTokens[currentSessionID]?.cancel()
+        }
+        cleanupIsPrepared = false
+        if !Self.isCleanupActive(cleanupStatus) {
+            cleanupStatus = cleanupEnablement.isEffective ? .preparing : .disabled
+        }
+        Task(priority: .utility) {
+            await cleanupNormalizer.unload()
         }
     }
 
@@ -207,12 +324,32 @@ public final class DictationController {
     /// preparation work is queued. This is the hotkey/UI control-plane seam.
     @discardableResult
     public func requestStart() -> Bool {
+        expirePendingInsertions()
+        if Self.isFinalizingState(state) {
+            guard activationIsPressed else { return false }
+            requestExpeditedStart()
+            return true
+        }
+        return acceptStart(waitForPriorStop: true, skipPreparation: false)
+    }
+
+    private func acceptStart(
+        waitForPriorStop: Bool,
+        skipPreparation: Bool
+    ) -> Bool {
         let backgroundPreparationInProgress = state == .preparing
             && activationStartTask == nil
             && enginePreparationTask != nil
+        let concurrentFinalization = !waitForPriorStop && Self.isFinalizingState(state)
         guard state == .idle
             || Self.isFailureState(state)
-            || backgroundPreparationInProgress else { return false }
+            || backgroundPreparationInProgress
+            || concurrentFinalization else { return false }
+        guard pendingInsertions.entries.count + recoveryReservations.count
+                < pendingInsertions.capacity else {
+            transition(to: .failed(.recoveryRequired))
+            return false
+        }
         modelMaintenanceTask?.cancel()
         modelMaintenanceTask = nil
         let predecessorStart = activationStartTask
@@ -221,28 +358,63 @@ public final class DictationController {
         predecessorStart?.cancel()
         sessionEpoch &+= 1
         let epoch = sessionEpoch
-        currentSessionID = DictationSessionID()
+        let sessionID = DictationSessionID()
+        currentSessionID = sessionID
+        recoveryReservations.insert(sessionID)
         pathologicalPreviewCount = 0
-        clearPendingTranscript()
         activityScope.beginAudioCritical()
         transition(to: .preparing)
         logger.info(.dictationStartAccepted)
 
         activationStartTask = Task(priority: .userInitiated) { [weak self] in
             await predecessorStart?.value
-            await predecessorStop?.value
-            _ = try? await predecessorPreparation?.value
+            if waitForPriorStop {
+                await predecessorStop?.value
+            }
+            if !skipPreparation {
+                _ = try? await predecessorPreparation?.value
+            }
             guard let self else { return }
             guard self.sessionEpoch == epoch else {
                 self.logger.info(.dictationStartAbandoned)
                 return
             }
-            await self.runAcceptedStart(epoch: epoch)
+            await self.runAcceptedStart(
+                epoch: epoch,
+                sessionID: sessionID,
+                skipPreparation: skipPreparation
+            )
         }
         return true
     }
 
-    private func runAcceptedStart(epoch: Int) async {
+    private func requestExpeditedStart() {
+        guard deferredStartTask == nil else { return }
+        logger.info(.cleanupExpediteRequested)
+        if let currentSessionID {
+            cleanupCancellationTokens[currentSessionID]?.cancel()
+            if case let .cleaning(format) = state {
+                let fallback = CleanupFallbackReason.cancelled
+                cleanupStatus = .fallingBack(currentSessionID, fallback)
+                _ = format
+            }
+        }
+        let delay = expediteRestartDelay
+        deferredStartTask = Task(priority: .userInitiated) { [weak self, delay] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled, let self else { return }
+            self.deferredStartTask = nil
+            guard self.activationIsPressed else { return }
+            self.logger.info(.cleanupExpediteRestarted)
+            _ = self.acceptStart(waitForPriorStop: false, skipPreparation: true)
+        }
+    }
+
+    private func runAcceptedStart(
+        epoch: Int,
+        sessionID: DictationSessionID,
+        skipPreparation: Bool
+    ) async {
         defer {
             if epoch == sessionEpoch {
                 activationStartTask = nil
@@ -254,22 +426,26 @@ public final class DictationController {
             logger.info(.startCueCompleted)
             try Task.checkCancellation()
             guard epoch == sessionEpoch else {
+                recoveryReservations.remove(sessionID)
                 logger.info(.dictationStartAbandoned)
                 return
             }
-            logger.info(.modelPreparationStarted)
-            let preparationInterval = signposter.begin(.modelPreparationStarted)
-            do {
-                try await transcriptionEngine.prepare(model: settings.transcriptionModel)
-            } catch {
+            if !skipPreparation {
+                logger.info(.modelPreparationStarted)
+                let preparationInterval = signposter.begin(.modelPreparationStarted)
+                do {
+                    try await transcriptionEngine.prepare(model: settings.transcriptionModel)
+                } catch {
+                    signposter.end(.modelPreparationCompleted, preparationInterval)
+                    logger.info(.modelPreparationCompleted)
+                    throw error
+                }
                 signposter.end(.modelPreparationCompleted, preparationInterval)
                 logger.info(.modelPreparationCompleted)
-                throw error
             }
-            signposter.end(.modelPreparationCompleted, preparationInterval)
-            logger.info(.modelPreparationCompleted)
             try Task.checkCancellation()
             guard epoch == sessionEpoch else {
+                recoveryReservations.remove(sessionID)
                 logger.info(.dictationStartAbandoned)
                 return
             }
@@ -282,6 +458,7 @@ public final class DictationController {
             try Task.checkCancellation()
             guard epoch == sessionEpoch, state == .preparing else {
                 await audioCapture.cancel()
+                recoveryReservations.remove(sessionID)
                 logger.info(.dictationStartAbandoned)
                 return
             }
@@ -294,22 +471,27 @@ public final class DictationController {
             beginLiveTranscriptPreview()
         } catch is CancellationError {
             await audioCapture.cancel()
+            recoveryReservations.remove(sessionID)
             guard epoch == sessionEpoch else {
                 logger.info(.dictationStartAbandoned)
                 return
             }
             recordingStartedAt = nil
+            currentSessionID = nil
             transition(to: .idle)
         } catch {
             await audioCapture.cancel()
+            recoveryReservations.remove(sessionID)
             guard epoch == sessionEpoch else {
                 logger.info(.dictationStartAbandoned)
                 return
             }
             recordingStartedAt = nil
             if Task.isCancelled {
+                currentSessionID = nil
                 transition(to: .idle)
             } else {
+                currentSessionID = nil
                 handleStartError(error)
             }
         }
@@ -361,36 +543,26 @@ public final class DictationController {
             // preview. The microphone indicator should react immediately even
             // when Core ML takes time to acknowledge cancellation.
             let audio = try await audioCapture.stop()
-            guard epoch == sessionEpoch else {
-                logger.info(.dictationStopAbandoned)
-                return
+            if currentSessionID == sessionID {
+                activityScope.narrowToUserInitiated()
             }
-            activityScope.narrowToUserInitiated()
             // A Parakeet actor can re-enter while awaiting Core ML. Joining the
             // cancelled preview prevents final inference from overlapping it.
             if let cancelledPreviewTask {
                 await cancelledPreviewTask.value
-                guard epoch == sessionEpoch else {
-                    logger.info(.dictationStopAbandoned)
-                    return
-                }
                 logger.info(.livePreviewCancellationJoined)
             }
             await transcribeAndInsert(audio, sessionID: sessionID)
         } catch is CancellationError {
-            guard epoch == sessionEpoch else {
-                logger.info(.dictationStopAbandoned)
-                return
+            transcriptionTasks[sessionID] = nil
+            recoveryReservations.remove(sessionID)
+            if currentSessionID == sessionID {
+                transition(to: .idle)
             }
-            transcriptionTask = nil
-            transition(to: .idle)
         } catch {
-            guard epoch == sessionEpoch else {
-                logger.info(.dictationStopAbandoned)
-                return
-            }
-            transcriptionTask = nil
-            handleCompletionError(error)
+            transcriptionTasks[sessionID] = nil
+            recoveryReservations.remove(sessionID)
+            handleCompletionError(error, for: sessionID)
         }
     }
 
@@ -405,7 +577,13 @@ public final class DictationController {
     public func submitExternalAudio(
         _ audio: CapturedAudio
     ) async -> ExternalAudioSubmissionResult {
+        expirePendingInsertions()
         guard state == .idle || Self.isFailureState(state) else { return .busy }
+        guard pendingInsertions.entries.count + recoveryReservations.count
+                < pendingInsertions.capacity else {
+            transition(to: .failed(.recoveryRequired))
+            return .busy
+        }
         guard audio.sampleRate.isFinite,
               audio.sampleRate > 0,
               audio.sampleRate <= 192_000,
@@ -415,9 +593,9 @@ public final class DictationController {
             return .invalidAudio
         }
 
-        clearPendingTranscript()
         let sessionID = DictationSessionID()
         currentSessionID = sessionID
+        recoveryReservations.insert(sessionID)
         recordingStartedAt = nil
         activityScope.beginUserInitiated()
         transition(to: .transcribing)
@@ -429,39 +607,88 @@ public final class DictationController {
     /// app rejected it. Nothing is written to disk and the value remains subject
     /// to the same two-minute expiry.
     public func retryPendingInsertion() async {
+        guard let sessionID = pendingInsertions.entries.first?.id else { return }
+        await retryPendingInsertion(sessionID: sessionID)
+    }
+
+    public func retryPendingInsertion(sessionID: DictationSessionID) async {
         guard state == .idle || Self.isFailureState(state) else { return }
-        guard let pending = pendingInsertableTranscript else { return }
+        expirePendingInsertions()
+        guard let entry = pendingInsertions.entry(for: sessionID),
+              retryingSessions.insert(sessionID).inserted else { return }
+        defer { retryingSessions.remove(sessionID) }
         activityScope.beginUserInitiated()
         transition(to: .inserting)
         do {
             _ = try await textInserter.insert(
-                pending,
+                entry.transcript,
                 clipboardFallbackEnabled: settings.clipboardCompatibilityEnabled
             )
-            clearPendingTranscript()
+            removePendingInsertion(sessionID: sessionID)
             transition(to: .idle)
         } catch {
-            retainPendingTranscript(pending)
-            handleCompletionError(error)
+            retainPendingTranscript(entry.transcript, reason: pendingReason(for: error))
+            handleCompletionError(error, for: sessionID)
         }
     }
 
     public func discardPendingTranscript() {
-        clearPendingTranscript()
+        guard let sessionID = pendingInsertions.entries.first?.id else { return }
+        discardPendingInsertion(sessionID: sessionID)
+    }
+
+    public func discardPendingInsertion(sessionID: DictationSessionID) {
+        removePendingInsertion(sessionID: sessionID)
         if Self.isFailureState(state) {
             transition(to: .idle)
+        }
+    }
+
+    public func copyPendingInsertion(sessionID: DictationSessionID) throws {
+        expirePendingInsertions()
+        guard let entry = pendingInsertions.entry(for: sessionID) else { return }
+        try textInserter.copyToClipboard(entry.transcript)
+        removePendingInsertion(sessionID: sessionID)
+        if Self.isFailureState(state) {
+            transition(to: .idle)
+        }
+    }
+
+    public func insertPendingAnyway(sessionID: DictationSessionID) async {
+        guard state == .idle || Self.isFailureState(state) else { return }
+        expirePendingInsertions()
+        guard let entry = pendingInsertions.entry(for: sessionID),
+              entry.reason == .blockedTerminal
+                || entry.reason == .multilineClipboardDisabled,
+              retryingSessions.insert(sessionID).inserted else { return }
+        defer { retryingSessions.remove(sessionID) }
+        activityScope.beginUserInitiated()
+        transition(to: .inserting)
+        do {
+            _ = try await textInserter.insertConfirmedMultiline(entry.transcript)
+            removePendingInsertion(sessionID: sessionID)
+            transition(to: .idle)
+        } catch {
+            retainPendingTranscript(entry.transcript, reason: entry.reason)
+            handleCompletionError(error, for: sessionID)
         }
     }
 
     public func cancelDictation() async {
         sessionEpoch &+= 1
         let epoch = sessionEpoch
+        let cancelledSessionID = currentSessionID
+        if let cancelledSessionID {
+            explicitlyCancelledSessions.insert(cancelledSessionID)
+            cleanupCancellationTokens[cancelledSessionID]?.cancel()
+            transcriptionTasks[cancelledSessionID]?.cancel()
+        }
         let cancelledStartTask = activationStartTask
         let cancelledStopTask = activationStopTask
         cancelledStartTask?.cancel()
         cancelledStopTask?.cancel()
-        transcriptionTask?.cancel()
-        transcriptionTask = nil
+        deferredStartTask?.cancel()
+        deferredStartTask = nil
         let cancelledPreviewTask = mergePreviewJoins(
             pendingPreviewJoin,
             stopLiveTranscriptPreview(clearText: true)
@@ -476,27 +703,70 @@ public final class DictationController {
             return
         }
         recordingStartedAt = nil
+        if let cancelledSessionID {
+            recoveryReservations.remove(cancelledSessionID)
+            cleanupCancellationTokens[cancelledSessionID] = nil
+            transcriptionTasks[cancelledSessionID] = nil
+            explicitlyCancelledSessions.remove(cancelledSessionID)
+        }
         currentSessionID = nil
+        cleanupStatus = cleanupEnablement.isEffective
+            ? (cleanupIsPrepared ? .ready : .preparing)
+            : .disabled
         transition(to: .idle)
     }
 
-    private func retainPendingTranscript(_ transcript: InsertableTranscript) {
-        pendingTranscriptExpiryTask?.cancel()
-        pendingInsertableTranscript = transcript
-        pendingTranscript = transcript.text
-        let lifetime = pendingTranscriptLifetime
-        pendingTranscriptExpiryTask = Task { [weak self, lifetime] in
-            try? await Task.sleep(for: lifetime)
-            guard !Task.isCancelled else { return }
-            self?.discardPendingTranscript()
+    private func retainPendingTranscript(
+        _ transcript: InsertableTranscript,
+        reason: PendingInsertionReason
+    ) {
+        let retained = pendingInsertions.retain(
+            transcript,
+            reason: reason,
+            lifetime: pendingTranscriptLifetimeSeconds
+        )
+        precondition(retained, "recovery reservation must prevent pending text loss")
+        logger.info(.pendingInsertionRetained, sessionID: transcript.sessionID)
+        recoveryReservations.remove(transcript.sessionID)
+        synchronizePendingPresentation()
+        schedulePendingExpiry()
+    }
+
+    private func removePendingInsertion(sessionID: DictationSessionID) {
+        if pendingInsertions.remove(sessionID: sessionID) != nil {
+            logger.info(.pendingInsertionRemoved, sessionID: sessionID)
+        }
+        synchronizePendingPresentation()
+        schedulePendingExpiry()
+    }
+
+    private func expirePendingInsertions(now: Date = Date()) {
+        let expired = pendingInsertions.expire(at: now)
+        guard !expired.isEmpty else { return }
+        for entry in expired {
+            logger.info(.pendingInsertionExpired, sessionID: entry.id)
+        }
+        synchronizePendingPresentation()
+        schedulePendingExpiry()
+        if pendingInsertions.entries.isEmpty, Self.isFailureState(state) {
+            transition(to: .idle)
         }
     }
 
-    private func clearPendingTranscript() {
+    private func synchronizePendingPresentation() {
+        pendingTranscript = pendingInsertions.entries.first?.text
+    }
+
+    private func schedulePendingExpiry() {
         pendingTranscriptExpiryTask?.cancel()
         pendingTranscriptExpiryTask = nil
-        pendingInsertableTranscript = nil
-        pendingTranscript = nil
+        guard let expiry = pendingInsertions.entries.map(\.expiresAt).min() else { return }
+        let delay = max(0, expiry.timeIntervalSinceNow)
+        pendingTranscriptExpiryTask = Task { [weak self, delay] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            self?.expirePendingInsertions()
+        }
     }
 
     private func transcribeAndInsert(
@@ -515,44 +785,98 @@ public final class DictationController {
                     model: selectedModel
                 )
             }
-            transcriptionTask = task
+            transcriptionTasks[sessionID] = task
             let transcript = try await task.value
-            transcriptionTask = nil
+            transcriptionTasks[sessionID] = nil
             logger.info(.finalTranscriptionCompleted)
 
+            guard !explicitlyCancelledSessions.contains(sessionID) else {
+                finishSessionReturningToIdle(sessionID: sessionID)
+                return
+            }
+
             guard !transcript.isEmpty else {
-                scheduleLiveTranscriptPreviewDismissal()
-                finishSessionReturningToIdle()
+                let ownsPresentation = currentSessionID == sessionID
+                finishSessionReturningToIdle(sessionID: sessionID)
+                if ownsPresentation { scheduleLiveTranscriptPreviewDismissal() }
                 return
             }
             let finalTranscript = FinalTranscript(sessionID: sessionID, text: transcript)
-            let insertableTranscript = CleanupPolicy().passthrough(finalTranscript)
+            let policy = CleanupPolicy()
+            let enablement = cleanupEnablement
+            let insertableTranscript: InsertableTranscript
+            if enablement.isEffective, let cleanupNormalizer {
+                let parse = CleanupDirectiveParser().parse(
+                    finalTranscript,
+                    listEnabled: enablement.listDirectiveEnabled,
+                    emailEnabled: enablement.emailDirectiveEnabled
+                )
+                let input = NormalizationInput(parse: parse)
+                let cancellation = S1MiniCancellationToken()
+                cleanupCancellationTokens[sessionID] = cancellation
+                transition(to: .cleaning(parse.format), for: sessionID)
+                logger.info(.cleanupGenerationStarted, format: parse.format)
+                setCleanupStatus(.cleaning(sessionID), for: sessionID)
+                let outcome = await cleanupNormalizer.normalize(
+                    input,
+                    settings: settings.cleanup,
+                    cancellation: cancellation,
+                    deadlineMilliseconds: cleanupDeadlineMilliseconds
+                )
+                cleanupCancellationTokens[sessionID] = nil
+                guard !explicitlyCancelledSessions.contains(sessionID) else {
+                    finishSessionReturningToIdle(sessionID: sessionID)
+                    return
+                }
+                switch outcome {
+                case let .insert(selected):
+                    insertableTranscript = selected
+                case let .recover(fallback, reason):
+                    setCleanupStatus(.fallingBack(sessionID, reason), for: sessionID)
+                    insertableTranscript = fallback
+                case .cancelled:
+                    let reason = CleanupFallbackReason.cancelled
+                    setCleanupStatus(.fallingBack(sessionID, reason), for: sessionID)
+                    insertableTranscript = policy.fallback(for: input, reason: reason)
+                }
+            } else {
+                insertableTranscript = policy.passthrough(finalTranscript)
+            }
             transcriptForRecovery = insertableTranscript
-            if settings.liveTranscriptOverlayEnabled {
-                publishLiveTranscriptPreview(transcript)
+            if currentSessionID == sessionID, settings.liveTranscriptOverlayEnabled {
+                publishLiveTranscriptPreview(insertableTranscript.text)
             }
 
-            transition(to: .inserting)
+            guard beginAutomaticInsertion(for: sessionID) else { return }
+            transition(to: .inserting, for: sessionID)
             logger.info(.textInsertionStarted)
             _ = try await textInserter.insert(
                 insertableTranscript,
                 clipboardFallbackEnabled: settings.clipboardCompatibilityEnabled
             )
-            clearPendingTranscript()
-            finishSessionReturningToIdle()
-            scheduleLiveTranscriptPreviewDismissal()
+            removePendingInsertion(sessionID: sessionID)
+            let ownsPresentation = currentSessionID == sessionID
+            finishSessionReturningToIdle(sessionID: sessionID)
+            if ownsPresentation { scheduleLiveTranscriptPreviewDismissal() }
         } catch is CancellationError {
-            transcriptionTask = nil
-            transition(to: .idle)
-            logger.info(.sessionReturnedToIdle)
-            scheduleLiveTranscriptPreviewDismissal()
+            transcriptionTasks[sessionID] = nil
+            recoveryReservations.remove(sessionID)
+            let ownsPresentation = currentSessionID == sessionID
+            finishSessionReturningToIdle(sessionID: sessionID)
+            if ownsPresentation { scheduleLiveTranscriptPreviewDismissal() }
         } catch {
-            transcriptionTask = nil
+            transcriptionTasks[sessionID] = nil
             if let transcriptForRecovery {
-                retainPendingTranscript(transcriptForRecovery)
+                retainPendingTranscript(
+                    transcriptForRecovery,
+                    reason: pendingReason(for: error)
+                )
+            } else {
+                recoveryReservations.remove(sessionID)
             }
-            handleCompletionError(error)
-            scheduleLiveTranscriptPreviewDismissal()
+            let ownsPresentation = currentSessionID == sessionID
+            handleCompletionError(error, for: sessionID)
+            if ownsPresentation { scheduleLiveTranscriptPreviewDismissal() }
         }
     }
 
@@ -654,7 +978,7 @@ public final class DictationController {
             requestStart()
         case .recording:
             requestStop()
-        case .preparing, .transcribing, .inserting:
+        case .preparing, .transcribing, .cleaning, .inserting:
             break
         }
     }
@@ -691,7 +1015,9 @@ public final class DictationController {
                 cancelAcceptedStart()
             case .recording:
                 requestStop()
-            case .idle, .transcribing, .inserting, .failed:
+            case .idle, .transcribing, .cleaning, .inserting, .failed:
+                deferredStartTask?.cancel()
+                deferredStartTask = nil
                 break
             }
         }
@@ -701,7 +1027,11 @@ public final class DictationController {
         guard activationStartTask != nil else { return }
         sessionEpoch &+= 1
         activationStartTask?.cancel()
+        if let currentSessionID {
+            recoveryReservations.remove(currentSessionID)
+        }
         recordingStartedAt = nil
+        currentSessionID = nil
         transition(to: .idle)
     }
 
@@ -721,8 +1051,17 @@ public final class DictationController {
         }
     }
 
-    private func handleCompletionError(_ error: any Error) {
+    private func handleCompletionError(
+        _ error: any Error,
+        for sessionID: DictationSessionID
+    ) {
         logger.error(.operationFailed, error: error)
+        let ownsPresentation = currentSessionID == sessionID
+            || (currentSessionID == nil && state == .inserting)
+        guard ownsPresentation else { return }
+        if currentSessionID == sessionID {
+            currentSessionID = nil
+        }
         switch error {
         case AudioCaptureError.noAudioCaptured:
             transition(to: .failed(.noAudioCaptured))
@@ -745,16 +1084,63 @@ public final class DictationController {
         switch newState {
         case .idle, .failed:
             activityScope.end()
-        case .preparing, .recording, .transcribing, .inserting:
+        case .preparing, .recording, .transcribing, .cleaning, .inserting:
             break
         }
     }
 
-    private func finishSessionReturningToIdle() {
+    private func transition(
+        to newState: DictationSessionState,
+        for sessionID: DictationSessionID
+    ) {
+        guard currentSessionID == sessionID else { return }
+        transition(to: newState)
+    }
+
+    private func finishSessionReturningToIdle(sessionID: DictationSessionID) {
+        recoveryReservations.remove(sessionID)
+        cleanupCancellationTokens[sessionID] = nil
+        explicitlyCancelledSessions.remove(sessionID)
+        guard currentSessionID == sessionID else { return }
         currentSessionID = nil
+        cleanupStatus = cleanupEnablement.isEffective
+            ? (cleanupIsPrepared ? .ready : .preparing)
+            : .disabled
         transition(to: .idle)
         logger.info(.sessionReturnedToIdle)
         scheduleIdleModelMaintenance()
+        scheduleCleanupPreparationIfNeeded()
+    }
+
+    private func beginAutomaticInsertion(for sessionID: DictationSessionID) -> Bool {
+        guard automaticInsertionSessions.insert(sessionID).inserted else { return false }
+        automaticInsertionOrder.append(sessionID)
+        if automaticInsertionOrder.count > 64 {
+            let expired = automaticInsertionOrder.removeFirst()
+            automaticInsertionSessions.remove(expired)
+        }
+        return true
+    }
+
+    private func setCleanupStatus(
+        _ status: CleanupStatus,
+        for sessionID: DictationSessionID
+    ) {
+        guard currentSessionID == sessionID else { return }
+        cleanupStatus = status
+    }
+
+    private func pendingReason(for error: any Error) -> PendingInsertionReason {
+        switch error {
+        case TextInsertionError.insertionUncertain:
+            .insertionUncertain
+        case TextInsertionError.multilineClipboardFallbackDisabled:
+            .multilineClipboardDisabled
+        case TextInsertionError.blockedMultilineDestination:
+            .blockedTerminal
+        default:
+            .insertionFailed
+        }
     }
 
     private func scheduleIdleModelMaintenance() {
@@ -800,8 +1186,40 @@ public final class DictationController {
         }
     }
 
+    private func scheduleCleanupPreparationIfNeeded() {
+        guard cleanupEnablement.isEffective, !cleanupIsPrepared else { return }
+        Task(priority: .utility) { [weak self] in
+            await Task.yield()
+            guard let self, self.state == .idle else { return }
+            await self.prepareCleanupModelIfEffective()
+        }
+    }
+
     private static func isFailureState(_ state: DictationSessionState) -> Bool {
         if case .failed = state { return true }
         return false
+    }
+
+    private static func isFinalizingState(_ state: DictationSessionState) -> Bool {
+        switch state {
+        case .transcribing, .cleaning, .inserting: true
+        case .idle, .preparing, .recording, .failed: false
+        }
+    }
+
+    private static func isCleanupActive(_ status: CleanupStatus) -> Bool {
+        switch status {
+        case .cleaning, .fallingBack: true
+        case .disabled, .preparing, .ready: false
+        }
+    }
+
+    private static func seconds(_ duration: Duration) -> TimeInterval {
+        let components = duration.components
+        return max(
+            0,
+            TimeInterval(components.seconds)
+                + TimeInterval(components.attoseconds) / 1_000_000_000_000_000_000
+        )
     }
 }

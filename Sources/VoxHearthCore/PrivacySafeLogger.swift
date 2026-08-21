@@ -85,10 +85,20 @@ public enum PrivacyLogEvent: String, CaseIterable, Sendable {
     case cleanupPreparationStarted = "cleanup_preparation_started"
     case cleanupPreparationCompleted = "cleanup_preparation_completed"
     case cleanupGenerationStarted = "cleanup_generation_started"
+    case cleanupQueueSubmitted = "cleanup_queue_submitted"
+    case cleanupQueueEntered = "cleanup_queue_entered"
     case cleanupGenerationCompleted = "cleanup_generation_completed"
+    case cleanupSelectionCompleted = "cleanup_selection_completed"
     case cleanupFallback = "cleanup_fallback"
     case cleanupCancelled = "cleanup_cancelled"
     case cleanupBackendDemoted = "cleanup_backend_demoted"
+    case cleanupExpediteRequested = "cleanup_expedite_requested"
+    case cleanupExpediteRestarted = "cleanup_expedite_restarted"
+    case pendingInsertionRetained = "pending_insertion_retained"
+    case pendingInsertionExpired = "pending_insertion_expired"
+    case pendingInsertionRemoved = "pending_insertion_removed"
+    case multilineInsertionBlocked = "multiline_insertion_blocked"
+    case multilineRecoveryOverride = "multiline_recovery_override"
     case textInsertionStarted = "text_insertion_started"
     case textInsertionCompleted = "text_insertion_completed"
     case accessibilityFocusQueryStarted = "accessibility_focus_query_started"
@@ -120,6 +130,24 @@ public struct PrivacySafeLogger: Sendable {
 
     public func info(_ event: PrivacyLogEvent) {
         logger.info("\(event.rawValue, privacy: .public)")
+    }
+
+    public func info(_ event: PrivacyLogEvent, sessionID: DictationSessionID) {
+        logger.info(
+            "\(event.rawValue, privacy: .public) session_id=\(sessionID.description, privacy: .public)"
+        )
+    }
+
+    public func info(_ event: PrivacyLogEvent, format: CleanupFormat) {
+        logger.info(
+            "\(event.rawValue, privacy: .public) format=\(format.rawValue, privacy: .public)"
+        )
+    }
+
+    public func info(_ event: PrivacyLogEvent, reason: CleanupFallbackReason) {
+        logger.info(
+            "\(event.rawValue, privacy: .public) reason=\(reason.rawValue, privacy: .public)"
+        )
     }
 
     public func error(_ event: PrivacyLogEvent, error: any Error) {

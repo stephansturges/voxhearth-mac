@@ -87,6 +87,84 @@ private actor MockTranscriptionEngine: LocalTranscriptionEngine {
     }
 }
 
+private actor MockCleanupNormalizer: TranscriptNormalizing {
+    enum Behavior: Sendable {
+        case cleaned(String)
+        case fallback(CleanupFallbackReason)
+        case waitForCancellation
+    }
+
+    var behavior: Behavior
+    private(set) var prepareCount = 0
+    private(set) var unloadCount = 0
+    private(set) var inputs: [NormalizationInput] = []
+    private(set) var settings: [CleanupSettings] = []
+
+    init(behavior: Behavior) {
+        self.behavior = behavior
+    }
+
+    func prepare(
+        modelURL: URL,
+        selection: LlamaBackendSelection,
+        warmUp: Bool,
+        deadlineMilliseconds: Int
+    ) async throws -> LlamaBackend {
+        _ = modelURL
+        _ = warmUp
+        _ = deadlineMilliseconds
+        prepareCount += 1
+        return selection.selected
+    }
+
+    func normalize(
+        _ input: NormalizationInput,
+        settings: CleanupSettings,
+        cancellation: S1MiniCancellationToken,
+        deadlineMilliseconds: Int
+    ) async -> DictationOutcome {
+        _ = deadlineMilliseconds
+        inputs.append(input)
+        self.settings.append(settings)
+        switch behavior {
+        case let .cleaned(text):
+            return .insert(CleanupPolicy().cleaned(for: input, text: text))
+        case let .fallback(reason):
+            return .recover(CleanupPolicy().fallback(for: input, reason: reason), reason)
+        case .waitForCancellation:
+            while !cancellation.isCancelled {
+                try? await Task.sleep(for: .milliseconds(1))
+            }
+            return .cancelled(input.sessionID)
+        }
+    }
+
+    func unload() async { unloadCount += 1 }
+}
+
+@MainActor
+private final class GatedFailingInserter: TextInserting {
+    private(set) var attempted: [InsertableTranscript] = []
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func insert(
+        _ transcript: InsertableTranscript,
+        clipboardFallbackEnabled: Bool
+    ) async throws -> TextInsertionMethod {
+        _ = clipboardFallbackEnabled
+        attempted.append(transcript)
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+        throw TextInsertionError.insertionFailed
+    }
+
+    func release() {
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
 private actor GatedPrepareEngine: LocalTranscriptionEngine {
     private(set) var prepareCount = 0
     private var firstPrepareContinuation: CheckedContinuation<Void, Never>?
@@ -154,6 +232,36 @@ private actor PersistentPreviewFailureEngine: LocalTranscriptionEngine {
         _ = model
         transcribeCount += 1
         throw ParakeetEngineError.transcriptionFailed
+    }
+}
+
+private actor GatedFinalTranscriptionEngine: LocalTranscriptionEngine {
+    private(set) var transcribeCount = 0
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func prepare(model: TranscriptionModel) async throws { _ = model }
+
+    func transcribe(
+        _ audio: CapturedAudio,
+        language: DictationLanguage,
+        model: TranscriptionModel
+    ) async throws -> String {
+        _ = audio
+        _ = language
+        _ = model
+        transcribeCount += 1
+        if transcribeCount == 1 {
+            await withCheckedContinuation { continuation in
+                self.continuation = continuation
+            }
+            return "old session text"
+        }
+        return "new session text"
+    }
+
+    func releaseFirstTranscription() {
+        continuation?.resume()
+        continuation = nil
     }
 }
 
@@ -1139,6 +1247,265 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(await engine.releasePooledBuffersCount == 1)
 }
 
+@Test @MainActor func effectiveCleanupParsesOnceAndInsertsTheCleanedSessionValue() async throws {
+    let engine = MockTranscriptionEngine()
+    await engine.setTranscript("list milk eggs bread")
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("- Milk\n- Eggs\n- Bread"))
+    let inserter = MockTextInserter()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+
+    await controller.startDictation()
+    await controller.stopDictation()
+
+    let inputs = await normalizer.inputs
+    let input = try #require(inputs.first)
+    #expect(inputs.count == 1)
+    #expect(input.format == .listGeneral)
+    #expect(String(input.text) == "milk eggs bread")
+    #expect(inserter.insertedTexts == ["- Milk\n- Eggs\n- Bread"])
+    #expect(inserter.attemptedSessionIDs == [input.sessionID])
+    #expect(controller.state == .idle)
+}
+
+@Test @MainActor func inactiveCleanupDoesNotParseOrCallTheSecondModel() async {
+    let engine = MockTranscriptionEngine()
+    await engine.setTranscript("list milk eggs bread")
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("should not run"))
+    let inserter = MockTextInserter()
+    var settings = AppSettings.default
+    settings.cleanup.isEnabled = false
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: settings,
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+
+    await controller.startDictation()
+    await controller.stopDictation()
+
+    #expect(await normalizer.inputs.isEmpty)
+    #expect(inserter.insertedTexts == ["list milk eggs bread"])
+}
+
+@Test @MainActor func nonEnglishSessionMakesZeroCleanupCallsAndInsertsUnchangedText() async {
+    let engine = MockTranscriptionEngine()
+    await engine.setTranscript("list lait oeufs pain")
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("should not run"))
+    let inserter = MockTextInserter()
+    var settings = AppSettings.default
+    settings.language = .french
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: settings,
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+
+    await controller.startDictation()
+    await controller.stopDictation()
+
+    #expect(await normalizer.inputs.isEmpty)
+    #expect(inserter.insertedTexts == ["list lait oeufs pain"])
+}
+
+@Test @MainActor func directiveFallbackNeverReinsertsTheCommand() async {
+    let engine = MockTranscriptionEngine()
+    await engine.setTranscript("email Hi John all the best Stephen")
+    let normalizer = MockCleanupNormalizer(behavior: .fallback(.modelUnavailable))
+    let inserter = MockTextInserter()
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+
+    await controller.startDictation()
+    await controller.stopDictation()
+
+    #expect(inserter.insertedTexts == ["Hi John all the best Stephen"])
+}
+
+@Test @MainActor func wholeSessionCancelDuringCleanupProducesNoInsertion() async {
+    let normalizer = MockCleanupNormalizer(behavior: .waitForCancellation)
+    let inserter = MockTextInserter()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+
+    let session = Task { @MainActor in
+        await controller.startDictation()
+        await controller.stopDictation()
+    }
+    await waitUntil(attempts: 1_000) {
+        if case .cleaning = controller.state { return true }
+        return false
+    }
+    await controller.cancelDictation()
+    await session.value
+
+    #expect(inserter.insertedTexts.isEmpty)
+    #expect(controller.pendingInsertions.entries.isEmpty)
+    #expect(controller.state == .idle)
+}
+
+@Test @MainActor func expeditedPressStartsCaptureWhilePriorInsertionRemainsSessionKeyed() async throws {
+    let audio = MockAudioCapture()
+    let normalizer = MockCleanupNormalizer(behavior: .waitForCancellation)
+    let inserter = GatedFailingInserter()
+    let hotkey = MockHotkeyService()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: audio,
+        textInserter: inserter,
+        hotkeyService: hotkey,
+        expediteRestartDelay: .milliseconds(10),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+    try controller.activate()
+
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 1_000) { controller.state == .recording }
+    hotkey.emit(.released)
+    await waitUntil(attempts: 1_000) {
+        if case .cleaning = controller.state { return true }
+        return false
+    }
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 5_000) { inserter.attempted.count == 1 }
+    await waitUntil(attempts: 5_000) {
+        controller.state == .recording
+    }
+    #expect(await audio.startCount == 2)
+    let previousSessionID = try #require(inserter.attempted.first?.sessionID)
+
+    inserter.release()
+    await waitUntil(attempts: 5_000) { controller.pendingInsertions.entries.count == 1 }
+    #expect(controller.state == .recording)
+    #expect(controller.pendingInsertions.entries.first?.id == previousSessionID)
+    #expect(controller.pendingInsertions.entries.first?.text == "dictated locally")
+
+    await controller.cancelDictation()
+}
+
+@Test @MainActor func threeUnresolvedSessionsRefuseAnotherCaptureWithoutDroppingText() async {
+    let inserter = MockTextInserter()
+    inserter.error = .insertionFailed
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: MockHotkeyService()
+    )
+
+    for _ in 0..<3 {
+        await controller.startDictation()
+        await controller.stopDictation()
+    }
+    #expect(controller.pendingInsertions.entries.count == 3)
+    let retainedIDs = controller.pendingInsertions.entries.map(\.id)
+
+    #expect(!controller.requestStart())
+    #expect(controller.state == .failed(.recoveryRequired))
+    #expect(controller.pendingInsertions.entries.map(\.id) == retainedIDs)
+}
+
+@Test @MainActor func latePriorTranscriptionCannotClobberANewRecording() async throws {
+    let audio = MockAudioCapture()
+    let engine = GatedFinalTranscriptionEngine()
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("old cleaned"))
+    let inserter = MockTextInserter()
+    inserter.error = .insertionFailed
+    let hotkey = MockHotkeyService()
+    var settings = AppSettings.default
+    settings.liveTranscriptOverlayEnabled = true
+    let controller = DictationController(
+        transcriptionEngine: engine,
+        settings: settings,
+        audioCapture: audio,
+        textInserter: inserter,
+        hotkeyService: hotkey,
+        expediteRestartDelay: .milliseconds(10),
+        livePreviewMinimumDuration: 100,
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+    try controller.activate()
+
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 1_000) { controller.state == .recording }
+    hotkey.emit(.released)
+    await waitUntil(attempts: 1_000) { controller.state == .transcribing }
+
+    let clock = ContinuousClock()
+    let press = clock.now
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 5_000) { controller.state == .recording }
+    #expect(clock.now - press < .milliseconds(200))
+    #expect(await audio.startCount == 2)
+
+    await engine.releaseFirstTranscription()
+    await waitUntil(attempts: 5_000) { controller.pendingInsertions.entries.count == 1 }
+    #expect(controller.state == .recording)
+    #expect(controller.liveTranscriptPreview == "")
+    #expect(controller.pendingInsertions.entries.first?.text == "old cleaned")
+
+    await controller.cancelDictation()
+}
+
+@Test @MainActor func cleanupMemoryPressureReleasesTheResidentNormalizer() async {
+    let normalizer = MockCleanupNormalizer(behavior: .cleaned("cleaned"))
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: MockTextInserter(),
+        hotkeyService: MockHotkeyService(),
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion,
+        monitorCleanupMemoryPressure: false
+    )
+    await controller.prepareCleanupModelIfEffective()
+    #expect(controller.cleanupStatus == .ready)
+
+    controller.handleCleanupMemoryPressure(.warning)
+    for _ in 0..<1_000 {
+        if await normalizer.unloadCount == 1 { break }
+        await Task.yield()
+    }
+    #expect(await normalizer.unloadCount == 1)
+    #expect(controller.cleanupStatus == .preparing)
+}
+
 @MainActor
 private func waitUntil(
     attempts: Int = 100,
@@ -1157,5 +1524,11 @@ private extension MockAudioCapture {
 
     func setStartSelection(_ selection: AudioInputSelection) {
         startSelection = selection
+    }
+}
+
+private extension MockTranscriptionEngine {
+    func setTranscript(_ value: String) {
+        transcript = value
     }
 }

@@ -338,6 +338,7 @@ public actor S1MiniNormalizer {
     private let queue = DispatchQueue(label: "com.stephansturges.voxhearth.s1-mini")
     private let state: S1MiniQueueState
     private let logger = PrivacySafeLogger(category: "Cleanup")
+    private let signposter = PrivacySafeSignposter(category: "Cleanup")
 
     public init(policy: CleanupPolicy = CleanupPolicy()) {
         state = S1MiniQueueState(policy: policy) { modelURL, backend in
@@ -380,11 +381,15 @@ public actor S1MiniNormalizer {
     ) async -> DictationOutcome {
         precondition(deadlineMilliseconds > 0)
         logger.info(.cleanupGenerationStarted)
+        logger.info(.cleanupQueueSubmitted)
+        let queueInterval = signposter.begin(.cleanupQueueSubmitted)
         let state = self.state
+        let logger = self.logger
         let started = DispatchTime.now()
         let deadline = started + .milliseconds(deadlineMilliseconds)
-        let outcome = (try? await enqueue(qos: .userInitiated) {
-            state.normalize(
+        let outcome: DictationOutcome = (try? await enqueue(qos: .userInitiated) {
+            logger.info(.cleanupQueueEntered)
+            return state.normalize(
                 input,
                 settings: settings,
                 cancellation: cancellation,
@@ -395,6 +400,8 @@ public actor S1MiniNormalizer {
             CleanupPolicy().fallback(for: input, reason: .generationFailed),
             .generationFailed
         )
+        signposter.end(.cleanupSelectionCompleted, queueInterval)
+        logger.info(.cleanupSelectionCompleted)
 
         queue.async(qos: .utility) {
             state.demoteMetalIfNeeded(deadline: .now() + .seconds(30))

@@ -70,9 +70,10 @@ final class VoxHearthFrontendModel {
         self.currentBuildIdentity = currentBuildIdentity
         let disclosureVersion = defaults.integer(forKey: CleanupDisclosure.defaultsKey)
         cleanupDisclosureVersion = disclosureVersion
-        verifiedCleanupModelURL = S1MiniModelAsset.verifiedBundledURL(
+        let verifiedModelURL = S1MiniModelAsset.verifiedBundledURL(
             resourceURL: Bundle.main.resourceURL
         )
+        verifiedCleanupModelURL = verifiedModelURL
         let startCuePlayer = DictationStartCuePlayer()
         self.startCuePlayer = startCuePlayer
         let liveTranscriptOverlayController = LiveTranscriptOverlayController()
@@ -97,9 +98,16 @@ final class VoxHearthFrontendModel {
             self.controller = DictationController(
                 transcriptionEngine: engine,
                 settings: settings,
-                audioCapture: audioCapture
+                audioCapture: audioCapture,
+                cleanupNormalizer: S1MiniNormalizer(),
+                cleanupModelURL: verifiedModelURL,
+                cleanupDisclosureVersion: disclosureVersion
             )
         }
+        self.controller.configureCleanup(
+            modelURL: verifiedModelURL,
+            disclosureVersion: disclosureVersion
+        )
 
         self.controller.onOnboardingRequirement = { [weak self] requirement in
             guard let self else { return }
@@ -130,6 +138,7 @@ final class VoxHearthFrontendModel {
         Task {
             await refreshMicrophones()
             await self.controller.prepareEngine()
+            await self.controller.prepareCleanupModelIfEffective()
         }
     }
 
@@ -143,7 +152,7 @@ final class VoxHearthFrontendModel {
             return .idle
         case .recording:
             return .listening
-        case .preparing, .transcribing, .inserting:
+        case .preparing, .transcribing, .cleaning, .inserting:
             return .transcribing
         case let .failed(failure):
             return .error(Self.userFacingMessage(for: failure))
@@ -159,11 +168,7 @@ final class VoxHearthFrontendModel {
     }
 
     var cleanupEnablement: CleanupEnablement {
-        CleanupEnablement.resolve(
-            settings: settings,
-            disclosureVersion: cleanupDisclosureVersion,
-            modelAssetVerified: verifiedCleanupModelURL != nil
-        )
+        controller.cleanupEnablement
     }
 
     var onboardingCanAdvance: Bool {
@@ -180,7 +185,7 @@ final class VoxHearthFrontendModel {
         switch controller.state {
         case .recording:
             controller.requestStop()
-        case .preparing, .transcribing, .inserting:
+        case .preparing, .transcribing, .cleaning, .inserting:
             break
         case .idle, .failed:
             controller.requestStart()
@@ -225,6 +230,11 @@ final class VoxHearthFrontendModel {
             CleanupDisclosure.requiredVersion,
             forKey: CleanupDisclosure.defaultsKey
         )
+        controller.configureCleanup(
+            modelURL: verifiedCleanupModelURL,
+            disclosureVersion: cleanupDisclosureVersion
+        )
+        Task { await controller.prepareCleanupModelIfEffective() }
     }
 
     func restartOnboarding() {
@@ -425,9 +435,13 @@ final class VoxHearthFrontendModel {
 
     private func apply(_ settings: AppSettings) {
         do {
+            let wasCleanupEffective = controller.cleanupEnablement.isEffective
             try controller.applySettings(settings)
             try Self.persist(settings, to: defaults)
             interfaceError = nil
+            if !wasCleanupEffective, controller.cleanupEnablement.isEffective {
+                Task { await controller.prepareCleanupModelIfEffective() }
+            }
         } catch {
             interfaceError = Self.userFacingMessage(for: error)
         }
@@ -520,6 +534,8 @@ final class VoxHearthFrontendModel {
             "The destination app did not accept the transcription."
         case .insertionUncertain:
             "VoxHearth could not confirm the text was inserted. Check the field, then retry or discard the in-memory transcript."
+        case .recoveryRequired:
+            "Resolve an earlier transcript before starting another dictation."
         }
     }
 }

@@ -39,12 +39,51 @@ public extension LocalTranscriptionEngine {
     }
 }
 
+public protocol TranscriptNormalizing: Sendable {
+    func prepare(
+        modelURL: URL,
+        selection: LlamaBackendSelection,
+        warmUp: Bool,
+        deadlineMilliseconds: Int
+    ) async throws -> LlamaBackend
+
+    func normalize(
+        _ input: NormalizationInput,
+        settings: CleanupSettings,
+        cancellation: S1MiniCancellationToken,
+        deadlineMilliseconds: Int
+    ) async -> DictationOutcome
+
+    func unload() async
+}
+
+extension S1MiniNormalizer: TranscriptNormalizing {}
+
 @MainActor
 public protocol TextInserting: AnyObject {
     func insert(
         _ transcript: InsertableTranscript,
         clipboardFallbackEnabled: Bool
     ) async throws -> TextInsertionMethod
+
+    func copyToClipboard(_ transcript: InsertableTranscript) throws
+
+    func insertConfirmedMultiline(
+        _ transcript: InsertableTranscript
+    ) async throws -> TextInsertionMethod
+}
+
+public extension TextInserting {
+    func copyToClipboard(_ transcript: InsertableTranscript) throws {
+        _ = transcript
+        throw TextInsertionError.insertionFailed
+    }
+
+    func insertConfirmedMultiline(
+        _ transcript: InsertableTranscript
+    ) async throws -> TextInsertionMethod {
+        try await insert(transcript, clipboardFallbackEnabled: true)
+    }
 }
 
 @MainActor

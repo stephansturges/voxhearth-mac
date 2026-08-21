@@ -157,7 +157,7 @@ private struct DictationSettingsView: View {
     private var canChangeSpeechModel: Bool {
         switch model.controller.state {
         case .idle, .failed: true
-        case .preparing, .recording, .transcribing, .inserting: false
+        case .preparing, .recording, .transcribing, .cleaning, .inserting: false
         }
     }
 

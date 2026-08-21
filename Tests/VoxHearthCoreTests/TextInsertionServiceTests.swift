@@ -26,27 +26,53 @@ private func insertable(_ text: String) -> InsertableTranscript {
     #expect(PrivacyLogSubsystem.current.hasSuffix(".tests"))
 }
 
-@MainActor
-private final class MockInsertionBackend: TextInsertionBackend {
+private final class MockInsertionBackend: TextInsertionBackend, @unchecked Sendable {
+    private let lock = NSLock()
     var isAccessibilityTrusted = true
     var accessibilityResult: AccessibilityInsertionOutcome = .unavailable
     var unicodeResult = false
     var clipboardResult = false
-    var calls: [String] = []
+    private var recordedCalls: [String] = []
+    private var recordedClipboardTexts: [String] = []
+
+    var calls: [String] { lock.withLock { recordedCalls } }
+    var clipboardTexts: [String] { lock.withLock { recordedClipboardTexts } }
 
     func replaceSelectedText(_ text: String) -> AccessibilityInsertionOutcome {
-        calls.append("accessibility")
+        lock.withLock { recordedCalls.append("accessibility") }
         return accessibilityResult
     }
 
     func postUnicodeText(_ text: String) -> Bool {
-        calls.append("unicode")
+        lock.withLock { recordedCalls.append("unicode") }
         return unicodeResult
     }
 
+    @MainActor
+    func copyToClipboard(_ text: String) -> Bool {
+        lock.withLock {
+            recordedCalls.append("copy")
+            recordedClipboardTexts.append(text)
+        }
+        return true
+    }
+
+    @MainActor
     func pasteWithSafeClipboardRestore(_ text: String) async throws -> Bool {
-        calls.append("clipboard")
+        lock.withLock {
+            recordedCalls.append("clipboard")
+            recordedClipboardTexts.append(text)
+        }
         return clipboardResult
+    }
+}
+
+@MainActor
+private struct MockDestinationSafety: MultilineDestinationSafety {
+    let disposition: MultilineDestinationDisposition
+
+    func dispositionForFocusedDestination() -> MultilineDestinationDisposition {
+        disposition
     }
 }
 
@@ -227,4 +253,88 @@ private final class MockInsertionBackend: TextInsertionBackend {
     #expect(restored[0].string(forType: .string) == "plain")
     #expect(restored[0].data(forType: .init("com.voxhearth.test.binary")) == Data([1, 2, 3]))
     #expect(restored[1].string(forType: .string) == "second")
+}
+
+@Test @MainActor func everyLineSeparatorBypassesUnicodeEvenWhenAccessibilityIsUnavailable() async {
+    let separators = ["\n", "\r", "\u{85}", "\u{2028}", "\u{2029}"]
+    for separator in separators {
+        let backend = MockInsertionBackend()
+        backend.unicodeResult = true
+        backend.clipboardResult = true
+        let service = TextInsertionService(
+            backend: backend,
+            destinationSafety: MockDestinationSafety(disposition: .automaticInsertionAllowed)
+        )
+
+        let method = try? await service.insert(
+            insertable("one\(separator)two"),
+            clipboardFallbackEnabled: true
+        )
+        #expect(method == .clipboard)
+        #expect(backend.calls == ["accessibility", "clipboard"])
+    }
+}
+
+@Test @MainActor func untrustedMultilineUsesOnlyExplicitClipboardCompatibility() async {
+    let backend = MockInsertionBackend()
+    backend.isAccessibilityTrusted = false
+    backend.clipboardResult = true
+    let service = TextInsertionService(
+        backend: backend,
+        destinationSafety: MockDestinationSafety(disposition: .automaticInsertionAllowed)
+    )
+
+    await #expect(throws: TextInsertionError.multilineClipboardFallbackDisabled) {
+        try await service.insert(insertable("one\ntwo"), clipboardFallbackEnabled: false)
+    }
+    #expect(backend.calls.isEmpty)
+
+    let method = try? await service.insert(
+        insertable("one\ntwo"),
+        clipboardFallbackEnabled: true
+    )
+    #expect(method == .clipboard)
+    #expect(backend.calls == ["clipboard"])
+}
+
+@Test @MainActor func blockedTerminalRetainsMultilineWithoutAnyAutomaticAttempt() async {
+    let backend = MockInsertionBackend()
+    backend.accessibilityResult = .inserted
+    backend.unicodeResult = true
+    backend.clipboardResult = true
+    let service = TextInsertionService(
+        backend: backend,
+        destinationSafety: MockDestinationSafety(disposition: .blockedTerminal)
+    )
+
+    await #expect(throws: TextInsertionError.blockedMultilineDestination) {
+        try await service.insert(insertable("one\ntwo"), clipboardFallbackEnabled: true)
+    }
+    #expect(backend.calls.isEmpty)
+}
+
+@Test @MainActor func confirmedMultilineOverrideTrimsOnlyItsOneShotPastePayload() async throws {
+    let backend = MockInsertionBackend()
+    backend.clipboardResult = true
+    let service = TextInsertionService(
+        backend: backend,
+        destinationSafety: MockDestinationSafety(disposition: .blockedTerminal)
+    )
+    let original = insertable("echo one\necho two\r\n\u{2028}")
+
+    let method = try await service.insertConfirmedMultiline(original)
+    #expect(method == .clipboard)
+    #expect(original.text == "echo one\necho two\r\n\u{2028}")
+    #expect(backend.calls == ["clipboard"])
+    #expect(backend.clipboardTexts == ["echo one\necho two"])
+}
+
+@Test @MainActor func explicitCopyLeavesTheExactPendingValueOnTheClipboard() throws {
+    let backend = MockInsertionBackend()
+    let service = TextInsertionService(backend: backend)
+    let value = insertable("first\nsecond\n")
+
+    try service.copyToClipboard(value)
+    #expect(backend.calls == ["copy"])
+    #expect(backend.clipboardTexts == [value.text])
 }
