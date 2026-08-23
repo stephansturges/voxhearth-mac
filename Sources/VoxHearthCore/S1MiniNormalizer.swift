@@ -14,7 +14,8 @@ private final class QueueDeadlineGate<Value: Sendable>: @unchecked Sendable {
         lock.withLock { !resolved }
     }
 
-    func resolve(_ value: Value) {
+    @discardableResult
+    func resolve(_ value: Value) -> Bool {
         let continuation = lock.withLock { () -> CheckedContinuation<Value, Never>? in
             guard !resolved else { return nil }
             resolved = true
@@ -22,6 +23,7 @@ private final class QueueDeadlineGate<Value: Sendable>: @unchecked Sendable {
             return self.continuation
         }
         continuation?.resume(returning: value)
+        return continuation != nil
     }
 }
 
@@ -60,6 +62,7 @@ final class S1MiniQueueState: @unchecked Sendable {
     private let logger = PrivacySafeLogger(category: "Cleanup")
     private var session: (any S1MiniRuntimeSession)?
     private var modelURL: URL?
+    private var sessionIsWarm = false
     private(set) var counters = CleanupResourceCounters()
     private(set) var metalDemoted = false
 
@@ -74,16 +77,26 @@ final class S1MiniQueueState: @unchecked Sendable {
         warmUp: Bool,
         deadline: DispatchTime
     ) throws -> LlamaBackend {
+        let preferred = metalDemoted ? LlamaBackend.cpu : requestedBackend
         if let session,
            self.modelURL == modelURL,
-           session.backend == requestedBackend,
-           !metalDemoted {
+           session.backend == preferred {
+            if warmUp, !sessionIsWarm {
+                do {
+                    let cancellation = S1MiniCancellationToken()
+                    try session.warmUp(cancellation: cancellation, deadline: deadline)
+                    counters.warmups += 1
+                    sessionIsWarm = true
+                } catch {
+                    unloadSessionOnly()
+                    throw error
+                }
+            }
             return session.backend
         }
 
         unload()
         self.modelURL = modelURL
-        let preferred = metalDemoted ? LlamaBackend.cpu : requestedBackend
         do {
             return try loadAndWarm(
                 modelURL: modelURL,
@@ -325,6 +338,7 @@ final class S1MiniQueueState: @unchecked Sendable {
     ) throws -> LlamaBackend {
         let loaded = try factory(modelURL, backend)
         session = loaded
+        sessionIsWarm = false
         counters.modelLoads += 1
         counters.contextCreations += 1
         do {
@@ -332,6 +346,7 @@ final class S1MiniQueueState: @unchecked Sendable {
                 let cancellation = S1MiniCancellationToken()
                 try loaded.warmUp(cancellation: cancellation, deadline: deadline)
                 counters.warmups += 1
+                sessionIsWarm = true
             }
         } catch {
             loaded.unload()
@@ -344,6 +359,7 @@ final class S1MiniQueueState: @unchecked Sendable {
     private func unloadSessionOnly() {
         session?.unload()
         session = nil
+        sessionIsWarm = false
     }
 
     private func fallbackReason(for error: S1MiniError) -> CleanupFallbackReason {
@@ -492,17 +508,25 @@ public actor S1MiniNormalizer {
     ) async -> Value {
         await withCheckedContinuation { continuation in
             let gate = QueueDeadlineGate(continuation)
+            let deadlineItem = DispatchWorkItem(
+                qos: DispatchQoS(qosClass: qos, relativePriority: 0)
+            ) {
+                onTimeout()
+                gate.resolve(timeout)
+            }
             let item = DispatchWorkItem(
                 qos: DispatchQoS(qosClass: qos, relativePriority: 0)
             ) {
                 guard gate.begin() else { return }
-                gate.resolve(operation())
+                if gate.resolve(operation()) {
+                    deadlineItem.cancel()
+                }
             }
             queue.async(execute: item)
-            DispatchQueue.global(qos: qos).asyncAfter(deadline: deadline) {
-                onTimeout()
-                gate.resolve(timeout)
-            }
+            DispatchQueue.global(qos: qos).asyncAfter(
+                deadline: deadline,
+                execute: deadlineItem
+            )
         }
     }
 }

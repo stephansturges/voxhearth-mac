@@ -171,7 +171,11 @@ public struct PrivacySafeSignposter: Sendable {
     }
 
     public func begin(_ event: PrivacyLogEvent) -> OSSignpostIntervalState {
-        signposter.beginInterval("phase", "\(event.rawValue, privacy: .public)")
+        signposter.beginInterval(
+            "phase",
+            id: signposter.makeSignpostID(),
+            "\(event.rawValue, privacy: .public)"
+        )
     }
 
     public func end(

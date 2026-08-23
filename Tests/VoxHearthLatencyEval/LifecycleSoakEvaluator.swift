@@ -235,6 +235,11 @@ func lifecycleSoakEvaluator() async throws {
         threadCountIncrease: threadIncrease,
         singleCycleStallObserved: singleCycleStall
     )
+    #if DEBUG
+    let buildConfiguration = "debug"
+    #else
+    let buildConfiguration = "release"
+    #endif
     let result = SoakResult(
         schemaVersion: 1,
         soakSchema: "voxhearth.soak.v1",
@@ -244,6 +249,8 @@ func lifecycleSoakEvaluator() async throws {
         cyclesPerWindow: cyclesPerWindow,
         processID: getpid(),
         environment: [
+            "buildConfiguration": buildConfiguration,
+            "testabilityEnabled": "true",
             "operatingSystem": ProcessInfo.processInfo.operatingSystemVersionString,
             "lowPowerMode": String(ProcessInfo.processInfo.isLowPowerModeEnabled),
             "thermalState": String(describing: ProcessInfo.processInfo.thermalState),

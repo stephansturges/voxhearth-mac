@@ -482,6 +482,7 @@ public final class DictationController {
             }
             guard let self else { return }
             guard self.sessionEpoch == epoch else {
+                self.recoveryReservations.remove(sessionID)
                 self.logger.info(.dictationStartAbandoned)
                 return
             }
@@ -800,6 +801,7 @@ public final class DictationController {
         sessionEpoch &+= 1
         let epoch = sessionEpoch
         let cancelledSessionID = currentSessionID
+        let cancelledSessionHasNoCompletionWork = state == .preparing || state == .recording
         if state == .recording {
             // Close the preview publication gate before awaiting cancellation;
             // an in-flight snapshot must not repopulate an overlay already
@@ -827,6 +829,19 @@ public final class DictationController {
         await cancelledStartTask?.value
         await cancelledStopTask?.value
         guard epoch == sessionEpoch else {
+            if cancelledSessionHasNoCompletionWork, let cancelledSessionID {
+                recoveryReservations.remove(cancelledSessionID)
+                cleanupCancellationTokens[cancelledSessionID] = nil
+                explicitlyCancelledSessions.remove(cancelledSessionID)
+            } else if let cancelledSessionID,
+                      transcriptionTasks[cancelledSessionID] == nil,
+                      cleanupCancellationTokens[cancelledSessionID] == nil,
+                      !automaticInsertionSessions.contains(cancelledSessionID),
+                      !retryingSessions.contains(cancelledSessionID) {
+                // The stop/start tasks have been joined, so a marker with no
+                // remaining keyed completion work cannot be observed again.
+                explicitlyCancelledSessions.remove(cancelledSessionID)
+            }
             logger.info(.dictationStopAbandoned)
             return
         }
@@ -995,7 +1010,10 @@ public final class DictationController {
                 )
             }
 
-            guard beginAutomaticInsertion(for: sessionID) else { return }
+            guard beginAutomaticInsertion(for: sessionID) else {
+                finishSessionReturningToIdle(sessionID: sessionID)
+                return
+            }
             if insertableTranscript.text.isEmpty {
                 removePendingInsertion(sessionID: sessionID)
                 let ownsPresentation = currentSessionID == sessionID

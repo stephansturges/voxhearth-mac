@@ -50,6 +50,89 @@ private actor MockAudioCapture: AudioCapturing {
     }
 }
 
+private actor GatedCancelAudioCapture: AudioCapturing {
+    private(set) var cancelStartedCount = 0
+    private var cancelContinuations: [CheckedContinuation<Void, Never>] = []
+    private let result = CapturedAudio(samples: [0.1, -0.1, 0.2], sampleRate: 16_000)
+
+    func availableInputDevices() async -> [AudioInputDevice] { [] }
+
+    func start(
+        inputDeviceUID: String?,
+        maximumDurationReached: @escaping @Sendable () async -> Void
+    ) async throws -> AudioInputSelection {
+        _ = inputDeviceUID
+        _ = maximumDurationReached
+        return .systemDefault
+    }
+
+    func stop() async throws -> CapturedAudio { result }
+
+    func snapshot(maximumDuration: TimeInterval) async -> CapturedAudio? {
+        _ = maximumDuration
+        return nil
+    }
+
+    func cancel() async {
+        cancelStartedCount += 1
+        await withCheckedContinuation { continuation in
+            cancelContinuations.append(continuation)
+        }
+    }
+
+    func releaseNextCancel() {
+        guard !cancelContinuations.isEmpty else { return }
+        cancelContinuations.removeFirst().resume()
+    }
+}
+
+private actor GatedStopAndCancelAudioCapture: AudioCapturing {
+    private(set) var stopStarted = false
+    private(set) var cancelStarted = false
+    private var stopCount = 0
+    private var cancelContinuation: CheckedContinuation<Void, Never>?
+
+    func availableInputDevices() async -> [AudioInputDevice] { [] }
+
+    func start(
+        inputDeviceUID: String?,
+        maximumDurationReached: @escaping @Sendable () async -> Void
+    ) async throws -> AudioInputSelection {
+        _ = inputDeviceUID
+        _ = maximumDurationReached
+        return .systemDefault
+    }
+
+    func stop() async throws -> CapturedAudio {
+        stopCount += 1
+        if stopCount > 1 {
+            return CapturedAudio(samples: [0.1, -0.1, 0.2], sampleRate: 16_000)
+        }
+        stopStarted = true
+        while !Task.isCancelled {
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        throw CancellationError()
+    }
+
+    func snapshot(maximumDuration: TimeInterval) async -> CapturedAudio? {
+        _ = maximumDuration
+        return nil
+    }
+
+    func cancel() async {
+        cancelStarted = true
+        await withCheckedContinuation { continuation in
+            cancelContinuation = continuation
+        }
+    }
+
+    func releaseCancel() {
+        cancelContinuation?.resume()
+        cancelContinuation = nil
+    }
+}
+
 private actor MockTranscriptionEngine: LocalTranscriptionEngine {
     var transcript = "dictated locally"
     var prepareError: ParakeetEngineError?
@@ -267,6 +350,7 @@ private actor GatedUnloadNormalizer: TranscriptNormalizing {
 private actor GatedCleanupPreparationNormalizer: TranscriptNormalizing {
     private(set) var prepareStarted = false
     private(set) var unloadCount = 0
+    private(set) var inputs: [NormalizationInput] = []
     private var prepareContinuation: CheckedContinuation<Void, Never>?
 
     func prepare(
@@ -294,6 +378,7 @@ private actor GatedCleanupPreparationNormalizer: TranscriptNormalizing {
         _ = settings
         _ = cancellation
         _ = deadlineMilliseconds
+        inputs.append(input)
         return .recover(CleanupPolicy().fallback(for: input, reason: .modelUnavailable), .modelUnavailable)
     }
 
@@ -302,6 +387,46 @@ private actor GatedCleanupPreparationNormalizer: TranscriptNormalizing {
     func releasePreparation() {
         prepareContinuation?.resume()
         prepareContinuation = nil
+    }
+}
+
+private actor GatedCleanupCompletionNormalizer: TranscriptNormalizing {
+    private(set) var normalizeStarted = false
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    func prepare(
+        modelURL: URL,
+        selection: LlamaBackendSelection,
+        warmUp: Bool,
+        deadlineMilliseconds: Int
+    ) async throws -> LlamaBackend {
+        _ = modelURL
+        _ = warmUp
+        _ = deadlineMilliseconds
+        return selection.selected
+    }
+
+    func normalize(
+        _ input: NormalizationInput,
+        settings: CleanupSettings,
+        cancellation: S1MiniCancellationToken,
+        deadlineMilliseconds: Int
+    ) async -> DictationOutcome {
+        _ = settings
+        _ = cancellation
+        _ = deadlineMilliseconds
+        normalizeStarted = true
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+        return .insert(CleanupPolicy().cleaned(for: input, text: "cleaned"))
+    }
+
+    func unload() async {}
+
+    func releaseNormalization() {
+        continuation?.resume()
+        continuation = nil
     }
 }
 
@@ -1155,9 +1280,11 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(controller.state == .recording)
     #expect(await engine.prepareCount == 2)
     #expect(await audio.startCount == 1)
+    #expect(recoveryReservationCount(controller) == 1)
     #expect(activity.liveTokens.count == 1)
     #expect(activity.beginCount - activity.endCount == 1)
     await controller.cancelDictation()
+    #expect(recoveryReservationCount(controller) == 0)
 }
 
 @Test @MainActor func pointerButtonRegistersHoldToTalkPhases() async throws {
@@ -1442,7 +1569,7 @@ private final class LivePreviewRecorder: @unchecked Sendable {
 @Test @MainActor func unpreparedCleanupFallsBackImmediatelyWithoutQueueingNormalization() async {
     let engine = MockTranscriptionEngine()
     await engine.setTranscript("list milk eggs bread")
-    let normalizer = MockCleanupNormalizer(behavior: .cleaned("should not run"))
+    let normalizer = GatedCleanupPreparationNormalizer()
     let inserter = MockTextInserter()
     let controller = DictationController(
         transcriptionEngine: engine,
@@ -1456,11 +1583,15 @@ private final class LivePreviewRecorder: @unchecked Sendable {
 
     let started = ContinuousClock.now
     await controller.startDictation()
+    for _ in 0..<1_000 where !(await normalizer.prepareStarted) {
+        await Task.yield()
+    }
     await controller.stopDictation()
     #expect(started.duration(to: .now) < .milliseconds(200))
     #expect(await normalizer.inputs.isEmpty)
     #expect(inserter.insertedTexts == ["milk eggs bread"])
     #expect(controller.state == .idle)
+    await normalizer.releasePreparation()
 }
 
 @Test @MainActor func acceptedEmptyCleanupFinishesWithoutInsertionOrRecovery() async {
@@ -1719,6 +1850,152 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     #expect(!controller.requestStart())
     #expect(controller.state == .failed(.recoveryRequired))
     #expect(controller.pendingInsertions.entries.map(\.id) == retainedIDs)
+}
+
+@Test @MainActor func supersededCancelsDoNotConsumeRecoveryCapacity() async throws {
+    let audio = GatedCancelAudioCapture()
+    let hotkey = MockHotkeyService()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: audio,
+        textInserter: MockTextInserter(),
+        hotkeyService: hotkey,
+        expediteRestartDelay: .zero
+    )
+    try controller.activate()
+
+    for cycle in 1...3 {
+        hotkey.emit(.pressed)
+        await waitUntil(attempts: 1_000) { controller.state == .recording }
+
+        let cancellation = Task { @MainActor in
+            await controller.cancelDictation()
+        }
+        for _ in 0..<1_000 where await audio.cancelStartedCount != cycle {
+            await Task.yield()
+        }
+        #expect(await audio.cancelStartedCount == cycle)
+
+        hotkey.emit(.released)
+        hotkey.emit(.pressed)
+        await waitUntil(attempts: 5_000) { controller.state == .recording }
+        await audio.releaseNextCancel()
+        await cancellation.value
+
+        hotkey.emit(.released)
+        await waitUntil(attempts: 5_000) { controller.state == .idle }
+        #expect(recoveryReservationCount(controller) == 0)
+    }
+
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 5_000) { controller.state == .recording }
+    #expect(controller.state == .recording)
+    hotkey.emit(.released)
+    await waitUntil(attempts: 5_000) { controller.state == .idle }
+    #expect(controller.state == .idle)
+}
+
+@Test @MainActor func supersededTranscribingCancelDoesNotRetainItsMarker() async throws {
+    let audio = GatedStopAndCancelAudioCapture()
+    let hotkey = MockHotkeyService()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: audio,
+        textInserter: MockTextInserter(),
+        hotkeyService: hotkey,
+        expediteRestartDelay: .zero
+    )
+    try controller.activate()
+
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 1_000) { controller.state == .recording }
+    hotkey.emit(.released)
+    for _ in 0..<1_000 where !(await audio.stopStarted) {
+        await Task.yield()
+    }
+
+    let cancellation = Task { @MainActor in
+        await controller.cancelDictation()
+    }
+    for _ in 0..<1_000 where !(await audio.cancelStarted) {
+        await Task.yield()
+    }
+    await waitUntil(attempts: 1_000) { controller.state == .idle }
+
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 5_000) { controller.state == .recording }
+    await audio.releaseCancel()
+    await cancellation.value
+
+    #expect(controller.state == .recording)
+    #expect(recoveryReservationCount(controller) == 1)
+    #expect(explicitCancellationMarkerCount(controller) == 0)
+    hotkey.emit(.released)
+    await waitUntil(attempts: 5_000) { controller.state == .idle }
+    #expect(controller.state == .idle)
+}
+
+@Test @MainActor func supersededCleaningCancelKeepsSafetyStateUntilCompletionJoins() async throws {
+    let normalizer = GatedCleanupCompletionNormalizer()
+    let inserter = MockTextInserter()
+    let hotkey = MockHotkeyService()
+    let controller = DictationController(
+        transcriptionEngine: MockTranscriptionEngine(),
+        audioCapture: MockAudioCapture(),
+        textInserter: inserter,
+        hotkeyService: hotkey,
+        expediteRestartDelay: .zero,
+        cleanupNormalizer: normalizer,
+        cleanupModelURL: URL(fileURLWithPath: "/tmp/s1-mini-test.gguf"),
+        cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
+    )
+    try controller.activate()
+    await controller.prepareCleanupModelIfEffective()
+
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 1_000) { controller.state == .recording }
+    hotkey.emit(.released)
+    for _ in 0..<1_000 where !(await normalizer.normalizeStarted) {
+        await Task.yield()
+    }
+
+    let cancellation = Task { @MainActor in
+        await controller.cancelDictation()
+    }
+    await waitUntil(attempts: 1_000) {
+        explicitCancellationMarkerCount(controller) == 1
+    }
+    hotkey.emit(.pressed)
+    await waitUntil(attempts: 5_000) { controller.state == .recording }
+
+    #expect(controller.state == .recording)
+    #expect(recoveryReservationCount(controller) == 2)
+    #expect(explicitCancellationMarkerCount(controller) == 1)
+    await normalizer.releaseNormalization()
+    await cancellation.value
+
+    #expect(controller.state == .recording)
+    #expect(recoveryReservationCount(controller) == 1)
+    #expect(explicitCancellationMarkerCount(controller) == 0)
+    #expect(inserter.insertedTexts.isEmpty)
+    await controller.cancelDictation()
+    #expect(controller.state == .idle)
+}
+
+@MainActor
+private func recoveryReservationCount(_ controller: DictationController) -> Int {
+    let value = Mirror(reflecting: controller).children.first {
+        $0.label == "recoveryReservations"
+    }?.value
+    return (value as? Set<DictationSessionID>)?.count ?? -1
+}
+
+@MainActor
+private func explicitCancellationMarkerCount(_ controller: DictationController) -> Int {
+    let value = Mirror(reflecting: controller).children.first {
+        $0.label == "explicitlyCancelledSessions"
+    }?.value
+    return (value as? Set<DictationSessionID>)?.count ?? -1
 }
 
 @Test @MainActor func retryReservationSurvivesExpiryAndConcurrentFailuresWithoutLoss() async throws {

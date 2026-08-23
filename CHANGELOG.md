@@ -10,19 +10,37 @@ Developer ID-signed, Apple-notarized releases.
 
 ## [Unreleased]
 
-### Engineering
-
-- Added an opt-in, network-denied real-model latency evaluator with fixed local
-  fixtures and reproducible warm, cold, transcript, CPU, and peak-RSS gates.
-- Retained the existing CPU-only multilingual preprocessor after every tested
-  compute-unit alternative slowed warm weighted p95 and regressed cold/resource
-  evidence; no experimental runtime change was promoted.
-
 ### Planned
 
 - Direct, phone-free Pebble Index 01 collection transfer, pending publication
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
+
+## [0.4.0-dev.2] - 2026-08-24
+
+### Fixed
+
+- Released superseded dictation recovery reservations and stale cancellation
+  bookkeeping so repeated sessions cannot accumulate avoidable lifecycle state.
+- Reused the resident CPU cleanup session after a Metal fallback instead of
+  repeatedly loading the same model, while preserving the existing fallback
+  and memory-pressure behavior.
+- Cancelled completed cleanup deadline work and removed a transient audio
+  allocation from the capture callback without increasing steady-state buffers.
+- Gave overlapping performance signposts unique identities and made the
+  lifecycle soak evaluator run optimized code with its build configuration
+  recorded in the result.
+
+### Engineering
+
+- Added focused long-running lifecycle regressions and an opt-in,
+  network-denied real-model latency evaluator with fixed local fixtures and
+  reproducible warm, cold, transcript, CPU, and peak-RSS gates.
+- Retained the existing CPU-only multilingual preprocessor after every tested
+  compute-unit alternative slowed warm weighted p95 and regressed cold/resource
+  evidence; no experimental runtime change was promoted.
+- Verified the complete source with 165 tests, release builds, offline policy
+  checks, real-model smoke coverage, and release-configured lifecycle soaks.
 
 ## [0.4.0] - 2026-08-21
 
@@ -180,7 +198,8 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.2...HEAD
+[0.4.0-dev.2]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.3...v0.4.0-dev.2
 [0.4.0]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.4.0
 [0.4.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.4.0-dev.1
 [0.3.0-dev.3]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.3

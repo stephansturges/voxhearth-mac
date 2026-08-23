@@ -134,6 +134,11 @@ path = Path(sys.argv[1])
 result = json.loads(path.read_text(encoding="utf-8"))
 if result.get("schemaVersion") != 1 or result.get("soakSchema") != "voxhearth.soak.v1":
     raise SystemExit("error: invalid lifecycle soak schema")
+environment = result.get("environment", {})
+if environment.get("buildConfiguration") != "release":
+    raise SystemExit("error: lifecycle soak was not compiled in release configuration")
+if environment.get("testabilityEnabled") != "true":
+    raise SystemExit("error: lifecycle soak did not record its testability mode")
 windows = result.get("windows")
 if not isinstance(windows, list) or not windows:
     raise SystemExit("error: lifecycle soak has no windows")
@@ -217,6 +222,8 @@ run_soak() {
       VOXHEARTH_SOAK_GIT_COMMIT="$git_commit" \
       VOXHEARTH_SOAK_GIT_DIRTY="$git_dirty" \
       swift test \
+        --configuration release \
+        -Xswiftc -enable-testing \
         --disable-sandbox \
         --package-path "$repo_root" \
         --scratch-path "$repo_root/.build/lifecycle-soak-evaluator" \

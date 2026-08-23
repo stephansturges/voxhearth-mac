@@ -8,13 +8,19 @@ private final class RuntimeRecorder: @unchecked Sendable {
     private var _loads: [LlamaBackend] = []
     private var _generations = 0
     private var _unloads = 0
+    private var _warmups = 0
+    private var _requests: [LlamaBackend] = []
 
     func loaded(_ backend: LlamaBackend) { lock.withLock { _loads.append(backend) } }
     func generated() { lock.withLock { _generations += 1 } }
     func unloaded() { lock.withLock { _unloads += 1 } }
+    func warmedUp() { lock.withLock { _warmups += 1 } }
+    func requested(_ backend: LlamaBackend) { lock.withLock { _requests.append(backend) } }
     var loads: [LlamaBackend] { lock.withLock { _loads } }
     var generations: Int { lock.withLock { _generations } }
     var unloads: Int { lock.withLock { _unloads } }
+    var warmups: Int { lock.withLock { _warmups } }
+    var requests: [LlamaBackend] { lock.withLock { _requests } }
 }
 
 private final class FakeS1Session: S1MiniRuntimeSession, @unchecked Sendable {
@@ -103,6 +109,7 @@ private final class FakeS1Session: S1MiniRuntimeSession, @unchecked Sendable {
         if cancellation.isCancelled || DispatchTime.now() >= deadline {
             throw LlamaGenerationFailure(error: .cancelled, producedTokens: 0)
         }
+        recorder.warmedUp()
     }
 }
 
@@ -147,6 +154,105 @@ private final class BlockingFactoryGate: @unchecked Sendable {
     )
     #expect(backend == .cpu)
     #expect(recorder.loads == [.cpu])
+    await normalizer.unload()
+}
+
+@Test func demotedCPUPreparationReusesTheResidentSession() async throws {
+    let recorder = RuntimeRecorder()
+    let normalizer = S1MiniNormalizer(policy: CleanupPolicy()) { _, backend in
+        if backend == .metal { throw S1MiniError.contextCreationFailed }
+        return FakeS1Session(backend: backend, recorder: recorder, behavior: .output("Clean."))
+    }
+    let modelURL = URL(fileURLWithPath: "/tmp/fake.gguf")
+
+    #expect(try await normalizer.prepare(
+        modelURL: modelURL,
+        selection: selection(.metal),
+        warmUp: false
+    ) == .cpu)
+    #expect(try await normalizer.prepare(
+        modelURL: modelURL,
+        selection: selection(.metal),
+        warmUp: false
+    ) == .cpu)
+    #expect(try await normalizer.prepare(
+        modelURL: modelURL,
+        selection: selection(.metal),
+        warmUp: false
+    ) == .cpu)
+    #expect(recorder.loads == [.cpu])
+    #expect(recorder.unloads == 0)
+    await normalizer.unload()
+}
+
+@Test func demotedPreparationAfterUnloadRetainsTheExistingStickyPolicy() async throws {
+    let recorder = RuntimeRecorder()
+    let normalizer = S1MiniNormalizer(policy: CleanupPolicy()) { _, backend in
+        recorder.requested(backend)
+        if backend == .metal { throw S1MiniError.contextCreationFailed }
+        return FakeS1Session(backend: backend, recorder: recorder, behavior: .output("Clean."))
+    }
+    let modelURL = URL(fileURLWithPath: "/tmp/fake.gguf")
+
+    #expect(try await normalizer.prepare(
+        modelURL: modelURL,
+        selection: selection(.metal),
+        warmUp: false
+    ) == .cpu)
+    await normalizer.unload()
+    #expect(try await normalizer.prepare(
+        modelURL: modelURL,
+        selection: selection(.metal),
+        warmUp: false
+    ) == .cpu)
+    #expect(recorder.requests == [.metal, .cpu, .cpu])
+    await normalizer.unload()
+}
+
+@Test func warmPreparationWarmsAnUnwarmedResidentDemotedSession() async throws {
+    let recorder = RuntimeRecorder()
+    let normalizer = S1MiniNormalizer(policy: CleanupPolicy()) { _, backend in
+        if backend == .metal { throw S1MiniError.contextCreationFailed }
+        return FakeS1Session(backend: backend, recorder: recorder, behavior: .output("Clean."))
+    }
+    let modelURL = URL(fileURLWithPath: "/tmp/fake.gguf")
+
+    #expect(try await normalizer.prepare(
+        modelURL: modelURL,
+        selection: selection(.metal),
+        warmUp: false
+    ) == .cpu)
+    #expect(try await normalizer.prepare(
+        modelURL: modelURL,
+        selection: selection(.metal),
+        warmUp: true
+    ) == .cpu)
+    #expect(recorder.warmups == 1)
+    let counters = await normalizer.resourceCounters()
+    #expect(counters.modelLoads == 1)
+    #expect(counters.warmups == 1)
+    await normalizer.unload()
+}
+
+@Test func completedNormalizationCancelsItsDeadlineCallback() async throws {
+    let recorder = RuntimeRecorder()
+    let normalizer = S1MiniNormalizer(policy: CleanupPolicy()) { _, backend in
+        FakeS1Session(backend: backend, recorder: recorder, behavior: .output("Clean."))
+    }
+    _ = try await normalizer.prepare(
+        modelURL: URL(fileURLWithPath: "/tmp/fake.gguf"),
+        selection: selection(.cpu),
+        warmUp: false
+    )
+    let cancellation = S1MiniCancellationToken()
+    _ = await normalizer.normalize(
+        runtimeInput("please send it"),
+        settings: CleanupSettings(),
+        cancellation: cancellation,
+        deadlineMilliseconds: 200
+    )
+    try? await Task.sleep(for: .milliseconds(400))
+    #expect(!cancellation.isCancelled)
     await normalizer.unload()
 }
 
