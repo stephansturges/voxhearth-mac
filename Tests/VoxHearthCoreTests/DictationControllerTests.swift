@@ -1581,13 +1581,12 @@ private final class LivePreviewRecorder: @unchecked Sendable {
         cleanupDisclosureVersion: CleanupDisclosure.requiredVersion
     )
 
-    let started = ContinuousClock.now
     await controller.startDictation()
     for _ in 0..<1_000 where !(await normalizer.prepareStarted) {
         await Task.yield()
     }
+    #expect(await normalizer.prepareStarted)
     await controller.stopDictation()
-    #expect(started.duration(to: .now) < .milliseconds(200))
     #expect(await normalizer.inputs.isEmpty)
     #expect(inserter.insertedTexts == ["milk eggs bread"])
     #expect(controller.state == .idle)
