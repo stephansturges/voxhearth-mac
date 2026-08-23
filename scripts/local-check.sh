@@ -111,6 +111,7 @@ for required_file in \
   .github/release-notes-v0.3.0.md \
   .github/release-notes-v0.4.0-dev.1.md \
   .github/release-notes-v0.4.0-dev.2.md \
+  .github/release-notes-v0.4.0-dev.3.md \
   .github/release-notes-v0.4.0.md; do
   [[ -f "$required_file" ]] || {
     printf 'error: required project document is missing: %s\n' "$required_file" >&2
@@ -204,14 +205,14 @@ metadata_artifact="$metadata_dir/artifact.bin"
 printf 'local attribution fixture\n' > "$metadata_artifact"
 source_revision="$(git rev-parse HEAD)"
 SOURCE_DATE_EPOCH=1 ./scripts/generate-sbom.py \
-  --version 0.4.0-dev.2 \
+  --version 0.4.0-dev.3 \
   --source-revision "$source_revision" \
   --artifact "$metadata_artifact" \
   --output "$metadata_dir/voxhearth.spdx.json"
 SOURCE_DATE_EPOCH=1 ./scripts/generate-provenance.py \
-  --version 0.4.0-dev.2 \
+  --version 0.4.0-dev.3 \
   --source-revision "$source_revision" \
-  --source-tag v0.4.0-dev.2 \
+  --source-tag v0.4.0-dev.3 \
   --release-channel development-prerelease \
   --signature 'anonymous ad-hoc signature; no publisher identity' \
   --notarization 'absent; development preview' \
