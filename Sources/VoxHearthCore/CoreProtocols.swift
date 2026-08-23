@@ -24,14 +24,66 @@ public protocol LocalTranscriptionEngine: Sendable {
         language: DictationLanguage,
         model: TranscriptionModel
     ) async throws -> String
+
+    /// Optional idle-only maintenance hooks. Engines without retained pools or
+    /// a reload boundary inherit the no-op defaults below.
+    func releasePooledBuffers() async
+    func recover(model: TranscriptionModel) async throws
 }
+
+public extension LocalTranscriptionEngine {
+    func releasePooledBuffers() async {}
+
+    func recover(model: TranscriptionModel) async throws {
+        try await prepare(model: model)
+    }
+}
+
+public protocol TranscriptNormalizing: Sendable {
+    func prepare(
+        modelURL: URL,
+        selection: LlamaBackendSelection,
+        warmUp: Bool,
+        deadlineMilliseconds: Int
+    ) async throws -> LlamaBackend
+
+    func normalize(
+        _ input: NormalizationInput,
+        settings: CleanupSettings,
+        cancellation: S1MiniCancellationToken,
+        deadlineMilliseconds: Int
+    ) async -> DictationOutcome
+
+    func unload() async
+}
+
+extension S1MiniNormalizer: TranscriptNormalizing {}
 
 @MainActor
 public protocol TextInserting: AnyObject {
     func insert(
-        _ text: String,
+        _ transcript: InsertableTranscript,
         clipboardFallbackEnabled: Bool
     ) async throws -> TextInsertionMethod
+
+    func copyToClipboard(_ transcript: InsertableTranscript) throws
+
+    func insertConfirmedMultiline(
+        _ transcript: InsertableTranscript
+    ) async throws -> TextInsertionMethod
+}
+
+public extension TextInserting {
+    func copyToClipboard(_ transcript: InsertableTranscript) throws {
+        _ = transcript
+        throw TextInsertionError.insertionFailed
+    }
+
+    func insertConfirmedMultiline(
+        _ transcript: InsertableTranscript
+    ) async throws -> TextInsertionMethod {
+        try await insert(transcript, clipboardFallbackEnabled: true)
+    }
 }
 
 @MainActor

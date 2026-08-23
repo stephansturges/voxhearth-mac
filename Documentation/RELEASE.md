@@ -2,19 +2,19 @@
 
 VoxHearth has two deliberately separate publication channels:
 
-- `.github/workflows/development-release.yml` publishes the ad-hoc-signed,
-  unnotarized `v0.3.0-dev.3` GitHub prerelease without Apple secrets.
-- `.github/workflows/release.yml` publishes the future Developer ID-signed and
-  Apple-notarized `v0.3.0` release.
+- `.github/workflows/development-release.yml` is prepared to publish the
+  ad-hoc-signed, unnotarized `v0.4.0-dev.2` GitHub prerelease without Apple secrets.
+- `.github/workflows/release.yml` is prepared to publish the future Developer
+  ID-signed and Apple-notarized `v0.4.0` release.
 
 Manual building and signing are documented in [BUILDING.md](BUILDING.md).
 
-## Publish v0.3.0-dev.3
+## Publish v0.4.0-dev.2
 
 - [ ] The development-release commit is reviewed and merged to `main`.
 - [ ] `./scripts/local-check.sh` passes from a clean checkout.
 - [ ] No model, app, DMG, certificate, key, or password is tracked by Git.
-- [ ] Create annotated tag `v0.3.0-dev.3` on that exact commit and push it.
+- [ ] Create annotated tag `v0.4.0-dev.2` on that exact commit and push it.
 - [ ] Confirm the workflow publishes the unsigned DMG, source archive, SBOM,
       provenance, `SHA256SUMS`, and both GitHub attestations.
 - [ ] Confirm GitHub marks the release as a prerelease and that its title,
@@ -24,7 +24,7 @@ Manual building and signing are documented in [BUILDING.md](BUILDING.md).
 
 This preview is useful for testing and source review. It is not a substitute
 for Developer ID signing or notarization, and must never be marked `latest` or
-presented as the official `v0.3.0` release.
+presented as the official `v0.4.0` release.
 
 ## One-time prerequisites
 
@@ -66,22 +66,27 @@ Never put secret material in repository variables, workflow arguments, build
 logs, artifacts, issues, or release notes. Rotate a key immediately if any
 secret may have been exposed.
 
-## Prepare v0.3.0
+## Prepare v0.4.0
 
 - [ ] `CHANGELOG.md` has the final version/date and no unsupported claims.
 - [ ] `Documentation/PRIVACY.md` and `THREAT_MODEL.md` match the code.
 - [ ] Dependency and GitHub Action references are full immutable commits.
-- [ ] Model revision, 21-file manifest, license, and attribution are unchanged
-      or have received a fresh review.
+- [ ] All three model revisions/manifests, the sealed Metal library, S1-mini by
+      Superwhisper naming term, Qwen3-0.6B attribution, llama.cpp license, and
+      built-app Legal inventory are unchanged or have received a fresh review.
+- [ ] `./scripts/check-attribution.py --verify-upstream` proves the two pinned
+      S1-mini repositories still publish the same 11,878-byte license and that
+      the pinned Qwen license digest is unchanged.
 - [ ] `./scripts/local-check.sh` passes on a clean checkout.
 - [ ] There are no tracked model binaries, DMGs, certificates, or keys.
 - [ ] The release commit is reviewed and merged to `main`.
-- [ ] Create an annotated, signed tag `v0.3.0` on that commit and push it.
+- [ ] Create an annotated, signed tag `v0.4.0` on that commit and push it.
 
-The release workflow rejects any tag other than `v0.3.0` and rejects a tag that
+The release workflow rejects any tag other than `v0.4.0` and rejects a tag that
 does not point at the checked-out commit. It runs on `macos-26` with Xcode 26.2,
-fetches and verifies both models, builds and signs the app, notarizes and staples
-the app, creates/signs/notarizes/staples the DMG, runs the final verifier, and
+fetches and verifies all three models and the sealed Metal library, builds and
+signs the app, notarizes and staples the app, creates/signs/notarizes/staples
+the DMG, runs the final verifier and attribution checker, and
 generates the source archive, SPDX SBOM, provenance JSON, checksums, and GitHub
 provenance/SBOM attestations.
 

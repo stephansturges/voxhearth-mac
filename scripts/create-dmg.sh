@@ -22,7 +22,11 @@ output_dmg="$2"
 mkdir -p "$(dirname "$output_dmg")"
 staging="$(mktemp -d "$(dirname "$output_dmg")/.voxhearth-dmg.XXXXXX")"
 cleanup() {
-  rm -rf "$staging"
+  # Verified model caches may be intentionally read-only. `ditto` preserves
+  # those directory modes in the staging copy, so restore owner write access
+  # before removing this exact mktemp-owned tree.
+  chmod -R u+w "$staging" 2>/dev/null || true
+  rm -rf -- "$staging"
 }
 trap cleanup EXIT
 

@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "recipe": {
+    "platform": "macOS say",
+    "fileFormat": "AIFF",
+    "englishVoice": "Samantha",
+    "frenchVoice": "Thomas",
+    "rateWordsPerMinute": 180,
+    "commandTemplate": "say -v VOICE -r 180 --output-file FILE --file-format=AIFF TEXT",
+    "note": "The checked-in audio is canonical. The recipe documents provenance; research runs verify and never regenerate it."
+  },
+  "fixtures": [
+    {
+      "id": "scored-01",
+      "file": "scored-01.aiff",
+      "text": "Vox Hearth keeps every spoken word private and local.",
+      "language": "en",
+      "role": "scored",
+      "voice": "Samantha",
+      "durationSeconds": 2.976417,
+      "size": 135356,
+      "sha256": "e7c59795e2943372f7aa76d4558916c4ef6deea3afa82f67599de5bbdae61ff0"
+    },
+    {
+      "id": "scored-02",
+      "file": "scored-02.aiff",
+      "text": "The quick brown fox records a concise note for tomorrow.",
+      "language": "en",
+      "role": "scored",
+      "voice": "Samantha",
+      "durationSeconds": 3.123537,
+      "size": 141844,
+      "sha256": "3823577292e7b7eaff345c0848930b911f6eb6746936687bdd370410589f3fed"
+    },
+    {
+      "id": "scored-03",
+      "file": "scored-03.aiff",
+      "text": "Please remember to review the project schedule after lunch.",
+      "language": "en",
+      "role": "scored",
+      "voice": "Samantha",
+      "durationSeconds": 3.214014,
+      "size": 145834,
+      "sha256": "1bc74c2b1946ba5cd7e28333d4358c01bb1b82c9afa45a5d4a5ab16746e253ec"
+    },
+    {
+      "id": "scored-04",
+      "file": "scored-04.aiff",
+      "text": "A calm morning walk helps me organize the work ahead.",
+      "language": "en",
+      "role": "scored",
+      "voice": "Samantha",
+      "durationSeconds": 2.783129,
+      "size": 126832,
+      "sha256": "c262ab7a7004bb38bc85fd105284c90d2a774ea712bcda602c0aaa4fd86695e6"
+    },
+    {
+      "id": "scored-05",
+      "file": "scored-05.aiff",
+      "text": "Local speech recognition protects the conversation from the network.",
+      "language": "en",
+      "role": "scored",
+      "voice": "Samantha",
+      "durationSeconds": 3.800816,
+      "size": 171712,
+      "sha256": "5b10761f97a5cab40b62c6a16778554c0e45785d468477c3947cdfed9cd0e590"
+    },
+    {
+      "id": "scored-06",
+      "file": "scored-06.aiff",
+      "text": "Add a reminder to send the finished design before Friday afternoon.",
+      "language": "en",
+      "role": "scored",
+      "voice": "Samantha",
+      "durationSeconds": 3.537687,
+      "size": 160108,
+      "sha256": "9de33e17b8367d4b5ad5de971040726fe516bb3830826d3a13162b275fe2335f"
+    },
+    {
+      "id": "scored-07",
+      "file": "scored-07.aiff",
+      "text": "The meeting summary should include decisions risks and next steps.",
+      "language": "en",
+      "role": "scored",
+      "voice": "Samantha",
+      "durationSeconds": 3.506667,
+      "size": 158740,
+      "sha256": "032d62d700dab21c1fbb1c3212a0ce383e3061239814fe1b257974aac8de20eb"
+    },
+    {
+      "id": "scored-08",
+      "file": "scored-08.aiff",
+      "text": "Measure the whole path from pressing the key to visible text.",
+      "language": "en",
+      "role": "scored",
+      "voice": "Samantha",
+      "durationSeconds": 3.162177,
+      "size": 143548,
+      "sha256": "e08577d38d92a05c117c234684d7be2a758f64a76f02c610756e455aa93ab4c9"
+    },
+    {
+      "id": "scored-09",
+      "file": "scored-09.aiff",
+      "text": "Small improvements feel meaningful when dictation responds without hesitation.",
+      "language": "en",
+      "role": "scored",
+      "voice": "Samantha",
+      "durationSeconds": 4.309342,
+      "size": 194138,
+      "sha256": "a8a69ced826c30a45f248f3f14cf653ace84481dd53e98f4fd7ad5cb0a3021f9"
+    },
+    {
+      "id": "scored-10",
+      "file": "scored-10.aiff",
+      "text": "The final transcript uses the complete recording and the selected local model.",
+      "language": "en",
+      "role": "scored",
+      "voice": "Samantha",
+      "durationSeconds": 4.191655,
+      "size": 188948,
+      "sha256": "4fb748b4979d58f2892cf152a0653ce26718ab4ae5ec4eb9757a5c2e7739def5"
+    },
+    {
+      "id": "guardrail-short",
+      "file": "guardrail-short.aiff",
+      "text": "Short local test.",
+      "language": "en",
+      "role": "guardrail",
+      "voice": "Samantha",
+      "durationSeconds": 1.252018,
+      "size": 59310,
+      "sha256": "3a3cda233a4ed33fc82b305f4e2bcdd8d43e7e1b357d532a2cbdac4b78b60d68"
+    },
+    {
+      "id": "guardrail-long",
+      "file": "guardrail-long.aiff",
+      "text": "This longer guardrail sentence checks that a sustained dictation remains complete while the evaluator records every boundary and preserves the final local transcript without trimming any spoken audio from the beginning middle or end.",
+      "language": "en",
+      "role": "guardrail",
+      "voice": "Samantha",
+      "durationSeconds": 11.979864,
+      "size": 532408,
+      "sha256": "d6dd686c5f0cbf4f58abfc73ee766a961fa2c54bb561e75cb82d38cf32790e9a"
+    },
+    {
+      "id": "guardrail-chunked",
+      "file": "guardrail-chunked.aiff",
+      "text": "This deliberately extended fixture crosses the long audio chunk boundary and continues with enough ordinary language to exercise segmentation decoder state and final transcript assembly. It must remain fully local and it must use the complete recording. Candidate improvements may reduce waiting time but they may never remove words shorten the audio coverage add a model instance or change the selected transcription model.",
+      "language": "en",
+      "role": "guardrail",
+      "voice": "Samantha",
+      "durationSeconds": 22.986122,
+      "size": 1017784,
+      "sha256": "bed2769f96079748cbbe563bd9c138dc08b40635b28ea8bc08c14caefae6edb9"
+    },
+    {
+      "id": "guardrail-french",
+      "file": "guardrail-french.aiff",
+      "text": "La reconnaissance vocale reste locale et protège chaque phrase dictée.",
+      "language": "fr",
+      "role": "guardrail",
+      "voice": "Thomas",
+      "durationSeconds": 3.828707,
+      "size": 172942,
+      "sha256": "f199af07d38fb4afb2bdd7520807a8700e5e02327d51dd9f81320c28fd7593d9"
+    }
+  ]
+}

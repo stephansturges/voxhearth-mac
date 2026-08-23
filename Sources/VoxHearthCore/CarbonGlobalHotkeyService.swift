@@ -35,18 +35,19 @@ private let voxHearthHotkeyHandler: EventHandlerUPP = { _, event, userData in
     default:
         return OSStatus(eventNotHandledErr)
     }
+    let dispatchDelay = max(0, GetCurrentEventTime() - GetEventTime(event))
     if Thread.isMainThread {
         // Application-target Carbon handlers run on the main event loop. Avoid
         // adding a second queued hop, which can turn a busy SwiftUI frame into
         // visible press/release latency.
         MainActor.assumeIsolated {
-            service.handle(phase)
+            service.handle(phase, dispatchDelay: dispatchDelay)
         }
     } else {
         // Keep a defensive fallback in case Carbon ever changes delivery
         // context rather than making an unsafe actor assumption.
         Task { @MainActor in
-            service.handle(phase)
+            service.handle(phase, dispatchDelay: dispatchDelay)
         }
     }
     return noErr
@@ -147,7 +148,15 @@ public final class CarbonGlobalHotkeyService: GlobalHotkeyRegistering, @unchecke
     }
 
     @MainActor
-    fileprivate func handle(_ phase: GlobalHotkeyPhase) {
+    fileprivate func handle(
+        _ phase: GlobalHotkeyPhase,
+        dispatchDelay: TimeInterval = 0
+    ) {
+        if dispatchDelay > 0.5 {
+            logger.info(.hotkeyDispatchStalled)
+        } else if dispatchDelay > 0.1 {
+            logger.info(.hotkeyDispatchDelayed)
+        }
         switch phase {
         case .pressed:
             guard !isKeyDown else { return }

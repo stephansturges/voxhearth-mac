@@ -6,6 +6,11 @@ import os
 
 /// Thread-safe, memory-only audio storage shared with AVAudioEngine's render callback.
 final class AudioSampleAccumulator: @unchecked Sendable {
+    private struct BorrowedSamples: @unchecked Sendable {
+        let baseAddress: UnsafePointer<Float>?
+        let count: Int
+    }
+
     struct State: Sendable {
         var samples: [Float] = []
         var didSignalLimit = false
@@ -23,7 +28,22 @@ final class AudioSampleAccumulator: @unchecked Sendable {
     /// Returns true exactly once, when the duration cap is first reached.
     @discardableResult
     func append(_ newSamples: [Float]) -> Bool {
-        state.withLock { state in
+        newSamples.withUnsafeBufferPointer { append($0) }
+    }
+
+    /// Pointer overload used by the audio render callback so it does not need
+    /// to materialize a transient `[Float]` for every input buffer.
+    @discardableResult
+    func append(_ newSamples: UnsafeBufferPointer<Float>) -> Bool {
+        let borrowed = BorrowedSamples(
+            baseAddress: newSamples.baseAddress,
+            count: newSamples.count
+        )
+        return state.withLock { state in
+            let newSamples = UnsafeBufferPointer(
+                start: borrowed.baseAddress,
+                count: borrowed.count
+            )
             guard state.samples.count < maximumSampleCount else { return false }
             let remaining = maximumSampleCount - state.samples.count
             state.samples.append(contentsOf: newSamples.prefix(remaining))
@@ -46,6 +66,54 @@ final class AudioSampleAccumulator: @unchecked Sendable {
     }
 }
 
+/// Reuses one bounded mixdown scratch buffer for the lifetime of an installed
+/// tap. AVAudioEngine invokes one tap serially; this object is captured by only
+/// that callback and never crosses into controller state.
+final class AudioTapSampleProcessor: @unchecked Sendable {
+    private var mixdownScratch: [Float]
+
+    init(initialFrameCapacity: Int) {
+        mixdownScratch = [Float](repeating: 0, count: max(1, initialFrameCapacity))
+    }
+
+    @discardableResult
+    func append(
+        _ buffer: AVAudioPCMBuffer,
+        to accumulator: AudioSampleAccumulator
+    ) -> Bool {
+        guard let channels = buffer.floatChannelData else { return false }
+        let frameCount = Int(buffer.frameLength)
+        let channelCount = Int(buffer.format.channelCount)
+        guard frameCount > 0, channelCount > 0 else { return false }
+
+        if channelCount == 1 {
+            return accumulator.append(
+                UnsafeBufferPointer(start: channels[0], count: frameCount)
+            )
+        }
+
+        if mixdownScratch.count < frameCount {
+            mixdownScratch = [Float](repeating: 0, count: frameCount)
+        }
+        let scale = 1 / Float(channelCount)
+        return mixdownScratch.withUnsafeMutableBufferPointer { scratch in
+            for frame in 0..<frameCount {
+                var mixed: Float = 0
+                for channel in 0..<channelCount {
+                    // Preserve the former mixdown's floating-point operation
+                    // order exactly: scale each channel contribution before
+                    // accumulation rather than scaling the final sum.
+                    mixed += channels[channel][frame] * scale
+                }
+                scratch[frame] = mixed
+            }
+            return accumulator.append(
+                UnsafeBufferPointer(rebasing: scratch[..<frameCount])
+            )
+        }
+    }
+}
+
 public actor AudioCaptureService: AudioCapturing {
     public static let maximumDuration: TimeInterval = 10 * 60
     private static let tapBufferSize: AVAudioFrameCount = 1_024
@@ -53,6 +121,7 @@ public actor AudioCaptureService: AudioCapturing {
     private var engine: AVAudioEngine?
     private var accumulator: AudioSampleAccumulator?
     private let logger = PrivacySafeLogger(category: "AudioCapture")
+    private let signposter = PrivacySafeSignposter(category: "AudioCapture")
 
     public init() {}
 
@@ -64,6 +133,9 @@ public actor AudioCaptureService: AudioCapturing {
         inputDeviceUID: String?,
         maximumDurationReached: @escaping @Sendable () async -> Void
     ) async throws -> AudioInputSelection {
+        logger.info(.audioCaptureStartEntered)
+        let captureStartInterval = signposter.begin(.audioCaptureStartEntered)
+        defer { signposter.end(.audioCaptureStarted, captureStartInterval) }
         guard engine == nil else { throw AudioCaptureError.alreadyRecording }
         guard await Self.requestMicrophonePermission() else {
             throw AudioCaptureError.microphonePermissionDenied
@@ -108,13 +180,15 @@ public actor AudioCaptureService: AudioCapturing {
             sampleRate: tapFormat.sampleRate,
             maximumDuration: Self.maximumDuration
         )
+        let sampleProcessor = AudioTapSampleProcessor(
+            initialFrameCapacity: Int(Self.tapBufferSize)
+        )
         inputNode.installTap(
             onBus: 0,
             bufferSize: Self.tapBufferSize,
             format: tapFormat
         ) { buffer, _ in
-            let monoSamples = Self.monoSamples(from: buffer)
-            if newAccumulator.append(monoSamples) {
+            if sampleProcessor.append(buffer, to: newAccumulator) {
                 Task {
                     await maximumDurationReached()
                 }
@@ -138,6 +212,9 @@ public actor AudioCaptureService: AudioCapturing {
     }
 
     public func stop() async throws -> CapturedAudio {
+        logger.info(.audioCaptureStopEntered)
+        let captureStopInterval = signposter.begin(.audioCaptureStopEntered)
+        defer { signposter.end(.audioCaptureStopped, captureStopInterval) }
         guard let activeEngine = engine, let activeAccumulator = accumulator else {
             throw AudioCaptureError.notRecording
         }
@@ -164,9 +241,11 @@ public actor AudioCaptureService: AudioCapturing {
             1,
             Int(boundedSampleCount.rounded(.down))
         )
+        logger.info(.audioSnapshotLockEntered)
         let samples = activeAccumulator.trailingSnapshot(
             maximumSampleCount: maximumSampleCount
         )
+        logger.info(.audioSnapshotCopyCompleted)
         guard !samples.isEmpty else { return nil }
         return CapturedAudio(samples: samples, sampleRate: activeAccumulator.sampleRate)
     }
@@ -195,27 +274,6 @@ public actor AudioCaptureService: AudioCapturing {
         @unknown default:
             false
         }
-    }
-
-    private static func monoSamples(from buffer: AVAudioPCMBuffer) -> [Float] {
-        guard let channels = buffer.floatChannelData else { return [] }
-        let frameCount = Int(buffer.frameLength)
-        let channelCount = Int(buffer.format.channelCount)
-        guard frameCount > 0, channelCount > 0 else { return [] }
-
-        if channelCount == 1 {
-            return Array(UnsafeBufferPointer(start: channels[0], count: frameCount))
-        }
-
-        var mono = [Float](repeating: 0, count: frameCount)
-        let scale = 1 / Float(channelCount)
-        for channel in 0..<channelCount {
-            let input = channels[channel]
-            for frame in 0..<frameCount {
-                mono[frame] += input[frame] * scale
-            }
-        }
-        return mono
     }
 
     private static func selectInputDevice(

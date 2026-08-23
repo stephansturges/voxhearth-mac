@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "03a14dcef1a0752e2a7cb2c214b38b4b4c152ecd",
+  "digests": {
+    "compactManifest": "e2fd13844503f8d73a5faf64136c9110eec9e06e560a3a27c4b967339a889607",
+    "evaluatorLock": "873dfe44838d38b49f7064ef89a577e1c6d73400569baeda7eed76f723a5de28",
+    "fixtureManifest": "cad221a5d56555ae0a2a923d1df0ed38120244c9764e32c4a87ee4aa6bcf0fe5",
+    "multilingualManifest": "25181f6e38da6262f3d3598061e0932558f2990e323407f038e1d93ed6307f51"
+  },
+  "weightedScoreMs": null,
+  "components": {},
+  "resources": {"cpuSeconds": 1.923574, "peakResidentBytes": 105971712},
+  "transcriptDigests": {
+    "scored-01:parakeet-tdt-0.6b-v3-coreml:en": "599137a5ef2a969a46a29f22a62182a27a4d86033ef3392311217160c0a4eecf",
+    "scored-02:parakeet-tdt-ctc-110m-coreml:en": "b78d6bb4039e7434ba8b2fc23de129a8c3c424ec65c8d386fd31a11ac66c5417"
+  },
+  "coldSamples": [
+    {"classification": "cold-launch", "visibleTextDispatchMs": 90.568917},
+    {"classification": "cold-model-switch", "visibleTextDispatchMs": 53.992292},
+    {"classification": "cold-launch", "visibleTextDispatchMs": 90.959166},
+    {"classification": "cold-model-switch", "visibleTextDispatchMs": 52.586417},
+    {"classification": "cold-launch", "visibleTextDispatchMs": 89.728375},
+    {"classification": "cold-model-switch", "visibleTextDispatchMs": 58.514875}
+  ]
+}

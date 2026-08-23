@@ -44,6 +44,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var launchAtLogin: Bool
     public var liveTranscriptOverlayEnabled: Bool
     public var clipboardCompatibilityEnabled: Bool
+    public var cleanup: CleanupSettings
 
     public init(
         hotkey: HotkeyConfiguration = .controlOptionSpace,
@@ -53,7 +54,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         language: DictationLanguage = .english,
         launchAtLogin: Bool = false,
         liveTranscriptOverlayEnabled: Bool = false,
-        clipboardCompatibilityEnabled: Bool = false
+        clipboardCompatibilityEnabled: Bool = false,
+        cleanup: CleanupSettings = CleanupSettings()
     ) {
         self.hotkey = hotkey
         self.pointerButton = pointerButton
@@ -63,6 +65,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.launchAtLogin = launchAtLogin
         self.liveTranscriptOverlayEnabled = liveTranscriptOverlayEnabled
         self.clipboardCompatibilityEnabled = clipboardCompatibilityEnabled
+        self.cleanup = cleanup
     }
 
     public static let `default` = AppSettings()
@@ -76,6 +79,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         case launchAtLogin
         case liveTranscriptOverlayEnabled
         case clipboardCompatibilityEnabled
+        case cleanup
     }
 
     /// Keeps settings written by the first preview compatible: the model field
@@ -102,7 +106,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
             clipboardCompatibilityEnabled: try values.decodeIfPresent(
                 Bool.self,
                 forKey: .clipboardCompatibilityEnabled
-            ) ?? false
+            ) ?? false,
+            cleanup: try values.decodeIfPresent(CleanupSettings.self, forKey: .cleanup)
+                ?? CleanupSettings()
         )
     }
 

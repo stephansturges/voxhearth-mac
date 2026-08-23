@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "hashAlgorithm": "sha256-tree-v1",
+  "fileCount": 82,
+  "treeSha256": "bfad23529ca47fc957d0c1323e45a56edb95da1d18e6ab0f3b64129758d8d5ff",
+  "roots": [
+    "Package.swift",
+    "Models/parakeet-tdt-0.6b-v3-coreml.json",
+    "Models/parakeet-tdt-ctc-110m-coreml.json",
+    "Research/latency/fixtures.manifest.json",
+    "Research/latency/fixtures",
+    "Research/latency/model-capabilities.json",
+    "Sources/VoxHearthCore",
+    "Tests/VoxHearthLatencyEval",
+    "Vendor/FluidAudioLocal/Sources/FluidAudioLocal",
+    "scripts/capture-diagnostics.sh",
+    "scripts/soak-eval.sh",
+    "scripts/verify-model.py"
+  ]
+}

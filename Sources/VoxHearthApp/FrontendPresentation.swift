@@ -1,10 +1,13 @@
 import AppKit
 import SwiftUI
+import VoxHearthCore
 
 enum SessionPresentationState: Equatable, Sendable {
     case idle
     case listening
-    case transcribing
+    case finalizing
+    case cleaning(CleanupFormat)
+    case inserting
     case error(String)
 
     var title: String {
@@ -13,8 +16,12 @@ enum SessionPresentationState: Equatable, Sendable {
             "Ready"
         case .listening:
             "Listening"
-        case .transcribing:
+        case .finalizing:
             "Transcribing on this Mac"
+        case .cleaning:
+            "Cleaning up on this Mac"
+        case .inserting:
+            "Inserting text"
         case .error:
             "Dictation unavailable"
         }
@@ -26,8 +33,12 @@ enum SessionPresentationState: Equatable, Sendable {
             "Hold ⌃⌥Space to dictate anywhere."
         case .listening:
             "Release the shortcut or choose Stop & Transcribe."
-        case .transcribing:
+        case .finalizing:
             "Audio is being processed by the bundled local model."
+        case let .cleaning(format):
+            CleanupProgressPresentation.cleaningDetail(for: format)
+        case .inserting:
+            "The selected text is being placed in the focused field."
         case let .error(message):
             message
         }
@@ -39,7 +50,7 @@ enum SessionPresentationState: Equatable, Sendable {
             "waveform"
         case .listening:
             "waveform.circle.fill"
-        case .transcribing:
+        case .finalizing, .cleaning, .inserting:
             "ellipsis.circle.fill"
         case .error:
             "exclamationmark.triangle.fill"
@@ -52,7 +63,7 @@ enum SessionPresentationState: Equatable, Sendable {
             .voxWarmWhite
         case .listening:
             .voxHearthAmber
-        case .transcribing:
+        case .finalizing, .cleaning, .inserting:
             .voxHearthAmber
         case .error:
             .red
@@ -60,18 +71,184 @@ enum SessionPresentationState: Equatable, Sendable {
     }
 
     var isBusy: Bool {
-        if case .transcribing = self { return true }
-        return false
+        switch self {
+        case .finalizing, .cleaning, .inserting: true
+        case .idle, .listening, .error: false
+        }
     }
 
     var primaryActionTitle: String {
         switch self {
         case .listening:
             "Stop & Transcribe"
-        case .transcribing:
-            "Transcribing…"
+        case .finalizing:
+            "Finishing transcription…"
+        case .cleaning:
+            "Cleaning up…"
+        case .inserting:
+            "Inserting…"
         case .idle, .error:
             "Start Dictation"
+        }
+    }
+
+    var canCancelCurrentSession: Bool {
+        switch self {
+        case .listening, .cleaning:
+            true
+        case .idle, .finalizing, .inserting, .error:
+            false
+        }
+    }
+}
+
+enum CleanupProgressPresentation {
+    static func cleaningDetail(for format: CleanupFormat) -> String {
+        switch format {
+        case .proseGeneral:
+            "Cleaning up with S1-mini by Superwhisper…"
+        case .listGeneral:
+            "Formatting list with S1-mini by Superwhisper…"
+        case .proseEmail:
+            "Formatting email with S1-mini by Superwhisper…"
+        }
+    }
+
+    static func fallbackDetail(
+        format: CleanupFormat,
+        reason: CleanupFallbackReason
+    ) -> String {
+        if reason == .inputTooLong, format == .proseGeneral {
+            return "Too long to clean up — using original transcript"
+        }
+        if reason == .inputTooLong, format != .proseGeneral {
+            return "Too long to format — inserted without the command"
+        }
+        switch format {
+        case .proseGeneral:
+            return "Cleanup skipped — using original transcript"
+        case .listGeneral:
+            return "Formatting skipped — inserted without the “list” command"
+        case .proseEmail:
+            return "Formatting skipped — inserted without the “email” command"
+        }
+    }
+}
+
+enum CleanupSettingsPresentation {
+    static let lengthDisclosure = "Cleanup and list or email formatting apply to shorter dictations. Longer or unusually long single-sentence dictations are inserted unchanged."
+
+    static var modelPayloadSize: String {
+        let bytes = Int64(S1MiniModelAsset.byteCount)
+        let decimal = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        let mebibytes = Double(bytes) / 1_048_576
+        return "\(decimal) (\(String(format: "%.0f", mebibytes)) MiB)"
+    }
+
+    static func ineffectiveReason(_ reason: CleanupIneffectiveReason?) -> String? {
+        switch reason {
+        case .disabled?:
+            "Cleanup is turned off."
+        case .disclosureRequired?:
+            "Cleanup is off until the new model disclosure is completed."
+        case .unsupportedLanguage?:
+            "Cleanup currently runs only for English dictation."
+        case .modelUnavailable?:
+            "The bundled S1-mini model is unavailable, so VoxHearth will use the original transcript."
+        case nil:
+            nil
+        }
+    }
+}
+
+enum PrivacySettingsPresentation {
+    static let localPreferences = "Shortcut, selected microphone identifier, selected speech model, language, launch-at-login choice, live-preview choice, clipboard-fallback choice, cleanup choice/style, list/email prefix choices, and onboarding/disclosure completion."
+}
+
+struct ThirdPartyLicensePresentation: Equatable {
+    let name: String
+    let terms: String
+    let note: String
+
+    static let cleanupDependencies = [
+        ThirdPartyLicensePresentation(
+            name: "S1-mini by Superwhisper",
+            terms: "Apache-2.0 AND LicenseRef-S1-mini-Naming-Clause",
+            note: "The transcript-cleanup model is identified and redistributed under its complete upstream terms."
+        ),
+        ThirdPartyLicensePresentation(
+            name: "Qwen3-0.6B",
+            terms: "Apache License 2.0",
+            note: "S1-mini is based on Qwen3-0.6B; the base-model attribution and license ship with every release."
+        ),
+        ThirdPartyLicensePresentation(
+            name: "llama.cpp",
+            terms: "MIT License",
+            note: "Provides the statically linked local CPU and Metal cleanup runtime."
+        ),
+    ]
+}
+
+enum RecoveryActionPresentation {
+    static let busyHint = "Available after the current dictation finishes"
+
+    static func insertionIsEnabled(for state: DictationSessionState) -> Bool {
+        !state.isBusy
+    }
+}
+
+struct PendingInsertionPresentation: Identifiable, Equatable, Sendable {
+    let id: DictationSessionID
+    let position: Int
+    let total: Int
+    let reason: PendingInsertionReason
+
+    var title: String {
+        total == 1 ? "Previous dictation" : "Previous dictation \(position) of \(total)"
+    }
+
+    var detail: String {
+        switch reason {
+        case .insertionFailed:
+            "The destination refused the text. Choose a text field, then retry, copy, or discard it. Available for 2 minutes."
+        case .insertionUncertain:
+            "VoxHearth could not confirm whether the destination received the text. Check it before retrying to avoid a duplicate. Available for 2 minutes."
+        case .multilineClipboardDisabled:
+            "The formatted text needs multiline paste, but clipboard compatibility is off. Copy it, insert it once with confirmation, or discard it. Available for 2 minutes."
+        case .blockedTerminal:
+            "This terminal may run pasted lines as commands. Copy the formatted text, insert it once with confirmation, or discard it. Available for 2 minutes."
+        }
+    }
+
+    var allowsRetry: Bool {
+        reason == .insertionFailed || reason == .insertionUncertain
+    }
+
+    var retryNeedsConfirmation: Bool { reason == .insertionUncertain }
+
+    var allowsInsertAnyway: Bool {
+        reason == .multilineClipboardDisabled || reason == .blockedTerminal
+    }
+
+    var insertAnywayWarning: String {
+        switch reason {
+        case .blockedTerminal:
+            "This destination may run pasted lines as commands. Insert anyway? VoxHearth will remove trailing line breaks, but the destination may still execute earlier lines."
+        case .multilineClipboardDisabled:
+            "Insert this formatted text once using a temporary clipboard paste? Your clipboard-compatibility setting will remain off."
+        case .insertionFailed, .insertionUncertain:
+            ""
+        }
+    }
+}
+
+extension CleanupStyling {
+    var displayName: String {
+        switch self {
+        case .casual: "Casual"
+        case .semiCasual: "Semi-casual"
+        case .semiFormal: "Semi-formal"
+        case .formal: "Formal"
         }
     }
 }
@@ -179,6 +356,7 @@ enum AccessibilityRecoveryGuidance {
 enum OnboardingLaunchReason: Equatable {
     case firstInstall
     case updatedBuild
+    case cleanupDisclosureRequired
     case manualReview
 }
 
@@ -186,10 +364,14 @@ enum LaunchPresentationPolicy {
     static func reason(
         previouslyCompleted: Bool,
         completedBuildIdentity: String?,
-        currentBuildIdentity: String
+        currentBuildIdentity: String,
+        cleanupDisclosureVersion: Int = CleanupDisclosure.requiredVersion
     ) -> OnboardingLaunchReason? {
         guard previouslyCompleted else { return .firstInstall }
         guard completedBuildIdentity == currentBuildIdentity else { return .updatedBuild }
+        guard cleanupDisclosureVersion >= CleanupDisclosure.requiredVersion else {
+            return .cleanupDisclosureRequired
+        }
         return nil
     }
 }
@@ -216,12 +398,14 @@ enum AppInstancePolicy {
 
 enum OnboardingStep: Int, CaseIterable {
     case privacy
+    case cleanup
     case permissions
     case tryIt
 
     var title: String {
         switch self {
         case .privacy: "Private by construction"
+        case .cleanup: "Optional transcript cleanup"
         case .permissions: "Two permissions, clearly explained"
         case .tryIt: "Try local dictation"
         }

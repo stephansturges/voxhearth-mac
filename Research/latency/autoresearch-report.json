@@ -1,0 +1,238 @@
+{
+  "events": [
+    {
+      "kind": "research.evaluator_frozen",
+      "payload": {
+        "identity": "ff2457dae76e9156f28cefa2a04e34e93e255b5ce6f055a4d0c5b0c865cb148f",
+        "session_id": "voxhearth-ux-latency-20260818"
+      },
+      "run_id": "run_20260818T144135",
+      "seq": 183,
+      "ts": "2026-08-18T14:52:38.105451Z"
+    },
+    {
+      "kind": "research.generation",
+      "payload": {
+        "accepted": [],
+        "decision_id": "decision_88e9ba9be5cbb018@1",
+        "effective_baseline": {
+          "mean": 48.088961579999996,
+          "sigma": 0.26096576999999144
+        },
+        "evaluation_repeats": 1,
+        "generation": 0,
+        "rejected": [
+          "preprocessor-cpu-ne",
+          "preprocessor-all",
+          "preprocessor-cpu-gpu"
+        ],
+        "scores": [
+          {
+            "branch": "graphloop/run_20260818T144135/preprocessor-cpu-gpu",
+            "candidate_id": "preprocessor-cpu-gpu",
+            "mean": 51.88411344,
+            "measurements": [
+              51.88411344
+            ],
+            "sigma": 0.0
+          },
+          {
+            "branch": "graphloop/run_20260818T144135/preprocessor-cpu-ne",
+            "candidate_id": "preprocessor-cpu-ne",
+            "mean": 50.43777808,
+            "measurements": [
+              50.43777808
+            ],
+            "sigma": 0.0
+          },
+          {
+            "branch": "graphloop/run_20260818T144135/preprocessor-all",
+            "candidate_id": "preprocessor-all",
+            "mean": 51.47749461000001,
+            "measurements": [
+              51.47749461000001
+            ],
+            "sigma": 0.0
+          }
+        ],
+        "session_id": "voxhearth-ux-latency-20260818",
+        "stop_reason": "no_noise_significant_improvement"
+      },
+      "run_id": "run_20260818T144135",
+      "seq": 189,
+      "ts": "2026-08-18T14:52:51.798578Z"
+    }
+  ],
+  "nodes": [
+    {
+      "attrs": {
+        "candidate_branch": "graphloop/run_20260818T144135/preprocessor-cpu-gpu",
+        "direction": "minimize",
+        "evaluator_identity": "ff2457dae76e9156f28cefa2a04e34e93e255b5ce6f055a4d0c5b0c865cb148f",
+        "failure_reason": "weighted improvement -3.795 ms is below required 4.809 ms",
+        "measurements": [
+          51.88411344
+        ],
+        "name": "weighted_p95_ms",
+        "promotion_gate": false,
+        "session_id": "voxhearth-ux-latency-20260818",
+        "sigma": 0.0,
+        "source_commit": "20c381ed4469118ffee66c3d0c67adf2e3dd4552",
+        "value": 51.88411344
+      },
+      "attrs_digest": "92b16523f95cc571d6ab8af373c54dbfa0e1957ee048c8a82bd361a4f1b04120",
+      "created_at": "2026-08-18T14:52:33.177656Z",
+      "created_by_run": "run_20260818T144135",
+      "id": "metric_c3da592068c53c34@1",
+      "kind": "Metric",
+      "state": "current",
+      "uid": "metric_c3da592068c53c34",
+      "version": 1
+    },
+    {
+      "attrs": {
+        "candidate_branch": "graphloop/run_20260818T144135/preprocessor-cpu-ne",
+        "direction": "minimize",
+        "evaluator_identity": "ff2457dae76e9156f28cefa2a04e34e93e255b5ce6f055a4d0c5b0c865cb148f",
+        "failure_reason": "weighted improvement -2.349 ms is below required 4.809 ms",
+        "measurements": [
+          50.43777808
+        ],
+        "name": "weighted_p95_ms",
+        "promotion_gate": false,
+        "session_id": "voxhearth-ux-latency-20260818",
+        "sigma": 0.0,
+        "source_commit": "af7e07e24e1d24e69c5e8dafdf5d1ca6442ab74a",
+        "value": 50.43777808
+      },
+      "attrs_digest": "bf6e04f5e0678c1aa09c6fafe4f70f18848daea5ae41a4a57dbcee7e832f1feb",
+      "created_at": "2026-08-18T14:52:33.228068Z",
+      "created_by_run": "run_20260818T144135",
+      "id": "metric_f9cb787d5c5b5676@1",
+      "kind": "Metric",
+      "state": "current",
+      "uid": "metric_f9cb787d5c5b5676",
+      "version": 1
+    },
+    {
+      "attrs": {
+        "candidate_branch": "graphloop/run_20260818T144135/preprocessor-all",
+        "direction": "minimize",
+        "evaluator_identity": "ff2457dae76e9156f28cefa2a04e34e93e255b5ce6f055a4d0c5b0c865cb148f",
+        "failure_reason": "weighted improvement -3.389 ms is below required 4.809 ms",
+        "measurements": [
+          51.47749461000001
+        ],
+        "name": "weighted_p95_ms",
+        "promotion_gate": false,
+        "session_id": "voxhearth-ux-latency-20260818",
+        "sigma": 0.0,
+        "source_commit": "ec2b19306d7978ae8c64a4869cebf6f4deb0f7a7",
+        "value": 51.47749461000001
+      },
+      "attrs_digest": "5e6f5c9d03d7e9844475c55f9c72aa30dbd166af9c1505dfac3a05bc21e30eb8",
+      "created_at": "2026-08-18T14:52:33.279712Z",
+      "created_by_run": "run_20260818T144135",
+      "id": "metric_e62e5995db676fd2@1",
+      "kind": "Metric",
+      "state": "current",
+      "uid": "metric_e62e5995db676fd2",
+      "version": 1
+    },
+    {
+      "attrs": {
+        "candidate_branch": "graphloop/run_20260818T144135/preprocessor-cpu-gpu",
+        "decision": "reject",
+        "evaluator_kind": "deterministic",
+        "metrics": {
+          "mean": 51.88411344,
+          "sigma": 0.0
+        },
+        "rationale": "did not enter the bounded noise-aware beam",
+        "required_evidence": [],
+        "rubric_uid": "rubric_346760444ba1d152",
+        "rubric_version": 1,
+        "session_id": "voxhearth-ux-latency-20260818"
+      },
+      "attrs_digest": "6cdb5289c38bc0ead948fda8d3f056ae93a8e6ece761af45588ec7cf79064160",
+      "created_at": "2026-08-18T14:52:51.796984Z",
+      "created_by_run": "run_20260818T144135",
+      "id": "evaluation_b958c29163f043d0@1",
+      "kind": "Evaluation",
+      "state": "current",
+      "uid": "evaluation_b958c29163f043d0",
+      "version": 1
+    },
+    {
+      "attrs": {
+        "candidate_branch": "graphloop/run_20260818T144135/preprocessor-cpu-ne",
+        "decision": "reject",
+        "evaluator_kind": "deterministic",
+        "metrics": {
+          "mean": 50.43777808,
+          "sigma": 0.0
+        },
+        "rationale": "did not enter the bounded noise-aware beam",
+        "required_evidence": [],
+        "rubric_uid": "rubric_346760444ba1d152",
+        "rubric_version": 1,
+        "session_id": "voxhearth-ux-latency-20260818"
+      },
+      "attrs_digest": "1cbe47915b0915d931bb12e61779f21ad76fc46aff94b6c9168e4b329e205ce5",
+      "created_at": "2026-08-18T14:52:51.797891Z",
+      "created_by_run": "run_20260818T144135",
+      "id": "evaluation_540773e4bfd0539e@1",
+      "kind": "Evaluation",
+      "state": "current",
+      "uid": "evaluation_540773e4bfd0539e",
+      "version": 1
+    },
+    {
+      "attrs": {
+        "candidate_branch": "graphloop/run_20260818T144135/preprocessor-all",
+        "decision": "reject",
+        "evaluator_kind": "deterministic",
+        "metrics": {
+          "mean": 51.47749461000001,
+          "sigma": 0.0
+        },
+        "rationale": "did not enter the bounded noise-aware beam",
+        "required_evidence": [],
+        "rubric_uid": "rubric_346760444ba1d152",
+        "rubric_version": 1,
+        "session_id": "voxhearth-ux-latency-20260818"
+      },
+      "attrs_digest": "ae998421647772825bf87ea2c11822446c4a35e4d75f0d803af102c7317729fd",
+      "created_at": "2026-08-18T14:52:51.798144Z",
+      "created_by_run": "run_20260818T144135",
+      "id": "evaluation_46e7b8aa85948ff0@1",
+      "kind": "Evaluation",
+      "state": "current",
+      "uid": "evaluation_46e7b8aa85948ff0",
+      "version": 1
+    },
+    {
+      "attrs": {
+        "accepted": [],
+        "evaluator_identity": "ff2457dae76e9156f28cefa2a04e34e93e255b5ce6f055a4d0c5b0c865cb148f",
+        "generation": 0,
+        "rejected": [
+          "preprocessor-cpu-ne",
+          "preprocessor-all",
+          "preprocessor-cpu-gpu"
+        ],
+        "session_id": "voxhearth-ux-latency-20260818",
+        "statement": "Select the bounded noise-aware beam for this generation."
+      },
+      "attrs_digest": "b6ae0803a03e56d793ff11ad09f76d8053e6475f43a9b0401483971a5d65cbe5",
+      "created_at": "2026-08-18T14:52:51.798332Z",
+      "created_by_run": "run_20260818T144135",
+      "id": "decision_88e9ba9be5cbb018@1",
+      "kind": "Decision",
+      "state": "current",
+      "uid": "decision_88e9ba9be5cbb018",
+      "version": 1
+    }
+  ],
+  "session_id": "voxhearth-ux-latency-20260818"
+}

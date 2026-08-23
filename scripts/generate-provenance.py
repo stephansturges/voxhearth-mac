@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 
 
@@ -55,6 +56,11 @@ def main() -> int:
     compact_model_manifest = json.loads(
         compact_model_manifest_path.read_text(encoding="utf-8")
     )
+    s1_manifest_path = repo_root / "Models" / "s1-mini-gguf.json"
+    s1_manifest = json.loads(s1_manifest_path.read_text(encoding="utf-8"))
+    metallib_manifest_path = repo_root / "Vendor" / "LlamaLocal" / "METALLIB.json"
+    metallib_manifest = json.loads(metallib_manifest_path.read_text(encoding="utf-8"))
+    subprocess.run([str(repo_root / "scripts" / "check-attribution.py")], check=True)
     subjects = []
     for artifact in args.artifact:
         if not artifact.is_file():
@@ -113,6 +119,63 @@ def main() -> int:
                 "digest": {"sha256": sha256(compact_model_manifest_path)},
                 "manifest": "Models/parakeet-tdt-ctc-110m-coreml.json",
             },
+            {
+                "name": "S1-mini by Superwhisper GGUF",
+                "uri": (
+                    "https://huggingface.co/superwhisper/s1-mini-GGUF/tree/"
+                    + s1_manifest["revision"]
+                ),
+                "digest": {"sha256": sha256(s1_manifest_path)},
+                "payloadDigest": {
+                    "sha256": "3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634"
+                },
+                "manifest": "Models/s1-mini-gguf.json",
+            },
+            {
+                "name": "S1-mini by Superwhisper model card",
+                "uri": (
+                    "https://huggingface.co/superwhisper/s1-mini/tree/"
+                    "65f84bcda1d13df582c4a8443c1c5aa53c0c66db"
+                ),
+                "digest": {
+                    "sha256": "b22a4ce83218b21af2e71c7e0d28b686239a0028299cdbc87e4238b2568cfd97"
+                },
+            },
+            {
+                "name": "S1-mini by Superwhisper license",
+                "uri": "LICENSES/S1-mini-LICENSE.txt",
+                "digest": {
+                    "sha256": "d956d2d305a0639211c9cbde71501accb0e1474cc9ddf79a47820a522aff6f98"
+                },
+                "licenseExpression": "Apache-2.0 AND LicenseRef-S1-mini-Naming-Clause",
+            },
+            {
+                "name": "Qwen3-0.6B base model",
+                "uri": (
+                    "https://huggingface.co/Qwen/Qwen3-0.6B/tree/"
+                    "c1899de289a04d12100db370d81485cdf75e47ca"
+                ),
+                "digest": {"sha1": "c1899de289a04d12100db370d81485cdf75e47ca"},
+                "license": "Apache-2.0",
+            },
+            {
+                "name": "llama.cpp local runtime",
+                "uri": (
+                    "git+https://github.com/ggml-org/llama.cpp.git@"
+                    "9ee9fc04c136ef2ae729bfc60d18961b23c13ddf"
+                ),
+                "digest": {"sha1": "9ee9fc04c136ef2ae729bfc60d18961b23c13ddf"},
+                "localPath": "Vendor/LlamaLocal",
+                "manifest": "Vendor/LlamaLocal/FILES.json",
+                "adaptedSubset": True,
+            },
+            {
+                "name": "llama.cpp sealed Metal library",
+                "uri": "Vendor/LlamaLocal/METALLIB.json",
+                "digest": {"sha256": metallib_manifest["artifactSHA256"]},
+                "sourceDigest": {"sha256": metallib_manifest["sourceSHA256"]},
+                "bytes": metallib_manifest["artifactBytes"],
+            },
         ],
         "releaseContract": {
             "runtimeNetwork": "forbidden",
@@ -132,6 +195,14 @@ def main() -> int:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    subprocess.run(
+        [
+            str(repo_root / "scripts" / "check-attribution.py"),
+            "--provenance",
+            str(args.output),
+        ],
+        check=True,
+    )
     print(f"release metadata written: {args.output}")
     return 0
 

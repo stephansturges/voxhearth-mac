@@ -41,15 +41,25 @@ public enum DictationSessionState: Equatable, Sendable {
     case preparing
     case recording
     case transcribing
+    case cleaning(CleanupFormat)
     case inserting
     case failed(DictationFailure)
 
     public var isBusy: Bool {
         switch self {
-        case .preparing, .recording, .transcribing, .inserting: true
+        case .preparing, .recording, .transcribing, .cleaning, .inserting: true
         case .idle, .failed: false
         }
     }
+}
+
+/// Content-free progress for passive UI surfaces. Transcript text continues to
+/// travel only through the existing typed final/insertable callback boundary.
+public enum DictationProgress: Equatable, Sendable {
+    case finalizing
+    case cleaning(CleanupFormat)
+    case fallingBack(CleanupFormat, CleanupFallbackReason)
+    case formattedTextReady(PendingInsertionReason)
 }
 
 public enum DictationFailure: String, Error, Equatable, Sendable {
@@ -61,6 +71,8 @@ public enum DictationFailure: String, Error, Equatable, Sendable {
     case transcriptionFailed
     case accessibilityPermissionRequired
     case insertionFailed
+    case insertionUncertain
+    case recoveryRequired
 }
 
 extension DictationFailure: LocalizedError {
@@ -82,6 +94,10 @@ extension DictationFailure: LocalizedError {
             "Accessibility access is required to type into other apps."
         case .insertionFailed:
             "VoxHearth could not type the transcript into the active app."
+        case .insertionUncertain:
+            "VoxHearth could not confirm the transcript reached the app. Retry or discard it."
+        case .recoveryRequired:
+            "Resolve an earlier transcript before starting another dictation."
         }
     }
 }
@@ -135,4 +151,7 @@ public enum TextInsertionError: Error, Equatable, Sendable {
     case clipboardWriteFailed
     case pasteEventCreationFailed
     case insertionFailed
+    case insertionUncertain
+    case multilineClipboardFallbackDisabled
+    case blockedMultilineDestination
 }

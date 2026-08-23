@@ -1,0 +1,828 @@
+{
+  "coldSamples": [],
+  "components": {},
+  "counts": [
+    {
+      "captureCancel": 0,
+      "captureSnapshot": 0,
+      "captureStart": 10,
+      "captureStop": 10,
+      "enginePrepare": 11,
+      "engineTranscribe": 10,
+      "insert": 10
+    },
+    {
+      "captureCancel": 0,
+      "captureSnapshot": 0,
+      "captureStart": 10,
+      "captureStop": 10,
+      "enginePrepare": 11,
+      "engineTranscribe": 10,
+      "insert": 10
+    },
+    {
+      "captureCancel": 0,
+      "captureSnapshot": 0,
+      "captureStart": 10,
+      "captureStop": 10,
+      "enginePrepare": 11,
+      "engineTranscribe": 10,
+      "insert": 10
+    }
+  ],
+  "digests": {
+    "compactManifest": "e2fd13844503f8d73a5faf64136c9110eec9e06e560a3a27c4b967339a889607",
+    "evaluatorLock": "873dfe44838d38b49f7064ef89a577e1c6d73400569baeda7eed76f723a5de28",
+    "fixtureManifest": "cad221a5d56555ae0a2a923d1df0ed38120244c9764e32c4a87ee4aa6bcf0fe5",
+    "multilingualManifest": "25181f6e38da6262f3d3598061e0932558f2990e323407f038e1d93ed6307f51"
+  },
+  "dirty": false,
+  "environment": [
+    {
+      "architecture": "arm64",
+      "lowPowerMode": "false",
+      "operatingSystem": "Version 26.4 (Build 25E246)",
+      "thermalState": "NSProcessInfoThermalState(rawValue: 0)"
+    },
+    {
+      "architecture": "arm64",
+      "lowPowerMode": "false",
+      "operatingSystem": "Version 26.4 (Build 25E246)",
+      "thermalState": "NSProcessInfoThermalState(rawValue: 0)"
+    },
+    {
+      "architecture": "arm64",
+      "lowPowerMode": "false",
+      "operatingSystem": "Version 26.4 (Build 25E246)",
+      "thermalState": "NSProcessInfoThermalState(rawValue: 0)"
+    }
+  ],
+  "gitCommit": "e102c5dfb13ff93f9a798699a24575a923b98528",
+  "modelCapabilities": {
+    "models": {
+      "parakeet-tdt-0.6b-v3-coreml": {
+        "preprocessor": {
+          "audioInputName": "audio_signal",
+          "audioInputShape": [
+            1,
+            240000
+          ],
+          "hasShapeFlexibility": false,
+          "milMainType": "tensor<fp32, [1, 240000]>"
+        },
+        "rightSizingVerdict": "unsupported-no-op"
+      },
+      "parakeet-tdt-ctc-110m-coreml": {
+        "preprocessor": {
+          "audioInputName": "audio_signal",
+          "audioInputShape": [
+            1,
+            240000
+          ],
+          "hasShapeFlexibility": false,
+          "milMainType": "tensor<fp32, [1, 240000]>"
+        },
+        "rightSizingVerdict": "unsupported-no-op"
+      }
+    },
+    "schemaVersion": 1,
+    "source": "Verified compiled model metadata.json and model.mil from the locked payloads"
+  },
+  "objective": {
+    "p95Method": "R-7 linear interpolation",
+    "scoredProfile": "P0",
+    "warmOnly": true,
+    "weights": {
+      "audioStopEntryMs": 0.2,
+      "captureStartCompletionMs": 0.1,
+      "cueDispatchMs": 0.1,
+      "visibleTextDispatchMs": 0.6
+    }
+  },
+  "profile": "P2",
+  "repeatCount": 3,
+  "resources": {
+    "cpuSeconds": 3.675725,
+    "peakResidentBytes": 76988416,
+    "processes": [
+      {
+        "cpuSeconds": 1.217727,
+        "peakResidentBytes": 76890112
+      },
+      {
+        "cpuSeconds": 1.2298170000000002,
+        "peakResidentBytes": 76988416
+      },
+      {
+        "cpuSeconds": 1.228181,
+        "peakResidentBytes": 76972032
+      }
+    ]
+  },
+  "samples": [
+    {
+      "audioStopEntryMs": 0.070792,
+      "captureStartCompletionMs": 0.071625,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.041041,
+      "fixtureID": "scored-01",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.037,
+        "insertEntryToExit": 0.013541,
+        "insertExitToIdle": 0.033459,
+        "stopEntryToExit": 0.001583,
+        "stopExitToTranscribeEntry": 0.038167,
+        "transcribeEntryToExit": 59.746208,
+        "transcribeExitToInsertEntry": 0.029792
+      },
+      "transcript": "VoxHarth keeps every spoken word private and local.",
+      "visibleTextDispatchMs": 59.886542
+    },
+    {
+      "audioStopEntryMs": 0.076167,
+      "captureStartCompletionMs": 0.042417,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.016084,
+      "fixtureID": "scored-02",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.012667,
+        "insertEntryToExit": 0.013042,
+        "insertExitToIdle": 0.014542,
+        "stopEntryToExit": 0.001958,
+        "stopExitToTranscribeEntry": 0.033084,
+        "transcribeEntryToExit": 55.421416,
+        "transcribeExitToInsertEntry": 0.0345
+      },
+      "transcript": "The quick brown fox records a concise note for tomorrow.",
+      "visibleTextDispatchMs": 55.567125
+    },
+    {
+      "audioStopEntryMs": 0.062083,
+      "captureStartCompletionMs": 0.042041,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.015458,
+      "fixtureID": "scored-03",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.011542,
+        "insertEntryToExit": 0.02025,
+        "insertExitToIdle": 0.027292,
+        "stopEntryToExit": 0.001958,
+        "stopExitToTranscribeEntry": 0.02375,
+        "transcribeEntryToExit": 55.425375,
+        "transcribeExitToInsertEntry": 0.032375
+      },
+      "transcript": "Please remember to review the project schedule after lunch.",
+      "visibleTextDispatchMs": 55.545541
+    },
+    {
+      "audioStopEntryMs": 0.070125,
+      "captureStartCompletionMs": 0.036083,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.013042,
+      "fixtureID": "scored-04",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.01425,
+        "insertEntryToExit": 0.015625,
+        "insertExitToIdle": 0.015458,
+        "stopEntryToExit": 0.001708,
+        "stopExitToTranscribeEntry": 0.023458,
+        "transcribeEntryToExit": 55.757834,
+        "transcribeExitToInsertEntry": 0.034708
+      },
+      "transcript": "A calm morning walk helps me organize the work ahead.",
+      "visibleTextDispatchMs": 55.887833
+    },
+    {
+      "audioStopEntryMs": 0.061542,
+      "captureStartCompletionMs": 0.040458,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.017167,
+      "fixtureID": "scored-05",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.010125,
+        "insertEntryToExit": 0.012667,
+        "insertExitToIdle": 0.014167,
+        "stopEntryToExit": 0.002041,
+        "stopExitToTranscribeEntry": 0.028875,
+        "transcribeEntryToExit": 56.61725,
+        "transcribeExitToInsertEntry": 0.022625
+      },
+      "transcript": "Local speech recognition protects the conversation from the network.",
+      "visibleTextDispatchMs": 56.732333
+    },
+    {
+      "audioStopEntryMs": 0.069917,
+      "captureStartCompletionMs": 0.037041,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.015333,
+      "fixtureID": "scored-06",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.011375,
+        "insertEntryToExit": 0.009875,
+        "insertExitToIdle": 0.025458,
+        "stopEntryToExit": 0.002333,
+        "stopExitToTranscribeEntry": 0.028125,
+        "transcribeEntryToExit": 57.443583,
+        "transcribeExitToInsertEntry": 0.028667
+      },
+      "transcript": "Add a reminder to send the finished design before Friday afternoon.",
+      "visibleTextDispatchMs": 57.572625
+    },
+    {
+      "audioStopEntryMs": 0.063417,
+      "captureStartCompletionMs": 0.034875,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.016333,
+      "fixtureID": "scored-07",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.009541,
+        "insertEntryToExit": 0.01025,
+        "insertExitToIdle": 0.011875,
+        "stopEntryToExit": 0.001875,
+        "stopExitToTranscribeEntry": 0.023125,
+        "transcribeEntryToExit": 56.869833,
+        "transcribeExitToInsertEntry": 0.026417
+      },
+      "transcript": "The meeting summary should include decisions, risks and next steps.",
+      "visibleTextDispatchMs": 56.984667
+    },
+    {
+      "audioStopEntryMs": 0.06425,
+      "captureStartCompletionMs": 0.046833,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.024583,
+      "fixtureID": "scored-08",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.016,
+        "insertEntryToExit": 0.008542,
+        "insertExitToIdle": 0.013166,
+        "stopEntryToExit": 0.001709,
+        "stopExitToTranscribeEntry": 0.03425,
+        "transcribeEntryToExit": 55.287958,
+        "transcribeExitToInsertEntry": 0.0295
+      },
+      "transcript": "Measure the whole path from pressing the key to visible text.",
+      "visibleTextDispatchMs": 55.417667
+    },
+    {
+      "audioStopEntryMs": 0.074375,
+      "captureStartCompletionMs": 0.045625,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.017042,
+      "fixtureID": "scored-09",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.009959,
+        "insertEntryToExit": 0.018833,
+        "insertExitToIdle": 0.015667,
+        "stopEntryToExit": 0.002,
+        "stopExitToTranscribeEntry": 0.035334,
+        "transcribeEntryToExit": 58.987583,
+        "transcribeExitToInsertEntry": 0.030667
+      },
+      "transcript": "Small improvements feel meaningful when dictation responds without hesitation.",
+      "visibleTextDispatchMs": 59.129959
+    },
+    {
+      "audioStopEntryMs": 0.060875,
+      "captureStartCompletionMs": 0.040916,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.015416,
+      "fixtureID": "scored-10",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 0,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.015292,
+        "insertEntryToExit": 0.011416,
+        "insertExitToIdle": 0.018667,
+        "stopEntryToExit": 0.002042,
+        "stopExitToTranscribeEntry": 0.027291,
+        "transcribeEntryToExit": 58.409167,
+        "transcribeExitToInsertEntry": 0.030292
+      },
+      "transcript": "The final transcript uses the complete recording in the selected local model.",
+      "visibleTextDispatchMs": 58.529667
+    },
+    {
+      "audioStopEntryMs": 0.056375,
+      "captureStartCompletionMs": 0.07375,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.041,
+      "fixtureID": "scored-01",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.032917,
+        "insertEntryToExit": 0.019125,
+        "insertExitToIdle": 0.042667,
+        "stopEntryToExit": 0.002666,
+        "stopExitToTranscribeEntry": 0.040375,
+        "transcribeEntryToExit": 63.08875,
+        "transcribeExitToInsertEntry": 0.02425
+      },
+      "transcript": "VoxHarth keeps every spoken word private and local.",
+      "visibleTextDispatchMs": 63.212416
+    },
+    {
+      "audioStopEntryMs": 0.072959,
+      "captureStartCompletionMs": 0.056375,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.018042,
+      "fixtureID": "scored-02",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.018625,
+        "insertEntryToExit": 0.011667,
+        "insertExitToIdle": 0.015958,
+        "stopEntryToExit": 0.002,
+        "stopExitToTranscribeEntry": 0.033708,
+        "transcribeEntryToExit": 56.817125,
+        "transcribeExitToInsertEntry": 0.026083
+      },
+      "transcript": "The quick brown fox records a concise note for tomorrow.",
+      "visibleTextDispatchMs": 56.951875
+    },
+    {
+      "audioStopEntryMs": 0.061625,
+      "captureStartCompletionMs": 0.035625,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.0165,
+      "fixtureID": "scored-03",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.015333,
+        "insertEntryToExit": 0.008625,
+        "insertExitToIdle": 0.011167,
+        "stopEntryToExit": 0.001875,
+        "stopExitToTranscribeEntry": 0.031916,
+        "transcribeEntryToExit": 55.423709,
+        "transcribeExitToInsertEntry": 0.021416
+      },
+      "transcript": "Please remember to review the project schedule after lunch.",
+      "visibleTextDispatchMs": 55.540541
+    },
+    {
+      "audioStopEntryMs": 0.051334,
+      "captureStartCompletionMs": 0.037167,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.013917,
+      "fixtureID": "scored-04",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.013542,
+        "insertEntryToExit": 0.007791,
+        "insertExitToIdle": 0.015375,
+        "stopEntryToExit": 0.000625,
+        "stopExitToTranscribeEntry": 0.03125,
+        "transcribeEntryToExit": 55.810625,
+        "transcribeExitToInsertEntry": 0.031375
+      },
+      "transcript": "A calm morning walk helps me organize the work ahead.",
+      "visibleTextDispatchMs": 55.925209
+    },
+    {
+      "audioStopEntryMs": 0.07175,
+      "captureStartCompletionMs": 0.038291,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.016583,
+      "fixtureID": "scored-05",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.010167,
+        "insertEntryToExit": 0.0085,
+        "insertExitToIdle": 0.018833,
+        "stopEntryToExit": 0.001875,
+        "stopExitToTranscribeEntry": 0.03225,
+        "transcribeEntryToExit": 57.585084,
+        "transcribeExitToInsertEntry": 0.032583
+      },
+      "transcript": "Local speech recognition protects the conversation from the network.",
+      "visibleTextDispatchMs": 57.723542
+    },
+    {
+      "audioStopEntryMs": 0.050583,
+      "captureStartCompletionMs": 0.048209,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.016834,
+      "fixtureID": "scored-06",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.011458,
+        "insertEntryToExit": 0.009166,
+        "insertExitToIdle": 0.021625,
+        "stopEntryToExit": 0.00075,
+        "stopExitToTranscribeEntry": 0.038084,
+        "transcribeEntryToExit": 56.216208,
+        "transcribeExitToInsertEntry": 0.033792
+      },
+      "transcript": "Add a reminder to send the finished design before Friday afternoon.",
+      "visibleTextDispatchMs": 56.339417
+    },
+    {
+      "audioStopEntryMs": 0.049209,
+      "captureStartCompletionMs": 0.045083,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.017667,
+      "fixtureID": "scored-07",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.014167,
+        "insertEntryToExit": 0.011291,
+        "insertExitToIdle": 0.01575,
+        "stopEntryToExit": 0.001833,
+        "stopExitToTranscribeEntry": 0.030875,
+        "transcribeEntryToExit": 55.887292,
+        "transcribeExitToInsertEntry": 0.021125
+      },
+      "transcript": "The meeting summary should include decisions, risks and next steps.",
+      "visibleTextDispatchMs": 55.990334
+    },
+    {
+      "audioStopEntryMs": 0.048792,
+      "captureStartCompletionMs": 0.05,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.027,
+      "fixtureID": "scored-08",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.011167,
+        "insertEntryToExit": 0.016209,
+        "insertExitToIdle": 0.013708,
+        "stopEntryToExit": 0.001833,
+        "stopExitToTranscribeEntry": 0.029917,
+        "transcribeEntryToExit": 55.704,
+        "transcribeExitToInsertEntry": 0.030041
+      },
+      "transcript": "Measure the whole path from pressing the key to visible text.",
+      "visibleTextDispatchMs": 55.814583
+    },
+    {
+      "audioStopEntryMs": 0.068167,
+      "captureStartCompletionMs": 0.034834,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.016125,
+      "fixtureID": "scored-09",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.017083,
+        "insertEntryToExit": 0.007042,
+        "insertExitToIdle": 0.010666,
+        "stopEntryToExit": 0.002125,
+        "stopExitToTranscribeEntry": 0.024875,
+        "transcribeEntryToExit": 59.62225,
+        "transcribeExitToInsertEntry": 0.02225
+      },
+      "transcript": "Small improvements feel meaningful when dictation responds without hesitation.",
+      "visibleTextDispatchMs": 59.739667
+    },
+    {
+      "audioStopEntryMs": 0.048375,
+      "captureStartCompletionMs": 0.036708,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.014167,
+      "fixtureID": "scored-10",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 1,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.010417,
+        "insertEntryToExit": 0.00875,
+        "insertExitToIdle": 0.015875,
+        "stopEntryToExit": 0.001958,
+        "stopExitToTranscribeEntry": 0.025209,
+        "transcribeEntryToExit": 57.863708,
+        "transcribeExitToInsertEntry": 0.029375
+      },
+      "transcript": "The final transcript uses the complete recording in the selected local model.",
+      "visibleTextDispatchMs": 57.968625
+    },
+    {
+      "audioStopEntryMs": 0.067292,
+      "captureStartCompletionMs": 0.08875,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.0425,
+      "fixtureID": "scored-01",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.0385,
+        "insertEntryToExit": 0.014167,
+        "insertExitToIdle": 0.031166,
+        "stopEntryToExit": 0.00225,
+        "stopExitToTranscribeEntry": 0.054208,
+        "transcribeEntryToExit": 63.292,
+        "transcribeExitToInsertEntry": 0.025167
+      },
+      "transcript": "VoxHarth keeps every spoken word private and local.",
+      "visibleTextDispatchMs": 63.440917
+    },
+    {
+      "audioStopEntryMs": 0.066959,
+      "captureStartCompletionMs": 0.043,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.016291,
+      "fixtureID": "scored-02",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.017083,
+        "insertEntryToExit": 0.013583,
+        "insertExitToIdle": 0.017417,
+        "stopEntryToExit": 0.00225,
+        "stopExitToTranscribeEntry": 0.036083,
+        "transcribeEntryToExit": 60.568667,
+        "transcribeExitToInsertEntry": 0.021625
+      },
+      "transcript": "The quick brown fox records a concise note for tomorrow.",
+      "visibleTextDispatchMs": 60.695584
+    },
+    {
+      "audioStopEntryMs": 0.051792,
+      "captureStartCompletionMs": 0.042,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.019459,
+      "fixtureID": "scored-03",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.014292,
+        "insertEntryToExit": 0.00725,
+        "insertExitToIdle": 0.018208,
+        "stopEntryToExit": 0.00225,
+        "stopExitToTranscribeEntry": 0.051667,
+        "transcribeEntryToExit": 55.6375,
+        "transcribeExitToInsertEntry": 0.028875
+      },
+      "transcript": "Please remember to review the project schedule after lunch.",
+      "visibleTextDispatchMs": 55.772084
+    },
+    {
+      "audioStopEntryMs": 0.1125,
+      "captureStartCompletionMs": 0.041666,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.016458,
+      "fixtureID": "scored-04",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.011084,
+        "insertEntryToExit": 0.01075,
+        "insertExitToIdle": 0.014125,
+        "stopEntryToExit": 0.000917,
+        "stopExitToTranscribeEntry": 0.032167,
+        "transcribeEntryToExit": 55.15475,
+        "transcribeExitToInsertEntry": 0.023958
+      },
+      "transcript": "A calm morning walk helps me organize the work ahead.",
+      "visibleTextDispatchMs": 55.324292
+    },
+    {
+      "audioStopEntryMs": 0.060167,
+      "captureStartCompletionMs": 0.049417,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.01925,
+      "fixtureID": "scored-05",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.030458,
+        "insertEntryToExit": 0.018375,
+        "insertExitToIdle": 0.014791,
+        "stopEntryToExit": 0.001708,
+        "stopExitToTranscribeEntry": 0.031167,
+        "transcribeEntryToExit": 56.396083,
+        "transcribeExitToInsertEntry": 0.070292
+      },
+      "transcript": "Local speech recognition protects the conversation from the network.",
+      "visibleTextDispatchMs": 56.559417
+    },
+    {
+      "audioStopEntryMs": 0.072459,
+      "captureStartCompletionMs": 0.039,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.015416,
+      "fixtureID": "scored-06",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.013333,
+        "insertEntryToExit": 0.01025,
+        "insertExitToIdle": 0.02325,
+        "stopEntryToExit": 0.001958,
+        "stopExitToTranscribeEntry": 0.031417,
+        "transcribeEntryToExit": 54.836833,
+        "transcribeExitToInsertEntry": 0.028583
+      },
+      "transcript": "Add a reminder to send the finished design before Friday afternoon.",
+      "visibleTextDispatchMs": 54.97125
+    },
+    {
+      "audioStopEntryMs": 0.068042,
+      "captureStartCompletionMs": 0.050541,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.015875,
+      "fixtureID": "scored-07",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.013875,
+        "insertEntryToExit": 0.013083,
+        "insertExitToIdle": 0.013167,
+        "stopEntryToExit": 0.002,
+        "stopExitToTranscribeEntry": 0.033541,
+        "transcribeEntryToExit": 57.52675,
+        "transcribeExitToInsertEntry": 0.050042
+      },
+      "transcript": "The meeting summary should include decisions, risks and next steps.",
+      "visibleTextDispatchMs": 57.680375
+    },
+    {
+      "audioStopEntryMs": 0.0625,
+      "captureStartCompletionMs": 0.056667,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.026042,
+      "fixtureID": "scored-08",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.014708,
+        "insertEntryToExit": 0.008583,
+        "insertExitToIdle": 0.024458,
+        "stopEntryToExit": 0.001958,
+        "stopExitToTranscribeEntry": 0.031834,
+        "transcribeEntryToExit": 56.340291,
+        "transcribeExitToInsertEntry": 0.030459
+      },
+      "transcript": "Measure the whole path from pressing the key to visible text.",
+      "visibleTextDispatchMs": 56.467042
+    },
+    {
+      "audioStopEntryMs": 0.060541,
+      "captureStartCompletionMs": 0.034375,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.015459,
+      "fixtureID": "scored-09",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.01225,
+        "insertEntryToExit": 0.030666,
+        "insertExitToIdle": 0.024584,
+        "stopEntryToExit": 0.001667,
+        "stopExitToTranscribeEntry": 0.032625,
+        "transcribeEntryToExit": 56.94825,
+        "transcribeExitToInsertEntry": 0.033667
+      },
+      "transcript": "Small improvements feel meaningful when dictation responds without hesitation.",
+      "visibleTextDispatchMs": 57.07675
+    },
+    {
+      "audioStopEntryMs": 0.062125,
+      "captureStartCompletionMs": 0.043459,
+      "classification": "guardrail",
+      "cueDispatchMs": 0.02025,
+      "fixtureID": "scored-10",
+      "language": "en",
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "profile": "P2",
+      "repeatIndex": 2,
+      "scored": false,
+      "segmentsMs": {
+        "captureStartExitToRecording": 0.013791,
+        "insertEntryToExit": 0.013208,
+        "insertExitToIdle": 0.013334,
+        "stopEntryToExit": 0.001875,
+        "stopExitToTranscribeEntry": 0.030541,
+        "transcribeEntryToExit": 57.708584,
+        "transcribeExitToInsertEntry": 0.022208
+      },
+      "transcript": "The final transcript uses the complete recording in the selected local model.",
+      "visibleTextDispatchMs": 57.825333
+    }
+  ],
+  "schemaVersion": 1,
+  "transcriptDigests": {
+    "scored-01:parakeet-tdt-ctc-110m-coreml:en": "538e38dee510cbefea12ed402bd438fce6e0b79b1e5bbae6d9ab465e82f94251",
+    "scored-02:parakeet-tdt-ctc-110m-coreml:en": "b78d6bb4039e7434ba8b2fc23de129a8c3c424ec65c8d386fd31a11ac66c5417",
+    "scored-03:parakeet-tdt-ctc-110m-coreml:en": "14df831014c5005b075de34b20880f257d54399cd430506912fe6691eb09f9ac",
+    "scored-04:parakeet-tdt-ctc-110m-coreml:en": "1c6a3b64f9075708223cb700f71647e9890a006b20b7569e45164d8a8da76afb",
+    "scored-05:parakeet-tdt-ctc-110m-coreml:en": "6acfa6854d4053cf1ea9aa8c48a0061bdfbda0f6e68d60836a09e9d3ebc2ea64",
+    "scored-06:parakeet-tdt-ctc-110m-coreml:en": "8c1499be1c6f963386dd1c539baac78e705facbff677687697262d713965e881",
+    "scored-07:parakeet-tdt-ctc-110m-coreml:en": "2c45dbf3ff3fcce2148357d0adb26e2de5e46f2385b8732ced9ed6d87ca362e7",
+    "scored-08:parakeet-tdt-ctc-110m-coreml:en": "93b0573f6d3c0a9e9726f007c139b646092d16891f560889140766665447e080",
+    "scored-09:parakeet-tdt-ctc-110m-coreml:en": "fba1e589fed23a5e4638b6565ccc93c286a7838b7f45257b9806791777b5b208",
+    "scored-10:parakeet-tdt-ctc-110m-coreml:en": "0d345391c19f34a310b5b7d7a8d78cd0308ce346c89870e107b2d37ec3d5f3fb"
+  },
+  "weightedScoreMs": null
+}

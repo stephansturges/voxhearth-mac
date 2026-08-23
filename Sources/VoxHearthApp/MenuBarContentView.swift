@@ -1,9 +1,11 @@
 import AppKit
 import SwiftUI
+import VoxHearthCore
 
 struct MenuBarContentView: View {
     @Bindable var model: VoxHearthFrontendModel
     @Environment(\.openSettings) private var openSettings
+    @State private var recoveryConfirmation: RecoveryConfirmation?
 
     var body: some View {
         Group {
@@ -19,63 +21,95 @@ struct MenuBarContentView: View {
     }
 
     private var mainMenu: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            header
-            statusCard
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                header
+                statusCard
 
-            if model.hasPendingTranscript {
-                recoveryCard
+                ForEach(model.pendingInsertionPresentations) { pending in
+                    recoveryCard(pending)
+                }
+
+                if let recoveryNotice = model.recoveryNotice {
+                    Text(recoveryNotice)
+                        .font(.caption)
+                        .foregroundStyle(Color.voxWarmWhite.opacity(0.74))
+                        .accessibilityLabel(recoveryNotice)
+                }
+
+                Button(action: model.primaryDictationAction) {
+                    HStack {
+                        Image(systemName: primaryActionSymbol)
+                        Text(model.sessionState.primaryActionTitle)
+                        Spacer()
+                        Text(model.settings.hotkey.displayName)
+                            .font(.caption.monospaced())
+                            .opacity(0.72)
+                    }
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .foregroundStyle(Color.voxGraphite)
+                    .background(Color.voxHearthAmber, in: RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+                .disabled(model.sessionState.isBusy)
+
+                quickControls
+
+                if model.sessionState.canCancelCurrentSession {
+                    Button("Cancel Dictation", role: .cancel, action: model.cancelDictation)
+                        .buttonStyle(.plain)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .keyboardShortcut(.cancelAction)
+                        .accessibilityLabel("Cancel the current dictation without inserting text")
+                }
+
+                Divider().overlay(Color.voxWarmWhite.opacity(0.18))
+
+                VStack(spacing: 2) {
+                    menuRow("Settings", symbol: "gearshape") {
+                        showSettings(.dictation)
+                    }
+                    menuRow("Privacy", symbol: "hand.raised") {
+                        showSettings(.privacy)
+                    }
+                    menuRow("About VoxHearth", symbol: "info.circle") {
+                        showSettings(.about)
+                    }
+                    menuRow("Licenses", symbol: "doc.text") {
+                        showSettings(.licenses)
+                    }
+                    menuRow("Quit VoxHearth", symbol: "power") {
+                        NSApplication.shared.terminate(nil)
+                    }
+                }
             }
-
-            Button(action: model.primaryDictationAction) {
-                HStack {
-                    Image(systemName: primaryActionSymbol)
-                    Text(model.sessionState.primaryActionTitle)
-                    Spacer()
-                    Text(model.settings.hotkey.displayName)
-                        .font(.caption.monospaced())
-                        .opacity(0.72)
-                }
-                .fontWeight(.semibold)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-                .foregroundStyle(Color.voxGraphite)
-                .background(Color.voxHearthAmber, in: RoundedRectangle(cornerRadius: 10))
-            }
-            .buttonStyle(.plain)
-            .disabled(model.sessionState.isBusy)
-
-            quickControls
-
-            if case .listening = model.sessionState {
-                Button("Cancel Dictation", role: .cancel, action: model.cancelDictation)
-                    .buttonStyle(.plain)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-            }
-
-            Divider().overlay(Color.voxWarmWhite.opacity(0.18))
-
-            VStack(spacing: 2) {
-                menuRow("Settings", symbol: "gearshape") {
-                    showSettings(.dictation)
-                }
-                menuRow("Privacy", symbol: "hand.raised") {
-                    showSettings(.privacy)
-                }
-                menuRow("About VoxHearth", symbol: "info.circle") {
-                    showSettings(.about)
-                }
-                menuRow("Licenses", symbol: "doc.text") {
-                    showSettings(.licenses)
-                }
-                menuRow("Quit VoxHearth", symbol: "power") {
-                    NSApplication.shared.terminate(nil)
-                }
-            }
+            .padding(18)
         }
-        .padding(18)
+        .frame(maxHeight: 720)
+        .confirmationDialog(
+            recoveryConfirmation?.title ?? "Confirm recovery action",
+            isPresented: Binding(
+                get: { recoveryConfirmation != nil },
+                set: { if !$0 { recoveryConfirmation = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let confirmation = recoveryConfirmation {
+                Button(confirmation.actionTitle, role: confirmation.role) {
+                    perform(confirmation)
+                    recoveryConfirmation = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    recoveryConfirmation = nil
+                }
+            }
+        } message: {
+            Text(recoveryConfirmation?.message ?? "")
+        }
     }
 
     private var header: some View {
@@ -107,9 +141,16 @@ struct MenuBarContentView: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: model.sessionState.symbolName)
                 .font(.title2)
-                .symbolEffect(.pulse, isActive: model.sessionState.isBusy)
                 .foregroundStyle(model.sessionState.tint)
                 .frame(width: 28)
+                .opacity(model.sessionState.isBusy ? 0 : 1)
+                .overlay {
+                    if model.sessionState.isBusy {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(Color.voxHearthAmber)
+                    }
+                }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(model.sessionState.title)
@@ -125,24 +166,59 @@ struct MenuBarContentView: View {
         .background(Color.voxWarmWhite.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private var recoveryCard: some View {
+    private func recoveryCard(_ pending: PendingInsertionPresentation) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Text was not inserted", systemImage: "exclamationmark.triangle.fill")
+            Label(pending.title, systemImage: "exclamationmark.triangle.fill")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.voxHearthAmber)
 
-            Text("Your transcript is held only in memory for up to two minutes. Retry after choosing a text field, or discard it now.")
+            Text(pending.detail)
                 .font(.caption)
                 .foregroundStyle(Color.voxWarmWhite.opacity(0.76))
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack {
-                Button("Retry insertion", action: model.retryPendingInsertion)
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color.voxHearthAmber)
-                    .foregroundStyle(Color.voxGraphite)
-                Button("Discard", role: .destructive, action: model.discardPendingTranscript)
+                Button("Copy") {
+                    model.copyPendingInsertion(sessionID: pending.id)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.voxHearthAmber)
+                .foregroundStyle(Color.voxGraphite)
+                .accessibilityLabel("Copy \(pending.title) to the clipboard")
+
+                if pending.allowsRetry {
+                    Button("Retry") {
+                        if pending.retryNeedsConfirmation {
+                            recoveryConfirmation = .retry(pending)
+                        } else {
+                            model.retryPendingInsertion(sessionID: pending.id)
+                        }
+                    }
                     .buttonStyle(.bordered)
+                    .disabled(!RecoveryActionPresentation.insertionIsEnabled(
+                        for: model.controller.state
+                    ))
+                    .accessibilityLabel("Retry inserting \(pending.title)")
+                    .accessibilityHint(RecoveryActionPresentation.busyHint)
+                }
+
+                if pending.allowsInsertAnyway {
+                    Button("Insert Anyway") {
+                        recoveryConfirmation = .insertAnyway(pending)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!RecoveryActionPresentation.insertionIsEnabled(
+                        for: model.controller.state
+                    ))
+                    .accessibilityLabel("Insert \(pending.title) once using the clipboard")
+                    .accessibilityHint(RecoveryActionPresentation.busyHint)
+                }
+
+                Button("Discard", role: .destructive) {
+                    model.discardPendingInsertion(sessionID: pending.id)
+                }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel("Discard \(pending.title) from memory")
             }
         }
         .padding(13)
@@ -202,8 +278,17 @@ struct MenuBarContentView: View {
     private var primaryActionSymbol: String {
         switch model.sessionState {
         case .listening: "stop.fill"
-        case .transcribing: "ellipsis"
+        case .finalizing, .cleaning, .inserting: "ellipsis"
         case .idle, .error: "mic.fill"
+        }
+    }
+
+    private func perform(_ confirmation: RecoveryConfirmation) {
+        switch confirmation.action {
+        case .retry:
+            model.retryPendingInsertion(sessionID: confirmation.sessionID)
+        case .insertAnyway:
+            model.insertPendingAnyway(sessionID: confirmation.sessionID)
         }
     }
 
@@ -227,5 +312,42 @@ struct MenuBarContentView: View {
         model.selectedSettingsSection = section
         openSettings()
         ApplicationPresentation.presentSettingsAfterOpening()
+    }
+}
+
+private struct RecoveryConfirmation: Identifiable {
+    enum Action {
+        case retry
+        case insertAnyway
+    }
+
+    let id = UUID()
+    let sessionID: DictationSessionID
+    let title: String
+    let message: String
+    let actionTitle: String
+    let role: ButtonRole?
+    let action: Action
+
+    static func retry(_ pending: PendingInsertionPresentation) -> Self {
+        Self(
+            sessionID: pending.id,
+            title: "Retry insertion?",
+            message: "VoxHearth could not confirm whether the text was already inserted. Check the destination first; retrying may create a duplicate.",
+            actionTitle: "Retry",
+            role: nil,
+            action: .retry
+        )
+    }
+
+    static func insertAnyway(_ pending: PendingInsertionPresentation) -> Self {
+        Self(
+            sessionID: pending.id,
+            title: "Insert formatted text anyway?",
+            message: pending.insertAnywayWarning,
+            actionTitle: "Insert Anyway",
+            role: .destructive,
+            action: .insertAnyway
+        )
     }
 }

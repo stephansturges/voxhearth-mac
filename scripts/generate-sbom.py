@@ -17,6 +17,17 @@ from urllib.parse import quote
 FLUIDAUDIO_REVISION = "19600a485baa4998812e4654b70d2bab8f2c9949"
 MULTILINGUAL_MODEL_REVISION = "aed02740059203c4a87495924f685de3722ae9ce"
 COMPACT_MODEL_REVISION = "9bc92ead6e8f17eca92a869fd578ae76842b82ba"
+S1_MODEL_REVISION = "8eab4779866f477ae6e7f237ca45fc2c65153f50"
+S1_MODEL_CARD_REVISION = "65f84bcda1d13df582c4a8443c1c5aa53c0c66db"
+QWEN_REVISION = "c1899de289a04d12100db370d81485cdf75e47ca"
+LLAMA_REVISION = "9ee9fc04c136ef2ae729bfc60d18961b23c13ddf"
+S1_LICENSE_EXPRESSION = "Apache-2.0 AND LicenseRef-S1-mini-Naming-Clause"
+S1_ADDITIONAL_TERM = """In addition to the terms of the Apache License, Version 2.0 above: any
+   use, distribution, or integration of this model, whether unmodified or
+   as part of a derivative work or product, must continue to identify it
+   by its original name, "S1-mini" by "Superwhisper", using that exact
+   capitalization, regardless of any other name under which the model or
+   a product incorporating it is marketed or distributed."""
 
 
 def sha256(path: Path) -> str:
@@ -55,6 +66,7 @@ def main() -> int:
     manifests = {
         "multilingual": repo_root / "Models" / "parakeet-tdt-0.6b-v3-coreml.json",
         "compact": repo_root / "Models" / "parakeet-tdt-ctc-110m-coreml.json",
+        "s1": repo_root / "Models" / "s1-mini-gguf.json",
     }
     for manifest_path in manifests.values():
         subprocess.run(
@@ -68,12 +80,18 @@ def main() -> int:
         )
     multilingual_manifest = json.loads(manifests["multilingual"].read_text(encoding="utf-8"))
     compact_manifest = json.loads(manifests["compact"].read_text(encoding="utf-8"))
+    s1_manifest = json.loads(manifests["s1"].read_text(encoding="utf-8"))
     if multilingual_manifest["revision"] != MULTILINGUAL_MODEL_REVISION:
         print("error: multilingual model revision changed unexpectedly", file=sys.stderr)
         return 1
     if compact_manifest["revision"] != COMPACT_MODEL_REVISION:
         print("error: compact model revision changed unexpectedly", file=sys.stderr)
         return 1
+    if s1_manifest["revision"] != S1_MODEL_REVISION:
+        print("error: S1-mini model revision changed unexpectedly", file=sys.stderr)
+        return 1
+
+    subprocess.run([str(repo_root / "scripts" / "check-attribution.py")], check=True)
 
     repository = os.environ.get("GITHUB_REPOSITORY", "VoxHearth/voxhearth-mac")
     source_url = f"https://github.com/{repository}"
@@ -183,6 +201,88 @@ def main() -> int:
                     }
                 ],
             },
+            {
+                "name": "S1-mini by Superwhisper",
+                "SPDXID": "SPDXRef-Package-S1Mini",
+                "versionInfo": S1_MODEL_REVISION,
+                "downloadLocation": (
+                    "https://huggingface.co/superwhisper/s1-mini-GGUF/tree/"
+                    + S1_MODEL_REVISION
+                ),
+                "filesAnalyzed": False,
+                "licenseConcluded": S1_LICENSE_EXPRESSION,
+                "licenseDeclared": S1_LICENSE_EXPRESSION,
+                "copyrightText": "NOASSERTION",
+                "comment": (
+                    "Pinned Q4_K_M GGUF of S1-mini by Superwhisper; model-card revision "
+                    + S1_MODEL_CARD_REVISION
+                    + "; see Documentation/MODEL_PROVENANCE.md."
+                ),
+                "externalRefs": [
+                    {
+                        "referenceCategory": "PACKAGE-MANAGER",
+                        "referenceType": "purl",
+                        "referenceLocator": (
+                            "pkg:huggingface/superwhisper/s1-mini-GGUF@"
+                            + S1_MODEL_REVISION
+                        ),
+                    }
+                ],
+            },
+            {
+                "name": "Qwen3-0.6B",
+                "SPDXID": "SPDXRef-Package-Qwen3",
+                "versionInfo": QWEN_REVISION,
+                "downloadLocation": (
+                    "https://huggingface.co/Qwen/Qwen3-0.6B/tree/" + QWEN_REVISION
+                ),
+                "filesAnalyzed": False,
+                "licenseConcluded": "Apache-2.0",
+                "licenseDeclared": "Apache-2.0",
+                "copyrightText": "Copyright 2024 Alibaba Cloud",
+                "comment": "Base model of S1-mini; base-model weights are not separately packaged.",
+                "externalRefs": [
+                    {
+                        "referenceCategory": "PACKAGE-MANAGER",
+                        "referenceType": "purl",
+                        "referenceLocator": (
+                            "pkg:huggingface/Qwen/Qwen3-0.6B@" + QWEN_REVISION
+                        ),
+                    }
+                ],
+            },
+            {
+                "name": "llama.cpp local runtime",
+                "SPDXID": "SPDXRef-Package-LlamaCpp",
+                "versionInfo": LLAMA_REVISION,
+                "downloadLocation": (
+                    "git+https://github.com/ggml-org/llama.cpp.git@" + LLAMA_REVISION
+                ),
+                "filesAnalyzed": False,
+                "licenseConcluded": "MIT",
+                "licenseDeclared": "MIT",
+                "copyrightText": "Copyright llama.cpp contributors",
+                "comment": "Manifest-locked, statically linked, network-free local subset.",
+                "externalRefs": [
+                    {
+                        "referenceCategory": "PACKAGE-MANAGER",
+                        "referenceType": "purl",
+                        "referenceLocator": "pkg:github/ggml-org/llama.cpp@" + LLAMA_REVISION,
+                    }
+                ],
+            },
+        ],
+        "hasExtractedLicensingInfos": [
+            {
+                "licenseId": "LicenseRef-S1-mini-Naming-Clause",
+                "name": "S1-mini naming clause",
+                "extractedText": S1_ADDITIONAL_TERM,
+                "seeAls": [
+                    "https://huggingface.co/superwhisper/s1-mini-GGUF/blob/"
+                    + S1_MODEL_REVISION
+                    + "/LICENSE"
+                ],
+            }
         ],
         "relationships": [
             {
@@ -204,6 +304,21 @@ def main() -> int:
                 "spdxElementId": "SPDXRef-Package-VoxHearth",
                 "relationshipType": "CONTAINS",
                 "relatedSpdxElement": "SPDXRef-Package-ParakeetCompactModel",
+            },
+            {
+                "spdxElementId": "SPDXRef-Package-VoxHearth",
+                "relationshipType": "CONTAINS",
+                "relatedSpdxElement": "SPDXRef-Package-S1Mini",
+            },
+            {
+                "spdxElementId": "SPDXRef-Package-S1Mini",
+                "relationshipType": "DESCENDANT_OF",
+                "relatedSpdxElement": "SPDXRef-Package-Qwen3",
+            },
+            {
+                "spdxElementId": "SPDXRef-Package-VoxHearth",
+                "relationshipType": "DEPENDS_ON",
+                "relatedSpdxElement": "SPDXRef-Package-LlamaCpp",
             },
         ],
     }
@@ -235,6 +350,14 @@ def main() -> int:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    subprocess.run(
+        [
+            str(repo_root / "scripts" / "check-attribution.py"),
+            "--sbom",
+            str(args.output),
+        ],
+        check=True,
+    )
     print(f"SPDX SBOM written: {args.output}")
     return 0
 

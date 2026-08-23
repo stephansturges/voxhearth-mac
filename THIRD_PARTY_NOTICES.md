@@ -79,6 +79,55 @@ VoxHearth follows the more conservative CC BY 4.0 terms.
 VoxHearth redistributes the compact model files unchanged and records every
 distributed byte in `Models/parakeet-tdt-ctc-110m-coreml.json`.
 
+## S1-mini by Superwhisper
+
+- Model: S1-mini by Superwhisper
+- Model-card source: <https://huggingface.co/superwhisper/s1-mini>
+- Exact model-card revision: `65f84bcda1d13df582c4a8443c1c5aa53c0c66db`
+- Distributed GGUF source: <https://huggingface.co/superwhisper/s1-mini-GGUF>
+- Exact GGUF revision: `8eab4779866f477ae6e7f237ca45fc2c65153f50`
+- License expression used in the SBOM: `Apache-2.0 AND LicenseRef-S1-mini-Naming-Clause`
+- Complete license text: [`LICENSES/S1-mini-LICENSE.txt`](LICENSES/S1-mini-LICENSE.txt)
+
+VoxHearth redistributes the pinned Q4_K_M GGUF unchanged. The complete license
+is 11,878 bytes with SHA-256
+`d956d2d305a0639211c9cbde71501accb0e1474cc9ddf79a47820a522aff6f98`.
+It contains Apache License 2.0 and an additional term requiring continued use
+of the exact original identification “S1-mini” by “Superwhisper”. Accordingly,
+VoxHearth presents the model as S1-mini by Superwhisper in the product,
+documentation, notices, provenance, and SBOM. The complete additional term is
+reproduced in the shipped license and as SPDX extracted licensing information;
+it is not represented as plain Apache-2.0.
+
+## Qwen3-0.6B base model
+
+- Base model: `Qwen/Qwen3-0.6B`
+- Exact reviewed revision: `c1899de289a04d12100db370d81485cdf75e47ca`
+- Source: <https://huggingface.co/Qwen/Qwen3-0.6B>
+- Relationship: S1-mini is a fine-tune of Qwen3-0.6B
+- License: Apache License 2.0
+- License text: [`LICENSES/Qwen3-0.6B-Apache-2.0.txt`](LICENSES/Qwen3-0.6B-Apache-2.0.txt)
+- Copyright notice in the pinned license: Copyright 2024 Alibaba Cloud
+
+The Qwen base-model weights are not packaged separately. This notice and
+license preserve the provenance of the base model represented in the S1-mini
+weights.
+
+## llama.cpp runtime
+
+- Project: llama.cpp
+- Source: <https://github.com/ggml-org/llama.cpp>
+- Exact revision: `9ee9fc04c136ef2ae729bfc60d18961b23c13ddf`
+- Upstream tag: `b10524`
+- License: MIT
+- License text: [`LICENSES/llama.cpp-MIT.txt`](LICENSES/llama.cpp-MIT.txt)
+
+VoxHearth compiles a manifest-locked local subset of llama.cpp/ggml and one
+sealed Metal library. Runtime networking, model downloading, servers, dynamic
+backend discovery, and runtime shader compilation are excluded. The included
+source and local modifications are recorded in `Vendor/LlamaLocal/UPSTREAM.md`,
+`Vendor/LlamaLocal/FILES.json`, and `Vendor/LlamaLocal/METALLIB.json`.
+
 ## Apple platform components
 
 VoxHearth uses system frameworks supplied by macOS, including SwiftUI, AppKit,

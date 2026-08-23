@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "modelId": "superwhisper/s1-mini-GGUF",
+  "revision": "8eab4779866f477ae6e7f237ca45fc2c65153f50",
+  "bundleRoot": "s1-mini-gguf",
+  "allowedTopLevel": [
+    "s1-mini-q4_k_m.gguf"
+  ],
+  "files": [
+    {
+      "path": "s1-mini-q4_k_m.gguf",
+      "size": 484219808,
+      "sha256": "3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634"
+    }
+  ],
+  "totalSize": 484219808
+}

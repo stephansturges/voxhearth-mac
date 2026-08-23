@@ -1,7 +1,8 @@
 # Model provenance and attribution
 
 VoxHearth release builds contain two selectable Core ML conversions of NVIDIA
-Parakeet automatic-speech-recognition models. Both run entirely on the Mac.
+Parakeet automatic-speech-recognition models and one optional English text
+normalizer, S1-mini by Superwhisper. All run entirely on the Mac.
 
 ## Material used
 
@@ -79,3 +80,58 @@ in the release SBOM, and in this document.
 No endorsement by NVIDIA or FluidInference is implied. Model output can be
 incorrect and must not be treated as verified fact or used as the sole basis
 for safety-critical decisions.
+
+## S1-mini by Superwhisper cleanup model
+
+| Field | Value |
+| --- | --- |
+| Product identification | S1-mini by Superwhisper |
+| Model-card repository | `superwhisper/s1-mini` |
+| Immutable model-card revision | `65f84bcda1d13df582c4a8443c1c5aa53c0c66db` |
+| Model-card README SHA-256 | `b22a4ce83218b21af2e71c7e0d28b686239a0028299cdbc87e4238b2568cfd97` |
+| Distributed repository | `superwhisper/s1-mini-GGUF` |
+| Immutable GGUF revision | `8eab4779866f477ae6e7f237ca45fc2c65153f50` |
+| Distributed file | `s1-mini-q4_k_m.gguf` |
+| Exact bytes | 484,219,808 |
+| Payload SHA-256 | `3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634` |
+| Relationship | Fine-tuned from `Qwen/Qwen3-0.6B` |
+| Qwen revision reviewed for attribution | `c1899de289a04d12100db370d81485cdf75e47ca` |
+| License expression | `Apache-2.0 AND LicenseRef-S1-mini-Naming-Clause` |
+| Complete license | [`LICENSES/S1-mini-LICENSE.txt`](../LICENSES/S1-mini-LICENSE.txt) |
+
+The complete S1-mini license is 11,878 bytes with SHA-256
+`d956d2d305a0639211c9cbde71501accb0e1474cc9ddf79a47820a522aff6f98`.
+At the revisions above, the model-card and GGUF repositories publish
+byte-identical license files. The additional term requires the original model
+name and creator to remain identified with exact capitalization. The release
+SBOM therefore uses the composite expression above and includes the full term
+as extracted licensing information.
+
+`Models/s1-mini-gguf.json` is the authoritative payload allowlist. Packaging
+accepts exactly one regular GGUF file under `Resources/Models/s1-mini-gguf`,
+rejects symlinks and siblings, and stores a byte-identical manifest under
+`Resources/Models/Manifests`. S1-mini receives only the final English text; it
+never receives microphone samples or live-preview snapshots.
+
+The model is run through the committed, statically linked llama.cpp subset at
+revision `9ee9fc04c136ef2ae729bfc60d18961b23c13ddf` (tag `b10524`). The packaged
+Metal library is 8,445,733 bytes with SHA-256
+`97897d540709e3819756049c07d67ed5653136d28638e17159c4940ccaf42ea8`.
+`Vendor/LlamaLocal/FILES.json`, `Vendor/LlamaLocal/METALLIB.json`, and
+`Research/s1-mini/production-metallib.json` record the source closure,
+compiler inputs, and two byte-identical production rebuilds.
+
+S1-mini is a generative normalizer, not a fact checker. VoxHearth validates its
+output structurally and falls back to the command-stripped raw transcript if
+cleanup is unavailable, times out, is cancelled, or yields unsafe output. It
+may still make semantically plausible mistakes, so users should review text
+before relying on it in consequential contexts.
+
+The current production safety policy allows at most 42 input tokens in one
+cleanup pass. Lists and emails above that cap fall back without generation.
+Ordinary prose is split only at safe sentence boundaries; if no safe split
+exists, the original transcript is inserted unchanged. This conservative cap
+is derived from the passing 41-42-token semantic fixtures in the M5 spike; the
+150-word fixtures completed quickly but did not pass the semantic ratchet. It
+must not be raised without equivalent real-model evidence on the M2/16 GB
+performance floor.

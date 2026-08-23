@@ -102,6 +102,67 @@ private struct DictationSettingsView: View {
                 }
             }
 
+            Section("Transcript cleanup (S1-mini by Superwhisper)") {
+                Toggle(
+                    "Clean up transcripts with a second on-device model",
+                    isOn: cleanupEnabledBinding
+                )
+                .fontWeight(.semibold)
+
+                Text("After each finished English transcript, VoxHearth can run a second local AI model to improve filler words, punctuation, and formatting. The additional model is \(CleanupSettingsPresentation.modelPayloadSize) before packaging overhead, uses extra memory and processing, and adds a short post-release delay.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(CleanupSettingsPresentation.lengthDisclosure)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let reason = CleanupSettingsPresentation.ineffectiveReason(
+                    model.cleanupEnablement.ineffectiveReason
+                ) {
+                    Label(reason, systemImage: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if model.cleanupEnablement.ineffectiveReason == .disclosureRequired {
+                    Button("Complete cleanup setup", action: model.completeCleanupSetupFromSettings)
+                }
+
+                Picker("Writing style", selection: cleanupStylingBinding) {
+                    ForEach(CleanupStyling.allCases, id: \.self) { styling in
+                        Text(styling.displayName).tag(styling)
+                    }
+                }
+                .disabled(!model.cleanupEnablement.isEffective)
+
+                Toggle(
+                    "Format dictations starting with “list” as lists",
+                    isOn: listDirectiveBinding
+                )
+                .disabled(!model.cleanupEnablement.isEffective)
+                Text("Only the first word of a new dictation counts. VoxHearth removes it; later mentions do nothing. List formatting is conservative and intended for three or more actual items.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle(
+                    "Format dictations starting with “email” as emails",
+                    isOn: emailDirectiveBinding
+                )
+                .disabled(!model.cleanupEnablement.isEffective)
+                Text("Only the first word of a new dictation counts. VoxHearth removes it; the result may contain a greeting, body, sign-off, and blank lines.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("Multiline list and email output first uses Accessibility insertion. If an app refuses it, automatic multiline paste requires clipboard compatibility. When that setting is off, VoxHearth keeps the result in memory for Copy, one confirmed Insert Anyway, or Discard; it never changes the setting silently.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Section("Mac") {
                 Toggle("Launch VoxHearth at login", isOn: launchAtLoginBinding)
             }
@@ -157,7 +218,7 @@ private struct DictationSettingsView: View {
     private var canChangeSpeechModel: Bool {
         switch model.controller.state {
         case .idle, .failed: true
-        case .preparing, .recording, .transcribing, .inserting: false
+        case .preparing, .recording, .transcribing, .cleaning, .inserting: false
         }
     }
 
@@ -172,6 +233,34 @@ private struct DictationSettingsView: View {
         Binding(
             get: { model.settings.liveTranscriptOverlayEnabled },
             set: { model.setLiveTranscriptOverlay($0) }
+        )
+    }
+
+    private var cleanupEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.cleanup.isEnabled },
+            set: { model.setCleanupEnabled($0) }
+        )
+    }
+
+    private var cleanupStylingBinding: Binding<CleanupStyling> {
+        Binding(
+            get: { model.settings.cleanup.styling },
+            set: { model.setCleanupStyling($0) }
+        )
+    }
+
+    private var listDirectiveBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.cleanup.listDirectiveEnabled },
+            set: { model.setListDirectiveEnabled($0) }
+        )
+    }
+
+    private var emailDirectiveBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.cleanup.emailDirectiveEnabled },
+            set: { model.setEmailDirectiveEnabled($0) }
         )
     }
 }
@@ -223,7 +312,7 @@ private struct PrivacySettingsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Preferences stored on this Mac")
                         .font(.subheadline.weight(.semibold))
-                    Text("Shortcut, selected microphone identifier, speech model, language, launch-at-login choice, clipboard compatibility choice, and onboarding completion.")
+                    Text(PrivacySettingsPresentation.localPreferences)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -379,6 +468,9 @@ private struct LicensesView: View {
                     terms: "Creative Commons Attribution 4.0",
                     note: "The compact English model is derived from NVIDIA Parakeet and redistributed with attribution in the release notices."
                 )
+                ForEach(ThirdPartyLicensePresentation.cleanupDependencies, id: \.name) { entry in
+                    license(entry.name, terms: entry.terms, note: entry.note)
+                }
 
                 Divider()
                 Text("The complete license texts, upstream notices, model provenance, and source offer ship with every release and are available in the repository.")

@@ -1,4 +1,5 @@
 import SwiftUI
+import VoxHearthCore
 
 struct OnboardingView: View {
     @Bindable var model: VoxHearthFrontendModel
@@ -13,6 +14,8 @@ struct OnboardingView: View {
                 switch model.onboardingStep {
                 case .privacy:
                     privacyStep
+                case .cleanup:
+                    cleanupStep
                 case .permissions:
                     permissionsStep
                 case .tryIt:
@@ -44,7 +47,7 @@ struct OnboardingView: View {
                     .font(.title2.bold())
                     .foregroundStyle(Color.voxHearthAmber)
                 Spacer()
-                Text("Step \(model.onboardingStep.rawValue + 1) of 3")
+                Text("Step \(model.onboardingStep.rawValue + 1) of \(OnboardingStep.allCases.count)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(Color.voxWarmWhite.opacity(0.62))
             }
@@ -61,6 +64,68 @@ struct OnboardingView: View {
 
             Text(model.onboardingStep.title)
                 .font(.title3.bold())
+        }
+    }
+
+    private var cleanupStep: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 13) {
+                Text("VoxHearth can run S1-mini by Superwhisper after each finished English transcript. This second AI model stays on this Mac and improves filler words, punctuation, and formatting.")
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.82))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Label(
+                    "The additional model is \(CleanupSettingsPresentation.modelPayloadSize) before packaging overhead. It uses extra memory and processing and adds a short delay after you release the shortcut.",
+                    systemImage: "cpu"
+                )
+                .font(.caption)
+                .foregroundStyle(Color.voxWarmWhite.opacity(0.70))
+                .fixedSize(horizontal: false, vertical: true)
+
+                Toggle(
+                    "Clean up transcripts with a second on-device model",
+                    isOn: cleanupEnabledBinding
+                )
+                .toggleStyle(.checkbox)
+                .fontWeight(.semibold)
+
+                Picker("Writing style", selection: cleanupStylingBinding) {
+                    ForEach(CleanupStyling.allCases, id: \.self) { styling in
+                        Text(styling.displayName).tag(styling)
+                    }
+                }
+                .disabled(!model.settings.cleanup.isEnabled)
+
+                Toggle(
+                    "Format dictations starting with “list” as lists",
+                    isOn: listDirectiveBinding
+                )
+                .toggleStyle(.checkbox)
+                .disabled(!model.settings.cleanup.isEnabled)
+                Text("Only the first word of a new dictation counts. VoxHearth removes it, and later mentions do nothing. List formatting is conservative and intended for three or more real items.")
+                    .font(.caption)
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.65))
+
+                Toggle(
+                    "Format dictations starting with “email” as emails",
+                    isOn: emailDirectiveBinding
+                )
+                .toggleStyle(.checkbox)
+                .disabled(!model.settings.cleanup.isEnabled)
+                Text("Only the first word of a new dictation counts. VoxHearth removes it; the result may contain a greeting, body, sign-off, and blank lines.")
+                    .font(.caption)
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.65))
+
+                Text("The model is prepared only after you continue from this disclosure. If cleanup is unavailable or times out, VoxHearth safely uses the original transcript—or removes a recognized command before fallback.")
+                    .font(.caption)
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.65))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(CleanupSettingsPresentation.lengthDisclosure)
+                    .font(.caption)
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.65))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -144,46 +209,81 @@ struct OnboardingView: View {
     }
 
     private var tryItStep: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Click the field, hold \(model.settings.hotkey.displayName), speak, then release. Your words should appear below without leaving this Mac.")
-                .foregroundStyle(Color.voxWarmWhite.opacity(0.82))
-                .fixedSize(horizontal: false, vertical: true)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Click the field, hold \(model.settings.hotkey.displayName), speak, then release. VoxHearth will show the raw final transcript and the exact selected result side by side.")
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.82))
+                    .fixedSize(horizontal: false, vertical: true)
 
-            TextEditor(text: $testText)
-                .font(.body)
-                .scrollContentBackground(.hidden)
-                .foregroundStyle(Color.voxGraphite)
-                .padding(10)
-                .background(Color.voxWarmWhite, in: RoundedRectangle(cornerRadius: 10))
-                .frame(minHeight: 135)
-                .focused($testFieldFocused)
-                .overlay(alignment: .topLeading) {
-                    if testText.isEmpty {
-                        Text("Your local test transcription appears here…")
-                            .foregroundStyle(Color.voxGraphite.opacity(0.45))
-                            .padding(.horizontal, 15)
-                            .padding(.vertical, 18)
-                            .allowsHitTesting(false)
+                TextEditor(text: $testText)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .foregroundStyle(Color.voxGraphite)
+                    .padding(10)
+                    .background(Color.voxWarmWhite, in: RoundedRectangle(cornerRadius: 10))
+                    .frame(minHeight: 100)
+                    .focused($testFieldFocused)
+                    .overlay(alignment: .topLeading) {
+                        if testText.isEmpty {
+                            Text("Your selected local test result appears here…")
+                                .foregroundStyle(Color.voxGraphite.opacity(0.45))
+                                .padding(.horizontal, 15)
+                                .padding(.vertical, 18)
+                                .allowsHitTesting(false)
+                        }
                     }
+
+                if let comparison = model.cleanupTrialComparison {
+                    cleanupComparison(comparison)
                 }
 
-            HStack(spacing: 8) {
-                Image(systemName: model.sessionState.symbolName)
-                    .foregroundStyle(model.sessionState.tint)
-                Text(model.sessionState.title)
-                    .font(.caption.weight(.semibold))
-                Spacer()
-                Button("Focus test field") { testFieldFocused = true }
+                HStack(spacing: 8) {
+                    Image(systemName: model.sessionState.symbolName)
+                        .foregroundStyle(model.sessionState.tint)
+                    Text(model.sessionState.title)
+                        .font(.caption.weight(.semibold))
+                    Spacer()
+                    Button("Clear test") {
+                        Task { @MainActor in
+                            await model.clearCleanupTrial()
+                            testText = ""
+                            testFieldFocused = true
+                        }
+                    }
                     .buttonStyle(.plain)
                     .font(.caption)
                     .foregroundStyle(Color.voxHearthAmber)
+                    .keyboardShortcut(.delete, modifiers: [.command])
+                    Button("Focus test field") { testFieldFocused = true }
+                        .buttonStyle(.plain)
+                        .font(.caption)
+                        .foregroundStyle(Color.voxHearthAmber)
+                }
+
+                Text("Examples (illustrative only — they do not run the model)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.72))
+                ForEach(CleanupExamples.all) { example in
+                    cleanupExample(example)
+                }
             }
         }
-        .onAppear { testFieldFocused = true }
+        .onAppear {
+            model.beginCleanupTrial()
+            testFieldFocused = true
+        }
+        .onDisappear(perform: model.endCleanupTrial)
     }
 
     private var navigation: some View {
         HStack {
+            if model.onboardingStep == .cleanup,
+               model.onboardingLaunchReason == .cleanupDisclosureRequired {
+                Button("Not now", action: model.dismissCleanupDisclosureForThisLaunch)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.voxWarmWhite.opacity(0.72))
+                    .keyboardShortcut(.cancelAction)
+            }
             if model.onboardingStep != .privacy {
                 Button("Back", action: model.moveBackInOnboarding)
                     .buttonStyle(.plain)
@@ -204,6 +304,74 @@ struct OnboardingView: View {
             )
             .disabled(!model.onboardingCanAdvance)
         }
+    }
+
+    private func cleanupComparison(_ comparison: CleanupTrialComparison) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(comparison.modeDescription)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.voxHearthAmber)
+            HStack(alignment: .top, spacing: 10) {
+                comparisonColumn("Raw final transcript", text: comparison.original)
+                comparisonColumn("Selected result", text: comparison.selected)
+            }
+        }
+        .padding(10)
+        .background(Color.voxWarmWhite.opacity(0.07), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .contain)
+    }
+
+    private func comparisonColumn(_ title: String, text: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.caption2.weight(.semibold))
+            Text(text)
+                .font(.caption)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private func cleanupExample(_ example: CleanupExample) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(example.title).font(.caption.weight(.semibold))
+            Text("Before: \(example.original)").font(.caption2)
+            Text("After: \(example.cleaned)").font(.caption2)
+            Text(example.note)
+                .font(.caption2)
+                .foregroundStyle(Color.voxWarmWhite.opacity(0.62))
+        }
+        .padding(9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.voxWarmWhite.opacity(0.06), in: RoundedRectangle(cornerRadius: 9))
+    }
+
+    private var cleanupEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.cleanup.isEnabled },
+            set: { model.setCleanupEnabled($0) }
+        )
+    }
+
+    private var cleanupStylingBinding: Binding<CleanupStyling> {
+        Binding(
+            get: { model.settings.cleanup.styling },
+            set: { model.setCleanupStyling($0) }
+        )
+    }
+
+    private var listDirectiveBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.cleanup.listDirectiveEnabled },
+            set: { model.setListDirectiveEnabled($0) }
+        )
+    }
+
+    private var emailDirectiveBinding: Binding<Bool> {
+        Binding(
+            get: { model.settings.cleanup.emailDirectiveEnabled },
+            set: { model.setEmailDirectiveEnabled($0) }
+        )
     }
 
     private func privacyPromise(_ title: String, detail: String, symbol: String) -> some View {

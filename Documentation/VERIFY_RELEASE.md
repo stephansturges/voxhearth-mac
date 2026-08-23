@@ -2,14 +2,14 @@
 
 ## Current development prerelease
 
-`v0.3.0-dev.3` is intentionally ad-hoc signed and not notarized. Download these
+`v0.4.0-dev.2` is intentionally ad-hoc signed and not notarized. Download these
 files from that exact prerelease:
 
 ```text
-VoxHearth-v0.3.0-dev.3-unsigned.dmg
-VoxHearth-v0.3.0-dev.3.spdx.json
-VoxHearth-v0.3.0-dev.3-provenance.json
-VoxHearth-v0.3.0-dev.3-source.tar.gz
+VoxHearth-v0.4.0-dev.2-unsigned.dmg
+VoxHearth-v0.4.0-dev.2.spdx.json
+VoxHearth-v0.4.0-dev.2-provenance.json
+VoxHearth-v0.4.0-dev.2-source.tar.gz
 SHA256SUMS
 ```
 
@@ -17,12 +17,12 @@ Run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-gh attestation verify VoxHearth-v0.3.0-dev.3-unsigned.dmg \
+gh attestation verify VoxHearth-v0.4.0-dev.2-unsigned.dmg \
   --repo stephansturges/voxhearth-mac
 ```
 
 Confirm the attestation identifies
-`.github/workflows/development-release.yml`, tag `v0.3.0-dev.3`, and the commit
+`.github/workflows/development-release.yml`, tag `v0.4.0-dev.2`, and the commit
 shown in the release notes. Inspect the provenance JSON and confirm it says
 `development-prerelease`, `anonymous ad-hoc signature`, and `notarization:
 absent`.
@@ -58,10 +58,10 @@ permissions.
 From the same GitHub release, download:
 
 ```text
-VoxHearth-v0.3.0.dmg
-VoxHearth-v0.3.0.spdx.json
-VoxHearth-v0.3.0-provenance.json
-VoxHearth-v0.3.0-source.tar.gz
+VoxHearth-v0.4.0.dmg
+VoxHearth-v0.4.0.spdx.json
+VoxHearth-v0.4.0-provenance.json
+VoxHearth-v0.4.0-source.tar.gz
 SHA256SUMS
 ```
 
@@ -81,28 +81,28 @@ matches the published file; repository compromise could replace both.
 Install the GitHub CLI, authenticate, and run from the download directory:
 
 ```sh
-gh attestation verify VoxHearth-v0.3.0.dmg --repo OWNER/voxhearth-mac
+gh attestation verify VoxHearth-v0.4.0.dmg --repo OWNER/voxhearth-mac
 ```
 
 Replace `OWNER` with the repository owner shown on the release page. Confirm
 that the returned provenance and SBOM attestations name
-`.github/workflows/release.yml`, the expected repository, and the v0.3.0 tag
+`.github/workflows/release.yml`, the expected repository, and the v0.4.0 tag
 commit. GitHub documents how to apply stricter
 workflow/ref/signing-repository policies with additional flags.
 
 ## Verify the Apple signature and notarization
 
 ```sh
-codesign --verify --strict --verbose=2 VoxHearth-v0.3.0.dmg
-xcrun stapler validate VoxHearth-v0.3.0.dmg
+codesign --verify --strict --verbose=2 VoxHearth-v0.4.0.dmg
+xcrun stapler validate VoxHearth-v0.4.0.dmg
 spctl --assess --type open --context context:primary-signature \
-  --verbose=2 VoxHearth-v0.3.0.dmg
+  --verbose=2 VoxHearth-v0.4.0.dmg
 ```
 
 Mount the DMG and inspect the app:
 
 ```sh
-hdiutil attach -readonly -nobrowse VoxHearth-v0.3.0.dmg
+hdiutil attach -readonly -nobrowse VoxHearth-v0.4.0.dmg
 codesign --verify --deep --strict --verbose=2 /Volumes/VoxHearth/VoxHearth.app
 xcrun stapler validate /Volumes/VoxHearth/VoxHearth.app
 spctl --assess --type execute --verbose=2 /Volumes/VoxHearth/VoxHearth.app
@@ -120,33 +120,43 @@ checks and rehashes all model files inside the mounted app:
 
 ```sh
 APPLE_TEAM_ID='EXPECTEDTEAM' ./scripts/verify-release.sh \
-  /path/to/VoxHearth-v0.3.0.dmg
+  /path/to/VoxHearth-v0.4.0.dmg
 ```
 
-## Inspect the locked models
+## Inspect the locked models and cleanup runtime
 
 The embedded manifests must be byte-identical to
-`Models/parakeet-tdt-0.6b-v3-coreml.json` and
-`Models/parakeet-tdt-ctc-110m-coreml.json` at the release tag. The verifier
-checks the multilingual model's 21 files totaling 483,105,645 bytes and the
-compact model's 16 files totaling 227,466,209 bytes, rejecting extra files or
-directories. Their immutable Hugging Face revisions are
+`Models/parakeet-tdt-0.6b-v3-coreml.json`,
+`Models/parakeet-tdt-ctc-110m-coreml.json`, and `Models/s1-mini-gguf.json` at
+the release tag. The verifier checks the multilingual model's 21 files totaling
+483,105,645 bytes, compact model's 16 files totaling 227,466,209 bytes, and
+S1-mini's one 484,219,808-byte GGUF, rejecting extra files or directories.
+Their immutable Hugging Face revisions are
 `aed02740059203c4a87495924f685de3722ae9ce` and
-`9bc92ead6e8f17eca92a869fd578ae76842b82ba`.
+`9bc92ead6e8f17eca92a869fd578ae76842b82ba`, and
+`8eab4779866f477ae6e7f237ca45fc2c65153f50`.
+
+The app must also contain exactly `Resources/Metal/ggml-llama.metallib` and
+its byte-identical reviewed manifest. Run `scripts/check-attribution.py --app`
+from the tagged source to compare the complete Legal tree, including the exact
+S1-mini by Superwhisper license and naming clause, Qwen3-0.6B license, and
+llama.cpp MIT license.
 
 ## Inspect source and SBOM
 
-Extract `VoxHearth-v0.3.0-source.tar.gz`. It must contain:
+Extract `VoxHearth-v0.4.0-source.tar.gz`. It must contain:
 
 - the tagged VoxHearth source, both model manifests, workflows, and build scripts;
 - `Vendor/FluidAudioLocal`, including provenance from FluidAudio commit
   `19600a485baa4998812e4654b70d2bab8f2c9949`; and
 - all GPL, Apache, component, and model license/notice files.
 
-The SPDX JSON should list VoxHearth, FluidAudio 0.15.5, and both exact Parakeet
-model revisions with their respective GPL-3.0-or-later, Apache-2.0, and
-CC-BY-4.0 declarations. The provenance JSON should reproduce the SHA-256 of the
-DMG and source archive.
+The SPDX JSON should additionally list S1-mini by Superwhisper as
+`Apache-2.0 AND LicenseRef-S1-mini-Naming-Clause`, its Qwen3-0.6B base as
+Apache-2.0, and llama.cpp as MIT. The extracted licensing information must
+contain the complete naming term. The provenance JSON should reproduce the
+SHA-256 of the DMG and source archive and pin the model card, GGUF, runtime,
+metallib, and license inputs.
 
 ## Check the runtime offline claim
 

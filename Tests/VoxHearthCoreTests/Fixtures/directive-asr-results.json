@@ -1,0 +1,352 @@
+{
+  "schemaVersion": 1,
+  "generatedFixtureContract": {
+    "voice": "Samantha",
+    "rate": 190,
+    "sampleRate": 16000,
+    "channels": 1,
+    "encoding": "pcm_s16be",
+    "sourceManifest": "Tools/S1MiniSpike/fixtures/directive-asr/fixtures.json"
+  },
+  "repeatDeterminism": {
+    "runsPerModel": 2,
+    "multilingualByteIdentical": true,
+    "compactByteIdentical": true
+  },
+  "models": [
+    {
+      "fixtureCount": 20,
+      "model": "parakeet-tdt-0.6b-v3-coreml",
+      "results": [
+        {
+          "audioSHA256": "b79ae07de20612510e40349c39b96accd1c8745fb5dfc0353486899003f028fe",
+          "directive": "list",
+          "id": "list-01-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "List milk eggs and bread."
+        },
+        {
+          "audioSHA256": "6e5a69988f723dcfa21d45242ebf74267dd41870e18084f61c846fa823060b1b",
+          "directive": "list",
+          "id": "list-02-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "List. Batteries water and flashlights."
+        },
+        {
+          "audioSHA256": "1d9e2fef72212ebd180bdd7766db87083f9bf60ab602f792c8e44a3fd489072f",
+          "directive": "list",
+          "id": "list-03-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "List call Michael review the budget and send the invoice."
+        },
+        {
+          "audioSHA256": "1449fa4e786f470e7f6ec4c41b12f375847e310c8929f8cf364a1fcff289b2eb",
+          "directive": "list",
+          "id": "list-04-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "List. Passports charging cables and medication."
+        },
+        {
+          "audioSHA256": "f6829a13ef663baa1eb46aa15adba50e5fea098e97b73fec122542a34c8a6109",
+          "directive": "list",
+          "id": "list-05-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "List tomatoes basil olive oil and pasta"
+        },
+        {
+          "audioSHA256": "6b289350940af3518be72472a246aed9ef7cb38921095dbec4455a13080bf015",
+          "directive": "list",
+          "id": "list-06-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "List. Confirm the venue invite speakers and print badges."
+        },
+        {
+          "audioSHA256": "d296638cf8fb0d0068f9108b64355b943c97f178df034327ef7eeae0780d415d",
+          "directive": "list",
+          "id": "list-07-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "List inspect the brakes refill washer fluid and check tire pressure."
+        },
+        {
+          "audioSHA256": "10487582c4423c293eb503e52278831c0adfd11aa166ab902dfb8b976795a775",
+          "directive": "list",
+          "id": "list-08-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "List. Archive the notes update the roadmap and notify the design team."
+        },
+        {
+          "audioSHA256": "72b0ff2e6f60bd7d81fb312b6a0112243d0496fe0abca6b0aef0afa579316f6b",
+          "directive": "list",
+          "id": "list-09-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "List apples oranges pears and bananas."
+        },
+        {
+          "audioSHA256": "96039117b232de937daba4c90687710017d317bfd7c8e2247f871173cea5825f",
+          "directive": "list",
+          "id": "list-10-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "List. First aid kits radios blankets and maps."
+        },
+        {
+          "audioSHA256": "22b80e8032565a79ea301f6cb3713bab5cf633fd67daf5643d0c6e492b9dd03e",
+          "directive": "email",
+          "id": "email-01-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Email hi John thank you for the update I can meet next Tuesday all the best Steven."
+        },
+        {
+          "audioSHA256": "c708fcb487e7200d6b1ac91d5e590eba2aa021993b6085d020fc461baac6bbc3",
+          "directive": "email",
+          "id": "email-02-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Email. Dear Maya I reviewed the proposal and everything looks good kind regard Stephen."
+        },
+        {
+          "audioSHA256": "8e6eee7596c2fff5641996cf470054f5d5b9c48e000c41e12888879addaf72c2",
+          "directive": "email",
+          "id": "email-03-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Email hello Michael could you send the revised schedule before Friday thanks Stephen."
+        },
+        {
+          "audioSHA256": "f6a0b5a86c23df680e9ce09ca64923ac3cb3c037da71f7aa18af9dc8eb0f5e43",
+          "directive": "email",
+          "id": "email-04-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Email. Hi Sarah, it was a pleasure meeting you. Let us talk again next week, best Stephen."
+        },
+        {
+          "audioSHA256": "0a7983c59bbc3f04bc81f3e828882d93930348dde44cd73f05ee2a8e098bde83",
+          "directive": "email",
+          "id": "email-05-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Email dear team please review the attached notes and share comments by Thursday regard Stephen."
+        },
+        {
+          "audioSHA256": "2f1cb9656196a365fc4dbaabfe6b367ee793301c65af48a49c39bcb7053566fe",
+          "directive": "email",
+          "id": "email-06-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Email. Hello Anna. I have confirmed the reservation for 6 o'clock. All the best, Stephen."
+        },
+        {
+          "audioSHA256": "4235c3779398a3e22710856eb96955c297958491e25a000153a7178a30e5696f",
+          "directive": "email",
+          "id": "email-07-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Email Hi David the prototype is ready for your feedback thanks Steven."
+        },
+        {
+          "audioSHA256": "bf668854386da05a7b9262d1fa6251a70c4b65ac5495de60db161d6a4db6865d",
+          "directive": "email",
+          "id": "email-08-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Email. Dear Olivia I will arrive at the office shortly after 9 kind regard Stephen."
+        },
+        {
+          "audioSHA256": "45b1d74a3875d1756c1271852edeaf854b73b97e4f8e457e3939772f4790f670",
+          "directive": "email",
+          "id": "email-09-no-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Email hello Chris. Can we move tomorrow's call to the afternoon best Steven?"
+        },
+        {
+          "audioSHA256": "d9064899c826b9badf257ef9438e7dc4fff71c70168a2f842b32aee5dc97858a",
+          "directive": "email",
+          "id": "email-10-pause",
+          "model": "parakeet-tdt-0.6b-v3-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Email. Hi Laura thank you for your patience. The report is now complete. All the best Steven."
+        }
+      ],
+      "schemaVersion": 1
+    },
+    {
+      "fixtureCount": 20,
+      "model": "parakeet-tdt-ctc-110m-coreml",
+      "results": [
+        {
+          "audioSHA256": "b79ae07de20612510e40349c39b96accd1c8745fb5dfc0353486899003f028fe",
+          "directive": "list",
+          "id": "list-01-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "List milk eggs and bread."
+        },
+        {
+          "audioSHA256": "6e5a69988f723dcfa21d45242ebf74267dd41870e18084f61c846fa823060b1b",
+          "directive": "list",
+          "id": "list-02-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "List Batteries, Water and Flashlights."
+        },
+        {
+          "audioSHA256": "1d9e2fef72212ebd180bdd7766db87083f9bf60ab602f792c8e44a3fd489072f",
+          "directive": "list",
+          "id": "list-03-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "List call Michael review the budget and send the invoice."
+        },
+        {
+          "audioSHA256": "1449fa4e786f470e7f6ec4c41b12f375847e310c8929f8cf364a1fcff289b2eb",
+          "directive": "list",
+          "id": "list-04-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "List passports charging cables and medication."
+        },
+        {
+          "audioSHA256": "f6829a13ef663baa1eb46aa15adba50e5fea098e97b73fec122542a34c8a6109",
+          "directive": "list",
+          "id": "list-05-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "List tomatoes, basil, olive oil, and pasta."
+        },
+        {
+          "audioSHA256": "6b289350940af3518be72472a246aed9ef7cb38921095dbec4455a13080bf015",
+          "directive": "list",
+          "id": "list-06-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "List Confirm the venue invite speakers and print badges."
+        },
+        {
+          "audioSHA256": "d296638cf8fb0d0068f9108b64355b943c97f178df034327ef7eeae0780d415d",
+          "directive": "list",
+          "id": "list-07-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "List inspect the brakes refill washer fluid and check tire pressure."
+        },
+        {
+          "audioSHA256": "10487582c4423c293eb503e52278831c0adfd11aa166ab902dfb8b976795a775",
+          "directive": "list",
+          "id": "list-08-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "List. Archive the notes, update the roadmap and notify the design team."
+        },
+        {
+          "audioSHA256": "72b0ff2e6f60bd7d81fb312b6a0112243d0496fe0abca6b0aef0afa579316f6b",
+          "directive": "list",
+          "id": "list-09-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "List apples, oranges, pears and bananas."
+        },
+        {
+          "audioSHA256": "96039117b232de937daba4c90687710017d317bfd7c8e2247f871173cea5825f",
+          "directive": "list",
+          "id": "list-10-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "List First Aid Kits, radios blankets and maps."
+        },
+        {
+          "audioSHA256": "22b80e8032565a79ea301f6cb3713bab5cf633fd67daf5643d0c6e492b9dd03e",
+          "directive": "email",
+          "id": "email-01-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Email Hi John, thank you for the update. I can meet next Tuesday. All the best, Steven."
+        },
+        {
+          "audioSHA256": "c708fcb487e7200d6b1ac91d5e590eba2aa021993b6085d020fc461baac6bbc3",
+          "directive": "email",
+          "id": "email-02-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Email Dear Maya, I reviewed the proposal and everything looks good kind regards, Stephen."
+        },
+        {
+          "audioSHA256": "8e6eee7596c2fff5641996cf470054f5d5b9c48e000c41e12888879addaf72c2",
+          "directive": "email",
+          "id": "email-03-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Email Hello Michael. Could you send the revised schedule before Friday? Thanks, Steven."
+        },
+        {
+          "audioSHA256": "f6a0b5a86c23df680e9ce09ca64923ac3cb3c037da71f7aa18af9dc8eb0f5e43",
+          "directive": "email",
+          "id": "email-04-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Email. Hi Sarah, it was a pleasure meeting you let us talk again next week, best Steven."
+        },
+        {
+          "audioSHA256": "0a7983c59bbc3f04bc81f3e828882d93930348dde44cd73f05ee2a8e098bde83",
+          "directive": "email",
+          "id": "email-05-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Email Dear team, please review the attached notes and share comments by Thursday regards Steven."
+        },
+        {
+          "audioSHA256": "2f1cb9656196a365fc4dbaabfe6b367ee793301c65af48a49c39bcb7053566fe",
+          "directive": "email",
+          "id": "email-06-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Email. Hello, Anna, I have confirmed the reservation for six o'clock, all the best, Stephen."
+        },
+        {
+          "audioSHA256": "4235c3779398a3e22710856eb96955c297958491e25a000153a7178a30e5696f",
+          "directive": "email",
+          "id": "email-07-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Email Hi David the prototype is ready for your feedback. Thanks, Stephen."
+        },
+        {
+          "audioSHA256": "bf668854386da05a7b9262d1fa6251a70c4b65ac5495de60db161d6a4db6865d",
+          "directive": "email",
+          "id": "email-08-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Email Dear Oliviot I will arrive at the office shortly after nine kind Regards Stephen."
+        },
+        {
+          "audioSHA256": "45b1d74a3875d1756c1271852edeaf854b73b97e4f8e457e3939772f4790f670",
+          "directive": "email",
+          "id": "email-09-no-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 0,
+          "transcript": "Email Hello Chris can we move tomorrow's call to the afternoon best Steven."
+        },
+        {
+          "audioSHA256": "d9064899c826b9badf257ef9438e7dc4fff71c70168a2f842b32aee5dc97858a",
+          "directive": "email",
+          "id": "email-10-pause",
+          "model": "parakeet-tdt-ctc-110m-coreml",
+          "pauseMilliseconds": 550,
+          "transcript": "Email. Hi, Laura, thank you for your patience. The report is now complete, all the best, Stephen."
+        }
+      ],
+      "schemaVersion": 1
+    }
+  ]
+}

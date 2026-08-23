@@ -1,7 +1,65 @@
 import AppKit
+import VoxHearthCore
+
+enum RecoveryAccessibilityAnnouncement {
+    case copied
+    case copyFailed
+    case discarded
+}
 
 @MainActor
 enum ApplicationPresentation {
+    static func announce(_ progress: DictationProgress) {
+        let announcement: String?
+        switch progress {
+        case .finalizing:
+            announcement = nil
+        case let .cleaning(format):
+            announcement = CleanupProgressPresentation.cleaningDetail(for: format)
+        case let .fallingBack(format, reason):
+            announcement = CleanupProgressPresentation.fallbackDetail(
+                format: format,
+                reason: reason
+            )
+        case let .formattedTextReady(reason):
+            announcement = reason == .insertionUncertain
+                ? "Insertion could not be confirmed. Check the destination before retrying. The text is available in the VoxHearth menu-bar popover for 2 minutes."
+                : "Formatted text ready. Open the VoxHearth menu-bar popover to copy or insert it. Available for 2 minutes."
+        }
+        guard let announcement else { return }
+        NSAccessibility.post(
+            element: NSApplication.shared,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: announcement,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+            ]
+        )
+    }
+
+    static func announceRecovery(_ event: RecoveryAccessibilityAnnouncement) {
+        let announcement = switch event {
+        case .copied:
+            "Copied. The text remains on the clipboard."
+        case .copyFailed:
+            "The text could not be copied."
+        case .discarded:
+            "The in-memory dictation was discarded."
+        }
+        postAnnouncement(announcement)
+    }
+
+    private static func postAnnouncement(_ announcement: String) {
+        NSAccessibility.post(
+            element: NSApplication.shared,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: announcement,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+            ]
+        )
+    }
+
     /// SwiftUI may create or reveal the Settings scene after `openSettings()`
     /// returns. Retry briefly so the user-initiated window reliably becomes
     /// key/front even though VoxHearth normally runs as an accessory app.
