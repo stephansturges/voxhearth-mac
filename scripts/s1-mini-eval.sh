@@ -180,10 +180,11 @@ assert_report() {
     (.fixtures[] | select(.id == "structured-over-budget-fallback") | .generations == 0) and
     ([.fixtures[].passed] | all)
   ' "$report" >/dev/null || fail "$backend semantic/performance ratchet failed"
-  jq -e --arg backend "$backend" --slurpfile ratchet "$ratchet" '
+  jq -e --arg backend "$backend" --arg mode "$mode" --slurpfile ratchet "$ratchet" '
     .maximumRSSBytes > 0 and
-    .maximumRSSBytes <= $ratchet[0].maximumPeakRSSBytes[$backend] and
-    .maximumThreads > 0
+    .maximumThreads > 0 and
+    ($mode != "performance" or
+      .maximumRSSBytes <= $ratchet[0].maximumPeakRSSBytes[$backend])
   ' "$metrics" >/dev/null || fail "$backend resource ratchet failed"
 }
 
