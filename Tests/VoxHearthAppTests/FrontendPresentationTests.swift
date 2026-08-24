@@ -173,6 +173,33 @@ struct FrontendPresentationTests {
         #expect(displayed.split(separator: " ").count == 11)
     }
 
+    @Test("Menu-bar window keeps a stable nonzero content height")
+    func menuBarWindowSizing() throws {
+        #expect(MenuBarLayoutPresentation.mainMenuMinimumHeight >= 400)
+        #expect(
+            MenuBarLayoutPresentation.mainMenuIdealHeight
+                >= MenuBarLayoutPresentation.mainMenuMinimumHeight
+        )
+        #expect(
+            MenuBarLayoutPresentation.mainMenuMaximumHeight
+                >= MenuBarLayoutPresentation.mainMenuIdealHeight
+        )
+
+        let repository = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let menu = try String(contentsOf: repository.appendingPathComponent(
+            "Sources/VoxHearthApp/MenuBarContentView.swift"
+        ))
+        #expect(menu.contains(
+            "minHeight: MenuBarLayoutPresentation.mainMenuMinimumHeight"
+        ))
+        #expect(menu.contains(
+            "idealHeight: MenuBarLayoutPresentation.mainMenuIdealHeight"
+        ))
+    }
+
     @Test("Onboarding appears once for every installed build")
     func launchPresentationPolicy() {
         #expect(

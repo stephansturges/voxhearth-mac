@@ -89,7 +89,11 @@ struct MenuBarContentView: View {
             }
             .padding(18)
         }
-        .frame(maxHeight: 720)
+        .frame(
+            minHeight: MenuBarLayoutPresentation.mainMenuMinimumHeight,
+            idealHeight: MenuBarLayoutPresentation.mainMenuIdealHeight,
+            maxHeight: MenuBarLayoutPresentation.mainMenuMaximumHeight
+        )
         .confirmationDialog(
             recoveryConfirmation?.title ?? "Confirm recovery action",
             isPresented: Binding(
