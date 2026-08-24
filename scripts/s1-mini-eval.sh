@@ -49,6 +49,52 @@ verify_payload() {
   [[ "$(shasum -a 256 "$path" | awk '{print $1}')" == "$expected_sha" ]] || fail "payload digest mismatch: $path"
 }
 
+emit_evaluator_failure_summary() {
+  local backend="$1"
+  local output="$2"
+  local stderr="$3"
+  local status="$4"
+  printf 'evaluator_failure backend=%s status=%s\n' "$backend" "$status" >&2
+  if jq -e --arg backend "$backend" '
+    .schemaVersion == 1 and
+    .backend == $backend and
+    (.fixtures | type == "array")
+  ' "$output" >/dev/null 2>&1; then
+    jq '{
+      schemaVersion,
+      backend,
+      passedFixtureCount,
+      fixtureCount,
+      deterministicRepeat,
+      resultDigest,
+      latenciesMilliseconds,
+      counters,
+      failedFixtures: [
+        .fixtures[]
+        | select(.passed != true)
+        | {
+            id,
+            directive,
+            format,
+            disposition,
+            fallbackReason,
+            generations,
+            outputSHA256,
+            outputBytes,
+            latencyMilliseconds
+          }
+      ]
+    }' "$output" >&2
+  else
+    printf 'evaluator_report_valid=false bytes=%s sha256=%s\n' \
+      "$(stat -f '%z' "$output" 2>/dev/null || printf 0)" \
+      "$(shasum -a 256 "$output" 2>/dev/null | awk '{print $1}' || printf unavailable)" >&2
+  fi
+  printf 'evaluator_stderr bytes=%s sha256=%s\n' \
+    "$(stat -f '%z' "$stderr" 2>/dev/null || printf 0)" \
+    "$(shasum -a 256 "$stderr" 2>/dev/null | awk '{print $1}' || printf unavailable)" >&2
+}
+
 stage_app() {
   local app="$1"
   local metallib="$2"
@@ -96,7 +142,10 @@ run_measured() {
   done
   local eval_status=0
   wait "$eval_pid" || eval_status=$?
-  [[ "$eval_status" == 0 ]] || fail "$backend evaluator failed with status $eval_status"
+  if [[ "$eval_status" != 0 ]]; then
+    emit_evaluator_failure_summary "$backend" "$output" "$stderr" "$eval_status"
+    fail "$backend evaluator failed with status $eval_status"
+  fi
   jq -n \
     --argjson maximumRSSBytes "$((maximum_rss_kb * 1024))" \
     --argjson maximumThreads "$maximum_threads" \
