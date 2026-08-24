@@ -2,14 +2,14 @@
 
 ## Current development prerelease
 
-`v0.4.0-dev.4` is intentionally ad-hoc signed and not notarized. Download these
+`v0.4.0-dev.5` is intentionally ad-hoc signed and not notarized. Download these
 files from that exact prerelease:
 
 ```text
-VoxHearth-v0.4.0-dev.4-unsigned.dmg
-VoxHearth-v0.4.0-dev.4.spdx.json
-VoxHearth-v0.4.0-dev.4-provenance.json
-VoxHearth-v0.4.0-dev.4-source.tar.gz
+VoxHearth-v0.4.0-dev.5-unsigned.dmg
+VoxHearth-v0.4.0-dev.5.spdx.json
+VoxHearth-v0.4.0-dev.5-provenance.json
+VoxHearth-v0.4.0-dev.5-source.tar.gz
 SHA256SUMS
 ```
 
@@ -17,12 +17,12 @@ Run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS
-gh attestation verify VoxHearth-v0.4.0-dev.4-unsigned.dmg \
+gh attestation verify VoxHearth-v0.4.0-dev.5-unsigned.dmg \
   --repo stephansturges/voxhearth-mac
 ```
 
 Confirm the attestation identifies
-`.github/workflows/development-release.yml`, tag `v0.4.0-dev.4`, and the commit
+`.github/workflows/development-release.yml`, tag `v0.4.0-dev.5`, and the commit
 shown in the release notes. Inspect the provenance JSON and confirm it says
 `development-prerelease`, `anonymous ad-hoc signature`, and `notarization:
 absent`.

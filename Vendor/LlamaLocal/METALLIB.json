@@ -1,9 +1,9 @@
 {
   "artifact": "Metal/ggml-llama.metallib",
-  "artifactBytes": 8445733,
-  "artifactSHA256": "97897d540709e3819756049c07d67ed5653136d28638e17159c4940ccaf42ea8",
+  "artifactBytes": 8445925,
+  "artifactSHA256": "925c4db276d4459780420282e6f20a221d3b9f35f44b26b7ba55d82d5e381b74",
   "compiler": "Apple metal version 32023.864 (metalfe-32023.864)",
-  "compilerTarget": "Target: air64-apple-darwin25.4.0",
+  "compilerTarget": "Target: air64-apple-macos14.0",
   "defines": [
     "GGML_METAL_HAS_BF16=1",
     "GGML_METAL_HAS_TENSOR=1"

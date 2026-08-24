@@ -56,9 +56,9 @@ jobs:
           export VOXHEARTH_METAL_TOOLCHAIN_ROOT="$toolchain"
           output="$RUNNER_TEMP/voxhearth-metallib-reproducibility"
           mkdir -p "$output"
-          ./scripts/build-metallib.sh --candidate \
+          ./scripts/build-metallib.sh \
             "$output/first.metallib" "$output/first.json"
-          ./scripts/build-metallib.sh --candidate \
+          ./scripts/build-metallib.sh \
             "$output/second.metallib" "$output/second.json"
           cmp "$output/first.metallib" "$output/second.metallib"
           cmp "$output/first.json" "$output/second.json"
@@ -66,10 +66,10 @@ jobs:
           cp "$output/first.json" "$output/manifest.json"
           cat "$output/manifest.json"
 
-      - name: Upload the reproducible Metal candidate
+      - name: Upload the verified reproducible Metal result
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: sealed-metal-candidate
+          name: sealed-metal-verified
           path: |
             ${{ runner.temp }}/voxhearth-metallib-reproducibility/ggml-llama.metallib
             ${{ runner.temp }}/voxhearth-metallib-reproducibility/manifest.json
