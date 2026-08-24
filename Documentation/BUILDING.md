@@ -320,8 +320,9 @@ signed/notarized.
 
 The release workflow runs the locked S1-mini fixture corpus on CPU and Metal
 with `VOXHEARTH_S1_EVAL_MODE=semantic` and a bounded 30-second evaluator
-deadline. This isolates semantic, determinism, privacy, model-lifetime, and
-resource checks from shared-runner scheduling variability. It does not change
+deadline. This isolates semantic, determinism, privacy, and model-lifetime
+checks from shared-runner scheduling and platform variability. Hosted peak RSS
+is recorded but not treated as hardware-floor acceptance. This does not change
 the app's 2-second production cleanup deadline and does not substitute for the
 performance ratchet on the documented 16 GB M2 hardware floor. Running
 `scripts/s1-mini-eval.sh run` without those overrides remains the strict
