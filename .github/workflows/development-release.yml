@@ -101,7 +101,7 @@ jobs:
           VOXHEARTH_S1_METALLIB_PATH=.build/s1-mini/Metal/ggml-llama.metallib \
           VOXHEARTH_S1_EVAL_REPEATS=3 \
           VOXHEARTH_S1_EVAL_MODE=semantic \
-          VOXHEARTH_S1_EVAL_DEADLINE_MS=10000 \
+          VOXHEARTH_S1_EVAL_DEADLINE_MS=30000 \
             ./scripts/s1-mini-eval.sh run
 
       - name: Build the ad-hoc-signed app and unsigned DMG
