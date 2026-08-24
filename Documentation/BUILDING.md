@@ -54,6 +54,12 @@ xcodebuild -downloadComponent MetalToolchain
 ./scripts/build-metallib.sh
 ```
 
+The build pins `air64-apple-macos14.0` explicitly so the sealed library does
+not inherit the hosted machine's Darwin patch version. The normal command is
+fail-closed and accepts only the digest in `Vendor/LlamaLocal/METALLIB.json`.
+CI may use `--candidate` solely to produce a twice-built, byte-compared review
+artifact; candidate mode does not approve the artifact for app packaging.
+
 ## Test and compile
 
 From the repository root:

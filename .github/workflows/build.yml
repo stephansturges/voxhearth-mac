@@ -38,3 +38,40 @@ jobs:
 
       - name: Run tests and policy checks
         run: ./scripts/local-check.sh
+
+      - name: Build the sealed Metal library twice
+        run: |
+          set -euo pipefail
+          xcodebuild -downloadComponent MetalToolchain
+          component="$(xcodebuild -showComponent MetalToolchain -json)"
+          toolchain="$(jq -r '.toolchainSearchPath' <<< "$component")"
+          if [[ ! -x "$toolchain/usr/bin/metallib" ]]; then
+            asset="$(jq -r '.assetPath' <<< "$component")"
+            dmg="$(find "$asset/Restore" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+            mount="$RUNNER_TEMP/voxhearth-metal-toolchain"
+            mkdir -p "$mount"
+            hdiutil attach -quiet -readonly -nobrowse -mountpoint "$mount" "$dmg"
+            toolchain="$mount/Metal.xctoolchain"
+          fi
+          export VOXHEARTH_METAL_TOOLCHAIN_ROOT="$toolchain"
+          output="$RUNNER_TEMP/voxhearth-metallib-reproducibility"
+          mkdir -p "$output"
+          ./scripts/build-metallib.sh --candidate \
+            "$output/first.metallib" "$output/first.json"
+          ./scripts/build-metallib.sh --candidate \
+            "$output/second.metallib" "$output/second.json"
+          cmp "$output/first.metallib" "$output/second.metallib"
+          cmp "$output/first.json" "$output/second.json"
+          cp "$output/first.metallib" "$output/ggml-llama.metallib"
+          cp "$output/first.json" "$output/manifest.json"
+          cat "$output/manifest.json"
+
+      - name: Upload the reproducible Metal candidate
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: sealed-metal-candidate
+          path: |
+            ${{ runner.temp }}/voxhearth-metallib-reproducibility/ggml-llama.metallib
+            ${{ runner.temp }}/voxhearth-metallib-reproducibility/manifest.json
+          if-no-files-found: error
+          retention-days: 7
