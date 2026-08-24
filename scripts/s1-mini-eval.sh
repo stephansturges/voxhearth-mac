@@ -114,6 +114,7 @@ run_measured() {
   local output="$4"
   local repeats="$5"
   local interval="$6"
+  local deadline="$7"
   local metrics="${output%.json}.metrics.json"
   local stderr="${output%.json}.stderr.txt"
   local maximum_rss_kb=0
@@ -124,6 +125,7 @@ run_measured() {
     --fixtures "$fixtures" \
     --repeats "$repeats" \
     --interval-ms "$interval" \
+    --deadline-ms "$deadline" \
     >"$output" 2>"$stderr" &
   local eval_pid=$!
   while kill -0 "$eval_pid" 2>/dev/null; do
@@ -156,15 +158,21 @@ assert_report() {
   local backend="$1"
   local report="$2"
   local metrics="$3"
-  jq -e --arg backend "$backend" --slurpfile ratchet "$ratchet" '
+  local mode="$4"
+  local deadline="$5"
+  jq -e --arg backend "$backend" --arg mode "$mode" \
+    --argjson deadline "$deadline" --slurpfile ratchet "$ratchet" '
     .schemaVersion == 1 and
     .backend == $backend and
     .fixtureCount == $ratchet[0].fixtureCount and
     .passedFixtureCount == $ratchet[0].requiredFixturePasses and
     .deterministicRepeat == $ratchet[0].requiredDeterministicRepeat and
-    .deadlineMilliseconds == $ratchet[0].productionDeadlineMilliseconds and
-    .latenciesMilliseconds.p95 <= $ratchet[0].maximumP95Milliseconds[$backend] and
-    .latenciesMilliseconds.maximum <= $ratchet[0].maximumLatencyMilliseconds[$backend] and
+    .deadlineMilliseconds == $deadline and
+    ($mode != "performance" or (
+      $deadline == $ratchet[0].productionDeadlineMilliseconds and
+      .latenciesMilliseconds.p95 <= $ratchet[0].maximumP95Milliseconds[$backend] and
+      .latenciesMilliseconds.maximum <= $ratchet[0].maximumLatencyMilliseconds[$backend]
+    )) and
     .counters.modelLoads <= $ratchet[0].maximumModelLoads and
     .counters.contextCreations <= $ratchet[0].maximumContextCreations and
     .counters.warmups == $ratchet[0].requiredWarmups and
@@ -185,10 +193,19 @@ run_evaluation() {
   local output_dir="${VOXHEARTH_S1_EVAL_OUTPUT_DIR:-$repo_root/.build/s1-mini-evaluation}"
   local repeats="${VOXHEARTH_S1_EVAL_REPEATS:-20}"
   local interval="${VOXHEARTH_S1_EVAL_INTERVAL_MS:-100}"
+  local deadline="${VOXHEARTH_S1_EVAL_DEADLINE_MS:-2000}"
+  local mode="${VOXHEARTH_S1_EVAL_MODE:-performance}"
   [[ -n "$model" ]] || fail "VOXHEARTH_S1_MODEL_PATH is required"
   [[ -n "$metallib" ]] || fail "VOXHEARTH_S1_METALLIB_PATH is required"
   [[ "$repeats" =~ ^[1-9][0-9]*$ ]] || fail "repeats must be positive"
   [[ "$interval" =~ ^[0-9]+$ ]] || fail "interval must be non-negative"
+  [[ "$deadline" =~ ^[1-9][0-9]*$ ]] || fail "deadline must be positive"
+  (( deadline <= 10000 )) || fail "deadline must not exceed 10000 ms"
+  [[ "$mode" == "performance" || "$mode" == "semantic" ]] || \
+    fail "mode must be performance or semantic"
+  if [[ "$mode" == "performance" && "$deadline" != 2000 ]]; then
+    fail "performance mode requires the 2000 ms production deadline"
+  fi
   verify_payload "$model" 484219808 3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634
   verify_payload "$metallib" 8445925 925c4db276d4459780420282e6f20a221d3b9f35f44b26b7ba55d82d5e381b74
 
@@ -201,17 +218,17 @@ run_evaluation() {
   stage_app "$app" "$metallib"
   local executable="$app/Contents/MacOS/$product"
 
-  run_measured cpu "$executable" "$model" "$output_dir/cpu.json" "$repeats" "$interval"
-  run_measured metal "$executable" "$model" "$output_dir/metal.json" "$repeats" "$interval"
-  assert_report cpu "$output_dir/cpu.json" "$output_dir/cpu.metrics.json"
-  assert_report metal "$output_dir/metal.json" "$output_dir/metal.metrics.json"
+  run_measured cpu "$executable" "$model" "$output_dir/cpu.json" "$repeats" "$interval" "$deadline"
+  run_measured metal "$executable" "$model" "$output_dir/metal.json" "$repeats" "$interval" "$deadline"
+  assert_report cpu "$output_dir/cpu.json" "$output_dir/cpu.metrics.json" "$mode" "$deadline"
+  assert_report metal "$output_dir/metal.json" "$output_dir/metal.metrics.json" "$mode" "$deadline"
 
   local sandbox_profile="$staging/network-denied.sb"
   printf '%s\n' '(version 1)' '(allow default)' '(deny network*)' >"$sandbox_profile"
   for backend in cpu metal; do
     sandbox-exec -f "$sandbox_profile" "$executable" \
       --backend "$backend" --model "$model" --fixtures "$fixtures" \
-      --repeats 1 --interval-ms 0 \
+      --repeats 1 --interval-ms 0 --deadline-ms "$deadline" \
       >"$output_dir/$backend.network-denied.json" \
       2>"$output_dir/$backend.network-denied.stderr.txt"
     env \
@@ -220,7 +237,7 @@ run_evaluation() {
       GGML_METAL_FUSION_DISABLE=1 \
       "$executable" \
       --backend "$backend" --model "$model" --fixtures "$fixtures" \
-      --repeats 1 --interval-ms 0 \
+      --repeats 1 --interval-ms 0 --deadline-ms "$deadline" \
       >"$output_dir/$backend.hostile-environment.json" \
       2>"$output_dir/$backend.hostile-environment.stderr.txt"
     jq -e --arg digest "$(jq -r '.resultDigest' "$output_dir/$backend.json")" '
@@ -233,12 +250,12 @@ run_evaluation() {
 
   local bad_model="$staging/bad.gguf"
   printf 'invalid' >"$bad_model"
-  if "$executable" --backend cpu --model "$bad_model" --fixtures "$fixtures" --repeats 1 --interval-ms 0 >/dev/null 2>&1; then
+  if "$executable" --backend cpu --model "$bad_model" --fixtures "$fixtures" --repeats 1 --interval-ms 0 --deadline-ms "$deadline" >/dev/null 2>&1; then
     fail "invalid model payload was accepted"
   fi
   local linked_model="$staging/linked.gguf"
   ln -s "$model" "$linked_model"
-  if "$executable" --backend cpu --model "$linked_model" --fixtures "$fixtures" --repeats 1 --interval-ms 0 >/dev/null 2>&1; then
+  if "$executable" --backend cpu --model "$linked_model" --fixtures "$fixtures" --repeats 1 --interval-ms 0 --deadline-ms "$deadline" >/dev/null 2>&1; then
     fail "symlink model payload was accepted"
   fi
   if rg -l 'ZXQ-VOXHEARTH-PRIVATE-9F7B' "$output_dir" >/dev/null; then
@@ -252,10 +269,12 @@ run_evaluation() {
     --slurpfile metalMetrics "$output_dir/metal.metrics.json" \
     --arg fixtureSHA256 "$(shasum -a 256 "$fixtures" | awk '{print $1}')" \
     --arg ratchetSHA256 "$(shasum -a 256 "$ratchet" | awk '{print $1}')" \
+    --arg mode "$mode" \
     '{
       schemaVersion: 1,
       fixtureSHA256: $fixtureSHA256,
       ratchetSHA256: $ratchetSHA256,
+      evaluationMode: $mode,
       cpu: $cpu[0],
       metal: $metal[0],
       resources: {cpu: $cpuMetrics[0], metal: $metalMetrics[0]},

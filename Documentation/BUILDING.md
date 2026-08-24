@@ -314,9 +314,18 @@ artifact before rebuilding.
 
 The automated development path is
 `.github/workflows/development-release.yml`. It requires no Apple secrets and
-publishes only tag `v0.4.0-dev.5` as a GitHub prerelease. It must not be renamed
+publishes only tag `v0.4.0-dev.6` as a GitHub prerelease. It must not be renamed
 to `VoxHearth-v0.4.0.dmg`, marked as the latest stable release, or described as
 signed/notarized.
+
+The release workflow runs the locked S1-mini fixture corpus on CPU and Metal
+with `VOXHEARTH_S1_EVAL_MODE=semantic` and a bounded 10-second evaluator
+deadline. This isolates semantic, determinism, privacy, model-lifetime, and
+resource checks from shared-runner scheduling variability. It does not change
+the app's 2-second production cleanup deadline and does not substitute for the
+performance ratchet on the documented 16 GB M2 hardware floor. Running
+`scripts/s1-mini-eval.sh run` without those overrides remains the strict
+2-second performance mode.
 
 ## Sign and notarize manually
 

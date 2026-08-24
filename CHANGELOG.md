@@ -16,7 +16,7 @@ Developer ID-signed, Apple-notarized releases.
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
 
-## [0.4.0-dev.5] - 2026-08-24
+## [0.4.0-dev.6] - 2026-08-24
 
 ### Fixed
 
@@ -39,6 +39,9 @@ Developer ID-signed, Apple-notarized releases.
 - Pinned the sealed Metal compiler target explicitly, required two
   byte-identical hosted builds in the protected check, and replaced a
   scheduler-sensitive preview-cancellation fixture with an explicit gate.
+- Separated hosted semantic verification from hardware-floor performance
+  acceptance. Shared CI uses a bounded evaluator-only deadline while the app's
+  production cleanup deadline remains 2 seconds.
 - Retained the existing CPU-only multilingual preprocessor after every tested
   compute-unit alternative slowed warm weighted p95 and regressed cold/resource
   evidence; no experimental runtime change was promoted.
@@ -201,8 +204,8 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.5...HEAD
-[0.4.0-dev.5]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.3...v0.4.0-dev.5
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.6...HEAD
+[0.4.0-dev.6]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.3...v0.4.0-dev.6
 [0.4.0]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.4.0
 [0.4.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.4.0-dev.1
 [0.3.0-dev.3]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.3.0-dev.3
