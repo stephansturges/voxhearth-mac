@@ -71,6 +71,7 @@ private struct Configuration {
     let fixturesURL: URL
     let repeats: Int
     let intervalMilliseconds: Int
+    let deadlineMilliseconds: Int
 }
 
 @main
@@ -137,7 +138,8 @@ private enum S1MiniEvaluator {
             let measured = await evaluate(
                 fixture,
                 normalizer: normalizer,
-                settings: settings
+                settings: settings,
+                deadlineMilliseconds: configuration.deadlineMilliseconds
             )
             results.append(measured.result)
             resultIdentities.append(measured.identity)
@@ -153,7 +155,8 @@ private enum S1MiniEvaluator {
             let measured = await evaluate(
                 workload,
                 normalizer: normalizer,
-                settings: settings
+                settings: settings,
+                deadlineMilliseconds: configuration.deadlineMilliseconds
             )
             repeatIdentities.append(measured.identity)
             latencies.append(measured.result.latencyMilliseconds)
@@ -168,7 +171,7 @@ private enum S1MiniEvaluator {
             backend: configuration.backend.rawValue,
             modelSHA256: modelDigest,
             modelBytes: modelValues.fileSize ?? 0,
-            deadlineMilliseconds: CleanupRuntimeLimits.productionDeadlineMilliseconds,
+            deadlineMilliseconds: configuration.deadlineMilliseconds,
             fixtureCount: results.count,
             passedFixtureCount: results.filter(\.passed).count,
             deterministicRepeat: Set(repeatIdentities).count == 1,
@@ -195,7 +198,8 @@ private enum S1MiniEvaluator {
     private static func evaluate(
         _ fixture: Fixture,
         normalizer: S1MiniNormalizer,
-        settings: CleanupSettings
+        settings: CleanupSettings,
+        deadlineMilliseconds: Int
     ) async -> (result: FixtureResult, identity: String) {
         let final = FinalTranscript(sessionID: DictationSessionID(), text: fixture.transcript)
         let parse = CleanupDirectiveParser().parse(
@@ -208,7 +212,7 @@ private enum S1MiniEvaluator {
         let outcome = await normalizer.normalize(
             NormalizationInput(parse: parse),
             settings: settings,
-            deadlineMilliseconds: CleanupRuntimeLimits.productionDeadlineMilliseconds
+            deadlineMilliseconds: deadlineMilliseconds
         )
         let latency = milliseconds(started.duration(to: .now))
         let generations = await normalizer.resourceCounters().generations - generationsBefore
@@ -277,7 +281,8 @@ private enum S1MiniEvaluator {
         }
         guard let backend = LlamaBackend(rawValue: try take("--backend")),
               let repeats = Int(try take("--repeats")), repeats > 0,
-              let interval = Int(try take("--interval-ms")), interval >= 0 else {
+              let interval = Int(try take("--interval-ms")), interval >= 0,
+              let deadline = Int(try take("--deadline-ms")), deadline > 0 else {
             throw EvaluationError.invalidArguments
         }
         let modelURL = URL(fileURLWithPath: try take("--model")).standardizedFileURL
@@ -288,7 +293,8 @@ private enum S1MiniEvaluator {
             modelURL: modelURL,
             fixturesURL: fixturesURL,
             repeats: repeats,
-            intervalMilliseconds: interval
+            intervalMilliseconds: interval,
+            deadlineMilliseconds: deadline
         )
     }
 

@@ -1,9 +1,9 @@
-name: Development Release v0.4.0-dev.5
+name: Development Release v0.4.0-dev.6
 
 on:
   push:
     tags:
-      - v0.4.0-dev.5
+      - v0.4.0-dev.6
   workflow_dispatch:
 
 permissions:
@@ -13,14 +13,14 @@ permissions:
   artifact-metadata: write
 
 concurrency:
-  group: development-release-v0.4.0-dev.5
+  group: development-release-v0.4.0-dev.6
   cancel-in-progress: false
 
 env:
   APP_NAME: VoxHearth
-  APP_VERSION: 0.4.0-dev.5
-  RELEASE_VERSION: 0.4.0-dev.5
-  RELEASE_TAG: v0.4.0-dev.5
+  APP_VERSION: 0.4.0-dev.6
+  RELEASE_VERSION: 0.4.0-dev.6
+  RELEASE_TAG: v0.4.0-dev.6
   FLUIDAUDIO_REVISION: 19600a485baa4998812e4654b70d2bab8f2c9949
   MODEL_REVISION: aed02740059203c4a87495924f685de3722ae9ce
   COMPACT_MODEL_REVISION: 9bc92ead6e8f17eca92a869fd578ae76842b82ba
@@ -36,7 +36,7 @@ jobs:
       - name: Check out the development release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: refs/tags/v0.4.0-dev.5
+          ref: refs/tags/v0.4.0-dev.6
           fetch-depth: 0
           persist-credentials: false
 
@@ -100,6 +100,8 @@ jobs:
           VOXHEARTH_S1_MODEL_PATH=.build/models/s1-mini-gguf/s1-mini-q4_k_m.gguf \
           VOXHEARTH_S1_METALLIB_PATH=.build/s1-mini/Metal/ggml-llama.metallib \
           VOXHEARTH_S1_EVAL_REPEATS=3 \
+          VOXHEARTH_S1_EVAL_MODE=semantic \
+          VOXHEARTH_S1_EVAL_DEADLINE_MS=10000 \
             ./scripts/s1-mini-eval.sh run
 
       - name: Build the ad-hoc-signed app and unsigned DMG
@@ -159,13 +161,13 @@ jobs:
       - name: Attest the development DMG
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
-          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.5-unsigned.dmg
+          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.6-unsigned.dmg
 
       - name: Attest the development DMG SBOM
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
-          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.5-unsigned.dmg
-          sbom-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.5.spdx.json
+          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.6-unsigned.dmg
+          sbom-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.6.spdx.json
 
       - name: Publish the GitHub prerelease
         env:
@@ -175,7 +177,7 @@ jobs:
           notes="$RUNNER_TEMP/VoxHearth-v$RELEASE_VERSION-release-notes.md"
           sed \
             -e "s/{{SOURCE_REVISION}}/$SOURCE_REVISION/g" \
-            .github/release-notes-v0.4.0-dev.5.md > "$notes"
+            .github/release-notes-v0.4.0-dev.6.md > "$notes"
 
           assets=(
             "$DIST_DIR/VoxHearth-v$RELEASE_VERSION-unsigned.dmg"
@@ -188,5 +190,5 @@ jobs:
           gh release create "$RELEASE_TAG" "${assets[@]}" \
             --verify-tag \
             --prerelease \
-            --title "VoxHearth 0.4.0 Development Preview 5 (unsigned)" \
+            --title "VoxHearth 0.4.0 Development Preview 6 (unsigned)" \
             --notes-file "$notes"
