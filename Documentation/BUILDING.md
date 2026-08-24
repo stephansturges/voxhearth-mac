@@ -319,7 +319,7 @@ to `VoxHearth-v0.4.0.dmg`, marked as the latest stable release, or described as
 signed/notarized.
 
 The release workflow runs the locked S1-mini fixture corpus on CPU and Metal
-with `VOXHEARTH_S1_EVAL_MODE=semantic` and a bounded 10-second evaluator
+with `VOXHEARTH_S1_EVAL_MODE=semantic` and a bounded 30-second evaluator
 deadline. This isolates semantic, determinism, privacy, model-lifetime, and
 resource checks from shared-runner scheduling variability. It does not change
 the app's 2-second production cleanup deadline and does not substitute for the

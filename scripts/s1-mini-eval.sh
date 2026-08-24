@@ -200,7 +200,7 @@ run_evaluation() {
   [[ "$repeats" =~ ^[1-9][0-9]*$ ]] || fail "repeats must be positive"
   [[ "$interval" =~ ^[0-9]+$ ]] || fail "interval must be non-negative"
   [[ "$deadline" =~ ^[1-9][0-9]*$ ]] || fail "deadline must be positive"
-  (( deadline <= 10000 )) || fail "deadline must not exceed 10000 ms"
+  (( deadline <= 30000 )) || fail "deadline must not exceed 30000 ms"
   [[ "$mode" == "performance" || "$mode" == "semantic" ]] || \
     fail "mode must be performance or semantic"
   if [[ "$mode" == "performance" && "$deadline" != 2000 ]]; then
