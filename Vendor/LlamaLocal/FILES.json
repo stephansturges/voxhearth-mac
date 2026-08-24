@@ -70,8 +70,8 @@
   "files": [
     {
       "path": "METALLIB.json",
-      "bytes": 621,
-      "sha256": "a677f3022ddf51f2121742fe8d6a8c8530ff08855d0c1bfc16abff9b49644033",
+      "bytes": 618,
+      "sha256": "bd1728d9641f326e33cec000687ae6ac3b81eb69356149ff9cb9e3f13fda65e0",
       "origin": "local"
     },
     {

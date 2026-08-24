@@ -535,7 +535,9 @@ private actor GatedFinalTranscriptionEngine: LocalTranscriptionEngine {
 private actor NonCooperativePreviewEngine: LocalTranscriptionEngine {
     private(set) var transcribeCount = 0
     private(set) var maximumActiveTranscriptions = 0
+    private(set) var firstTranscriptionStarted = false
     private var activeTranscriptions = 0
+    private var firstTranscriptionContinuation: CheckedContinuation<Void, Never>?
 
     func prepare(model: TranscriptionModel) async throws {}
 
@@ -553,13 +555,19 @@ private actor NonCooperativePreviewEngine: LocalTranscriptionEngine {
         )
 
         if callNumber == 1 {
-            await Task.detached {
-                try? await Task.sleep(for: .milliseconds(30))
-            }.value
+            firstTranscriptionStarted = true
+            await withCheckedContinuation { continuation in
+                firstTranscriptionContinuation = continuation
+            }
         }
 
         activeTranscriptions -= 1
         return callNumber == 1 ? "preview" : "final"
+    }
+
+    func releaseFirstTranscription() {
+        firstTranscriptionContinuation?.resume()
+        firstTranscriptionContinuation = nil
     }
 }
 
@@ -833,13 +841,18 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     controller.onLiveTranscriptPreview = { recorder.values.append($0) }
 
     await controller.startDictation()
-    for _ in 0..<500 {
-        if await engine.transcribeCount == 1 { break }
-        try? await Task.sleep(for: .milliseconds(1))
+    for _ in 0..<5_000 {
+        if await engine.firstTranscriptionStarted { break }
+        await Task.yield()
     }
+    #expect(await engine.firstTranscriptionStarted)
     #expect(await engine.transcribeCount == 1)
 
-    await controller.stopDictation()
+    let stopTask = Task { await controller.stopDictation() }
+    await waitUntil(attempts: 5_000) { controller.state == .transcribing }
+    #expect(controller.state == .transcribing)
+    await engine.releaseFirstTranscription()
+    await stopTask.value
 
     #expect(await audio.stopCount == 1)
     #expect(await engine.transcribeCount == 2)
@@ -875,14 +888,19 @@ private final class LivePreviewRecorder: @unchecked Sendable {
     )
 
     await controller.startDictation()
-    for _ in 0..<500 {
-        if await engine.transcribeCount == 1 { break }
+    for _ in 0..<5_000 {
+        if await engine.firstTranscriptionStarted { break }
         await Task.yield()
     }
+    #expect(await engine.firstTranscriptionStarted)
     #expect(await engine.transcribeCount == 1)
 
     try controller.applySettings(AppSettings(liveTranscriptOverlayEnabled: false))
-    await controller.stopDictation()
+    let stopTask = Task { await controller.stopDictation() }
+    await waitUntil(attempts: 5_000) { controller.state == .transcribing }
+    #expect(controller.state == .transcribing)
+    await engine.releaseFirstTranscription()
+    await stopTask.value
 
     #expect(await engine.transcribeCount == 2)
     #expect(await engine.maximumActiveTranscriptions == 1)

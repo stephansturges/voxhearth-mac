@@ -115,8 +115,8 @@ never receives microphone samples or live-preview snapshots.
 
 The model is run through the committed, statically linked llama.cpp subset at
 revision `9ee9fc04c136ef2ae729bfc60d18961b23c13ddf` (tag `b10524`). The packaged
-Metal library is 8,445,733 bytes with SHA-256
-`97897d540709e3819756049c07d67ed5653136d28638e17159c4940ccaf42ea8`.
+Metal library is 8,445,925 bytes with SHA-256
+`925c4db276d4459780420282e6f20a221d3b9f35f44b26b7ba55d82d5e381b74`.
 `Vendor/LlamaLocal/FILES.json`, `Vendor/LlamaLocal/METALLIB.json`, and
 `Research/s1-mini/production-metallib.json` record the source closure,
 compiler inputs, and two byte-identical production rebuilds.

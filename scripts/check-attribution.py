@@ -219,7 +219,7 @@ def verify_provenance(path: Path) -> None:
     if license_material is None or license_material.get("digest", {}).get("sha256") != S1_LICENSE_SHA256:
         raise AttributionError("release provenance does not pin the S1-mini license")
     metal = materials.get("llama.cpp sealed Metal library")
-    if metal is None or metal.get("digest", {}).get("sha256") != "97897d540709e3819756049c07d67ed5653136d28638e17159c4940ccaf42ea8":
+    if metal is None or metal.get("digest", {}).get("sha256") != "925c4db276d4459780420282e6f20a221d3b9f35f44b26b7ba55d82d5e381b74":
         raise AttributionError("release provenance does not pin the sealed Metal library")
 
 
@@ -387,7 +387,7 @@ def self_test(root: Path) -> None:
                 {
                     "name": "llama.cpp sealed Metal library",
                     "digest": {
-                        "sha256": "97897d540709e3819756049c07d67ed5653136d28638e17159c4940ccaf42ea8"
+                        "sha256": "925c4db276d4459780420282e6f20a221d3b9f35f44b26b7ba55d82d5e381b74"
                     },
                 },
             ]

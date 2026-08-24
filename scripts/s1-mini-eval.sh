@@ -141,7 +141,7 @@ run_evaluation() {
   [[ "$repeats" =~ ^[1-9][0-9]*$ ]] || fail "repeats must be positive"
   [[ "$interval" =~ ^[0-9]+$ ]] || fail "interval must be non-negative"
   verify_payload "$model" 484219808 3b41ebe2502cbd03e811d5d16b022f5ab551eda58d62597d152f89535003c634
-  verify_payload "$metallib" 8445733 97897d540709e3819756049c07d67ed5653136d28638e17159c4940ccaf42ea8
+  verify_payload "$metallib" 8445925 925c4db276d4459780420282e6f20a221d3b9f35f44b26b7ba55d82d5e381b74
 
   swift build -c release --product "$product"
   mkdir -p "$output_dir"

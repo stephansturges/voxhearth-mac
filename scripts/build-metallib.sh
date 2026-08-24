@@ -4,11 +4,17 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source_file="$repo_root/Vendor/LlamaLocal/ggml/src/ggml-metal/ggml-metal.metal"
+candidate_mode=false
+if [[ "${1:-}" == "--candidate" ]]; then
+  candidate_mode=true
+  shift
+fi
 output_file="${1:-$repo_root/.build/s1-mini/Metal/ggml-llama.metallib}"
 provenance_file="${2:-$repo_root/.build/s1-mini/Metal/ggml-llama.metallib.json}"
 metal_dir="$(dirname "$source_file")"
 ggml_source_dir="$repo_root/Vendor/LlamaLocal/ggml/src"
 toolchain_root="${VOXHEARTH_METAL_TOOLCHAIN_ROOT:-}"
+compiler_target="air64-apple-macos14.0"
 
 for command_name in diff python3 shasum xcodebuild xcrun; do
   command -v "$command_name" >/dev/null 2>&1 || {
@@ -66,6 +72,7 @@ sealed_file="$build_dir/ggml-llama.metallib"
 "$metal_path" \
   -O3 \
   -c \
+  -target "$compiler_target" \
   -std=metal4.0 \
   -mmacosx-version-min=14.0 \
   -I"$metal_dir" \
@@ -87,11 +94,11 @@ output_sha="$(shasum -a 256 "$output_file" | awk '{print $1}')"
 output_bytes="$(stat -f '%z' "$output_file")"
 sdk_version="$(xcrun -sdk macosx --show-sdk-version)"
 compiler_version="$(printf '%s\n' "$metal_version" | sed -n '1p')"
-compiler_target="$(printf '%s\n' "$metal_version" | sed -n '2p')"
+reviewed_compiler_target="Target: $compiler_target"
 
 python3 - \
   "$provenance_file" "$source_sha" "$output_sha" "$output_bytes" \
-  "$sdk_version" "$compiler_version" "$compiler_target" <<'PY'
+  "$sdk_version" "$compiler_version" "$reviewed_compiler_target" <<'PY'
 import json
 from pathlib import Path
 import sys
@@ -118,14 +125,19 @@ expected_manifest="$repo_root/Vendor/LlamaLocal/METALLIB.json"
   printf 'error: reviewed metallib manifest is missing\n' >&2
   exit 1
 }
-cmp "$expected_manifest" "$provenance_file" || {
-  diff -u "$expected_manifest" "$provenance_file" >&2 || true
-  printf 'error: rebuilt metallib does not match the reviewed manifest\n' >&2
-  exit 1
-}
+if [[ "$candidate_mode" == false ]]; then
+  cmp "$expected_manifest" "$provenance_file" || {
+    diff -u "$expected_manifest" "$provenance_file" >&2 || true
+    printf 'error: rebuilt metallib does not match the reviewed manifest\n' >&2
+    exit 1
+  }
+else
+  printf 'warning: candidate mode does not approve the generated metallib\n' >&2
+fi
 
 printf 'xcode=%s\n' "$(xcodebuild -version | tr '\n' ' ')"
 printf 'metal=%s\n' "$(printf '%s' "$metal_version" | tr '\n' ' ')"
+printf 'compiler_target=%s\n' "$compiler_target"
 printf 'macos_sdk=%s\n' "$sdk_version"
 printf 'source=%s\n' "$source_file"
 printf 'source_sha256=%s\n' "$source_sha"

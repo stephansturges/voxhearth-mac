@@ -54,6 +54,12 @@ xcodebuild -downloadComponent MetalToolchain
 ./scripts/build-metallib.sh
 ```
 
+The build pins `air64-apple-macos14.0` explicitly instead of relying on the
+compiler driver's host-derived default target. The normal command is fail-closed
+and accepts only the digest in `Vendor/LlamaLocal/METALLIB.json`.
+CI may use `--candidate` solely to produce a twice-built, byte-compared review
+artifact; candidate mode does not approve the artifact for app packaging.
+
 ## Test and compile
 
 From the repository root:
@@ -308,7 +314,7 @@ artifact before rebuilding.
 
 The automated development path is
 `.github/workflows/development-release.yml`. It requires no Apple secrets and
-publishes only tag `v0.4.0-dev.4` as a GitHub prerelease. It must not be renamed
+publishes only tag `v0.4.0-dev.5` as a GitHub prerelease. It must not be renamed
 to `VoxHearth-v0.4.0.dmg`, marked as the latest stable release, or described as
 signed/notarized.
 
