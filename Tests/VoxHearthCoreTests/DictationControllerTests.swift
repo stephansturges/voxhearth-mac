@@ -308,6 +308,7 @@ private final class GatedRecoverySuccessInserter: TextInserting {
 
 private actor GatedUnloadNormalizer: TranscriptNormalizing {
     private(set) var unloadStarted = false
+    private(set) var unloadCompleted = false
     private var unloadContinuation: CheckedContinuation<Void, Never>?
 
     func prepare(
@@ -339,6 +340,7 @@ private actor GatedUnloadNormalizer: TranscriptNormalizing {
         await withCheckedContinuation { continuation in
             unloadContinuation = continuation
         }
+        unloadCompleted = true
     }
 
     func releaseUnload() {
@@ -2282,11 +2284,20 @@ private func explicitCancellationMarkerCount(_ controller: DictationController) 
         monitorCleanupMemoryPressure: false
     )
     await controller.prepareCleanupModelIfEffective()
-    let started = ContinuousClock.now
-    await controller.shutdownCleanup(deadline: .milliseconds(20))
-    #expect(started.duration(to: .now) < .seconds(1))
+    let shutdown = Task { @MainActor in
+        await controller.shutdownCleanup(deadline: .milliseconds(20))
+    }
+    for _ in 0..<1_000 where !(await normalizer.unloadStarted) {
+        await Task.yield()
+    }
     #expect(await normalizer.unloadStarted)
+    await shutdown.value
+    #expect(!(await normalizer.unloadCompleted))
     await normalizer.releaseUnload()
+    for _ in 0..<1_000 where !(await normalizer.unloadCompleted) {
+        await Task.yield()
+    }
+    #expect(await normalizer.unloadCompleted)
 }
 
 @MainActor
