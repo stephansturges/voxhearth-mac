@@ -10,7 +10,7 @@ metal_dir="$(dirname "$source_file")"
 ggml_source_dir="$repo_root/Vendor/LlamaLocal/ggml/src"
 toolchain_root="${VOXHEARTH_METAL_TOOLCHAIN_ROOT:-}"
 
-for command_name in python3 shasum xcodebuild xcrun; do
+for command_name in diff python3 shasum xcodebuild xcrun; do
   command -v "$command_name" >/dev/null 2>&1 || {
     printf 'error: required command not found: %s\n' "$command_name" >&2
     exit 1
@@ -119,6 +119,7 @@ expected_manifest="$repo_root/Vendor/LlamaLocal/METALLIB.json"
   exit 1
 }
 cmp "$expected_manifest" "$provenance_file" || {
+  diff -u "$expected_manifest" "$provenance_file" >&2 || true
   printf 'error: rebuilt metallib does not match the reviewed manifest\n' >&2
   exit 1
 }
