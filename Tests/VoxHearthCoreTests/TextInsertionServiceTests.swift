@@ -67,6 +67,17 @@ private final class MockInsertionBackend: TextInsertionBackend, @unchecked Senda
     }
 }
 
+private final class QueueAffinityRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [Bool] = []
+
+    var observations: [Bool] { lock.withLock { values } }
+
+    func recordCurrentThread() {
+        lock.withLock { values.append(Thread.isMainThread) }
+    }
+}
+
 @MainActor
 private struct MockDestinationSafety: MultilineDestinationSafety {
     let disposition: MultilineDestinationDisposition
@@ -146,6 +157,56 @@ private struct MockDestinationSafety: MultilineDestinationSafety {
 
     #expect(backend.replaceSelectedText("hello") == .unavailable)
     #expect(timeouts == [MacTextInsertionBackend.accessibilityQueryTimeout, 0])
+}
+
+@Test @MainActor func selfProcessAccessibilityMutationHopsToMainFromWorker() async {
+    let focusedElement = AXUIElementCreateApplication(getpid())
+    let recorder = QueueAffinityRecorder()
+    let messaging = AccessibilityMessaging(
+        setMessagingTimeout: { _, _ in .success },
+        copyFocusedElement: { _ in (.success, focusedElement) },
+        isSelectedTextSettable: { _ in
+            recorder.recordCurrentThread()
+            return (.success, true)
+        },
+        setSelectedText: { _, _ in
+            recorder.recordCurrentThread()
+            return .success
+        }
+    )
+    let backend = MacTextInsertionBackend(messaging: messaging, mode: .accessibilityFirst)
+
+    let outcome = await Task.detached(priority: .userInitiated) {
+        backend.replaceSelectedText("hello")
+    }.value
+
+    #expect(outcome == .inserted)
+    #expect(recorder.observations == [true, true])
+}
+
+@Test @MainActor func externalProcessAccessibilityMutationStaysOffMain() async {
+    let focusedElement = AXUIElementCreateApplication(1)
+    let recorder = QueueAffinityRecorder()
+    let messaging = AccessibilityMessaging(
+        setMessagingTimeout: { _, _ in .success },
+        copyFocusedElement: { _ in (.success, focusedElement) },
+        isSelectedTextSettable: { _ in
+            recorder.recordCurrentThread()
+            return (.success, true)
+        },
+        setSelectedText: { _, _ in
+            recorder.recordCurrentThread()
+            return .success
+        }
+    )
+    let backend = MacTextInsertionBackend(messaging: messaging, mode: .accessibilityFirst)
+
+    let outcome = await Task.detached(priority: .userInitiated) {
+        backend.replaceSelectedText("hello")
+    }.value
+
+    #expect(outcome == .inserted)
+    #expect(recorder.observations == [false, false])
 }
 
 @Test @MainActor func unicodeFirstDiagnosticModeSkipsAccessibilityMessaging() {

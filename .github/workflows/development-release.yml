@@ -1,9 +1,9 @@
-name: Development Release v0.4.0-dev.7
+name: Development Release v0.4.0-dev.8
 
 on:
   push:
     tags:
-      - v0.4.0-dev.7
+      - v0.4.0-dev.8
   workflow_dispatch:
 
 permissions:
@@ -13,14 +13,14 @@ permissions:
   artifact-metadata: write
 
 concurrency:
-  group: development-release-v0.4.0-dev.7
+  group: development-release-v0.4.0-dev.8
   cancel-in-progress: false
 
 env:
   APP_NAME: VoxHearth
-  APP_VERSION: 0.4.0-dev.7
-  RELEASE_VERSION: 0.4.0-dev.7
-  RELEASE_TAG: v0.4.0-dev.7
+  APP_VERSION: 0.4.0-dev.8
+  RELEASE_VERSION: 0.4.0-dev.8
+  RELEASE_TAG: v0.4.0-dev.8
   FLUIDAUDIO_REVISION: 19600a485baa4998812e4654b70d2bab8f2c9949
   MODEL_REVISION: aed02740059203c4a87495924f685de3722ae9ce
   COMPACT_MODEL_REVISION: 9bc92ead6e8f17eca92a869fd578ae76842b82ba
@@ -36,7 +36,7 @@ jobs:
       - name: Check out the development release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: refs/tags/v0.4.0-dev.7
+          ref: refs/tags/v0.4.0-dev.8
           fetch-depth: 0
           persist-credentials: false
 
@@ -161,13 +161,13 @@ jobs:
       - name: Attest the development DMG
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
-          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.7-unsigned.dmg
+          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.8-unsigned.dmg
 
       - name: Attest the development DMG SBOM
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
-          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.7-unsigned.dmg
-          sbom-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.7.spdx.json
+          subject-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.8-unsigned.dmg
+          sbom-path: ${{ runner.temp }}/voxhearth-development-release/VoxHearth-v0.4.0-dev.8.spdx.json
 
       - name: Publish the GitHub prerelease
         env:
@@ -177,7 +177,7 @@ jobs:
           notes="$RUNNER_TEMP/VoxHearth-v$RELEASE_VERSION-release-notes.md"
           sed \
             -e "s/{{SOURCE_REVISION}}/$SOURCE_REVISION/g" \
-            .github/release-notes-v0.4.0-dev.7.md > "$notes"
+            .github/release-notes-v0.4.0-dev.8.md > "$notes"
 
           assets=(
             "$DIST_DIR/VoxHearth-v$RELEASE_VERSION-unsigned.dmg"
@@ -190,5 +190,5 @@ jobs:
           gh release create "$RELEASE_TAG" "${assets[@]}" \
             --verify-tag \
             --prerelease \
-            --title "VoxHearth 0.4.0 Development Preview 7 (unsigned)" \
+            --title "VoxHearth 0.4.0 Development Preview 8 (unsigned)" \
             --notes-file "$notes"

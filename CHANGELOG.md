@@ -16,6 +16,21 @@ Developer ID-signed, Apple-notarized releases.
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
 
+## [0.4.0-dev.8] - 2026-08-24
+
+### Fixed
+
+- Prevented first-use dictation in VoxHearth's setup test window from crashing
+  when accessibility text insertion re-entered the app's own AppKit text view
+  from a background queue.
+- Kept accessibility calls for external applications on the worker path so the
+  crash fix does not restore synchronous cross-process work to the UI thread.
+
+### Engineering
+
+- Added fail-first queue-affinity coverage for both self-process and
+  external-process accessibility destinations.
+
 ## [0.4.0-dev.7] - 2026-08-24
 
 ### Fixed
@@ -217,7 +232,8 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.7...HEAD
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.8...HEAD
+[0.4.0-dev.8]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.7...v0.4.0-dev.8
 [0.4.0-dev.7]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.6...v0.4.0-dev.7
 [0.4.0-dev.6]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.3...v0.4.0-dev.6
 [0.4.0]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.4.0

@@ -287,6 +287,24 @@ final class MacTextInsertionBackend: TextInsertionBackend, @unchecked Sendable {
             return .unavailable
         }
 
+        let mutateFocusedElement = { [self] in
+            replaceSelectedText(text, in: focusedElement)
+        }
+        if Self.processIdentifier(of: focusedElement) == getpid(),
+           !Thread.isMainThread {
+            // AX normally crosses into another process and must stay off main.
+            // The setup test field belongs to VoxHearth, though, so AppKit
+            // services the AX mutation in-process and requires the main queue.
+            return DispatchQueue.main.sync(execute: mutateFocusedElement)
+        }
+        return mutateFocusedElement()
+    }
+
+    private func replaceSelectedText(
+        _ text: String,
+        in focusedElement: AXUIElement
+    ) -> AccessibilityInsertionOutcome {
+
         guard messaging.setMessagingTimeout(
             focusedElement,
             Self.accessibilityQueryTimeout
@@ -326,6 +344,14 @@ final class MacTextInsertionBackend: TextInsertionBackend, @unchecked Sendable {
             logger.info(.accessibilitySetValueRefused)
         }
         return outcome
+    }
+
+    private static func processIdentifier(of element: AXUIElement) -> pid_t? {
+        var processIdentifier: pid_t = 0
+        guard AXUIElementGetPid(element, &processIdentifier) == .success else {
+            return nil
+        }
+        return processIdentifier
     }
 
     static func classifySetOutcome(_ status: AXError) -> AccessibilityInsertionOutcome {
