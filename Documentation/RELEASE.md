@@ -3,14 +3,14 @@
 VoxHearth has two deliberately separate publication channels:
 
 - `.github/workflows/development-release.yml` is prepared to publish the
-  ad-hoc-signed, unnotarized `v0.4.0-dev.6` GitHub prerelease without Apple
+  ad-hoc-signed, unnotarized `v0.4.0-dev.7` GitHub prerelease without Apple
   secrets.
 - `.github/workflows/release.yml` is prepared to publish the future Developer
   ID-signed and Apple-notarized `v0.4.0` release.
 
 Manual building and signing are documented in [BUILDING.md](BUILDING.md).
 
-## Publish v0.4.0-dev.6
+## Publish v0.4.0-dev.7
 
 Tags `v0.4.0-dev.2`, `v0.4.0-dev.3`, `v0.4.0-dev.4`, and `v0.4.0-dev.5` are
 failed publication attempts. Their workflows stopped before packaging and they
@@ -24,7 +24,7 @@ qualified substitute for the documented M2/16 GB performance floor.
 - [ ] The development-release commit is reviewed and merged to `main`.
 - [ ] `./scripts/local-check.sh` passes from a clean checkout.
 - [ ] No model, app, DMG, certificate, key, or password is tracked by Git.
-- [ ] Create annotated tag `v0.4.0-dev.6` on that exact commit and push it.
+- [ ] Create annotated tag `v0.4.0-dev.7` on that exact commit and push it.
 - [ ] Confirm the workflow publishes the unsigned DMG, source archive, SBOM,
       provenance, `SHA256SUMS`, and both GitHub attestations.
 - [ ] Confirm GitHub marks the release as a prerelease and that its title,

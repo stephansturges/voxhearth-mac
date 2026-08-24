@@ -2,6 +2,12 @@ import AppKit
 import SwiftUI
 import VoxHearthCore
 
+enum MenuBarLayoutPresentation {
+    static let mainMenuMinimumHeight: CGFloat = 480
+    static let mainMenuIdealHeight: CGFloat = 620
+    static let mainMenuMaximumHeight: CGFloat = 720
+}
+
 enum SessionPresentationState: Equatable, Sendable {
     case idle
     case listening

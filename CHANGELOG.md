@@ -16,6 +16,19 @@ Developer ID-signed, Apple-notarized releases.
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
 
+## [0.4.0-dev.7] - 2026-08-24
+
+### Fixed
+
+- Prevented the menu-bar window from collapsing into a nearly zero-height shell
+  by giving its scrollable content explicit minimum, ideal, and maximum height
+  bounds.
+
+### Engineering
+
+- Added a fail-first presentation regression that requires the nonzero sizing
+  policy to remain wired into the production menu content.
+
 ## [0.4.0-dev.6] - 2026-08-24
 
 ### Fixed
@@ -204,7 +217,8 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.6...HEAD
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.7...HEAD
+[0.4.0-dev.7]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.6...v0.4.0-dev.7
 [0.4.0-dev.6]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.3...v0.4.0-dev.6
 [0.4.0]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.4.0
 [0.4.0-dev.1]: https://github.com/stephansturges/voxhearth-mac/releases/tag/v0.4.0-dev.1
