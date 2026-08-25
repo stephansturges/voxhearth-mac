@@ -141,6 +141,39 @@ private final class BlockingFactoryGate: @unchecked Sendable {
     func markEntered() { lock.withLock { _hasEntered = true } }
 }
 
+private final class RecordingCanonicalizer: CleanupOutputCanonicalizing, @unchecked Sendable {
+    private let lock = NSLock()
+    private let underlying: any CleanupOutputCanonicalizing
+    private var _calls = 0
+
+    init(_ underlying: any CleanupOutputCanonicalizing = SpokenNumberCanonicalizer()) {
+        self.underlying = underlying
+    }
+
+    func canonicalize(_ text: String, source: String) -> CleanupCanonicalizationResult {
+        lock.withLock { _calls += 1 }
+        return underlying.canonicalize(text, source: source)
+    }
+
+    var calls: Int { lock.withLock { _calls } }
+}
+
+private final class FixedCanonicalizer: CleanupOutputCanonicalizing, @unchecked Sendable {
+    let output: String
+
+    init(output: String) {
+        self.output = output
+    }
+
+    func canonicalize(_ text: String, source: String) -> CleanupCanonicalizationResult {
+        CleanupCanonicalizationResult(
+            text: output,
+            parseAttempts: text == output ? 0 : 1,
+            isOperational: true
+        )
+    }
+}
+
 @Test func preparationFallsBackFromMetalToCPU() async throws {
     let recorder = RuntimeRecorder()
     let normalizer = S1MiniNormalizer(policy: CleanupPolicy()) { _, backend in
@@ -457,5 +490,144 @@ private final class BlockingFactoryGate: @unchecked Sendable {
         .generationFailed
     ))
     #expect(recorder.generations == 1)
+    await normalizer.unload()
+}
+
+@Test func acceptedSinglePassOutputIsCanonicalizedExactlyOnce() async throws {
+    let recorder = RuntimeRecorder()
+    let canonicalizer = RecordingCanonicalizer()
+    let output = "The invoice is seven thousand and twelve dollars."
+    let normalizer = S1MiniNormalizer(
+        policy: CleanupPolicy(),
+        outputCanonicalizer: canonicalizer
+    ) { _, backend in
+        FakeS1Session(backend: backend, recorder: recorder, behavior: .output(output))
+    }
+    _ = try await normalizer.prepare(
+        modelURL: URL(fileURLWithPath: "/tmp/fake.gguf"),
+        selection: selection(.cpu),
+        warmUp: false
+    )
+    let outcome = await normalizer.normalize(runtimeInput(output), settings: CleanupSettings())
+    guard case let .insert(transcript) = outcome else {
+        Issue.record("expected cleaned insertion")
+        return
+    }
+    #expect(transcript.text == "The invoice is 7012$.")
+    #expect(transcript.origin == .cleaned)
+    #expect(canonicalizer.calls == 1)
+    await normalizer.unload()
+}
+
+@Test func acceptedSinglePassDigitDriftUsesOriginalSpokenNumber() async throws {
+    let recorder = RuntimeRecorder()
+    let normalizer = S1MiniNormalizer(policy: CleanupPolicy()) { _, backend in
+        FakeS1Session(
+            backend: backend,
+            recorder: recorder,
+            behavior: .output("The invoice total is $7,12.")
+        )
+    }
+    _ = try await normalizer.prepare(
+        modelURL: URL(fileURLWithPath: "/tmp/fake.gguf"),
+        selection: selection(.cpu),
+        warmUp: false
+    )
+    let outcome = await normalizer.normalize(
+        runtimeInput("the invoice total is seven thousand and twelve dollars"),
+        settings: CleanupSettings()
+    )
+    guard case let .insert(transcript) = outcome else {
+        Issue.record("expected cleaned insertion")
+        return
+    }
+    #expect(transcript.text == "The invoice total is 7012$.")
+    #expect(transcript.origin == .cleaned)
+    await normalizer.unload()
+}
+
+@Test func chunkedOutputIsCanonicalizedOnceAfterAggregateValidation() async throws {
+    let recorder = RuntimeRecorder()
+    let canonicalizer = RecordingCanonicalizer()
+    let policy = CleanupPolicy(limits: .init(contextTokens: 2_048, safeSinglePassInputTokens: 5))
+    let normalizer = S1MiniNormalizer(
+        policy: policy,
+        outputCanonicalizer: canonicalizer
+    ) { _, backend in
+        FakeS1Session(backend: backend, recorder: recorder, behavior: .echo)
+    }
+    _ = try await normalizer.prepare(
+        modelURL: URL(fileURLWithPath: "/tmp/fake.gguf"),
+        selection: selection(.cpu),
+        warmUp: false
+    )
+    let input = runtimeInput("First section has twelve items.\n\nSecond section has fifteen items.")
+    let outcome = await normalizer.normalize(input, settings: CleanupSettings())
+    guard case let .insert(transcript) = outcome else {
+        Issue.record("expected joined cleaned insertion")
+        return
+    }
+    #expect(transcript.text == "First section has 12 items.\n\nSecond section has 15 items.")
+    #expect(canonicalizer.calls == 1)
+    #expect(recorder.generations == 2)
+    await normalizer.unload()
+}
+
+@Test func unsafeCanonicalizedCandidateFallsBackToValidatedModelText() async throws {
+    let recorder = RuntimeRecorder()
+    let canonicalizer = FixedCanonicalizer(output: "<think>unsafe</think>")
+    let modelOutput = "Please send it."
+    let normalizer = S1MiniNormalizer(
+        policy: CleanupPolicy(),
+        outputCanonicalizer: canonicalizer
+    ) { _, backend in
+        FakeS1Session(backend: backend, recorder: recorder, behavior: .output(modelOutput))
+    }
+    _ = try await normalizer.prepare(
+        modelURL: URL(fileURLWithPath: "/tmp/fake.gguf"),
+        selection: selection(.cpu),
+        warmUp: false
+    )
+    let outcome = await normalizer.normalize(runtimeInput("please send it"), settings: CleanupSettings())
+    guard case let .insert(transcript) = outcome else {
+        Issue.record("expected accepted model text rather than recovery")
+        return
+    }
+    #expect(transcript.text == modelOutput)
+    #expect(transcript.origin == .cleaned)
+    await normalizer.unload()
+}
+
+@Test func canonicalizerIsNotCalledForDisabledOrInvalidCleanup() async throws {
+    let recorder = RuntimeRecorder()
+    let canonicalizer = RecordingCanonicalizer()
+    let normalizer = S1MiniNormalizer(
+        policy: CleanupPolicy(),
+        outputCanonicalizer: canonicalizer
+    ) { _, backend in
+        FakeS1Session(
+            backend: backend,
+            recorder: recorder,
+            behavior: .output("<think>invalid</think>")
+        )
+    }
+    _ = try await normalizer.prepare(
+        modelURL: URL(fileURLWithPath: "/tmp/fake.gguf"),
+        selection: selection(.cpu),
+        warmUp: false
+    )
+
+    let disabledInput = runtimeInput("twelve items")
+    #expect(await normalizer.normalize(
+        disabledInput,
+        settings: CleanupSettings(isEnabled: false)
+    ) == .insert(CleanupPolicy().fallback(for: disabledInput, reason: .modelUnavailable)))
+
+    let invalidInput = runtimeInput("please send it")
+    #expect(await normalizer.normalize(invalidInput, settings: CleanupSettings()) == .recover(
+        CleanupPolicy().fallback(for: invalidInput, reason: .invalidOutput),
+        .invalidOutput
+    ))
+    #expect(canonicalizer.calls == 0)
     await normalizer.unload()
 }

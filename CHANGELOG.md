@@ -16,6 +16,24 @@ Developer ID-signed, Apple-notarized releases.
   of the Haversine/Telesto protocol or a suitable macOS transport. The request
   is tracked in [coredevices/mobileapp#333](https://github.com/coredevices/mobileapp/issues/333).
 
+## [0.4.0-dev.9] - 2026-08-25
+
+### Added
+
+- Added deterministic, local-only number canonicalization after successful
+  English S1-mini cleanup. Safe whole cardinal integers above ten use ungrouped
+  digits, and dollars, euros, and yen use compact suffix symbols such as
+  `7012$`. A narrow source-anchored guard also repairs a single numeric value
+  when the cleanup model changes the speaker's number; ambiguous numeric
+  language and cleanup fallbacks remain unchanged.
+
+### Engineering
+
+- Added adversarial parsing, source-alignment, exactly-once integration, and
+  bounded microbenchmark coverage. Real CPU and Metal S1-mini evaluation now
+  includes the spoken-currency case and preserves all existing privacy and
+  resource ratchets.
+
 ## [0.4.0-dev.8] - 2026-08-24
 
 ### Fixed
@@ -232,7 +250,8 @@ Developer ID-signed, Apple-notarized releases.
 - macOS bundle policy and an in-process guard prevent duplicate app instances
   from registering the dictation shortcut twice.
 
-[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.8...HEAD
+[Unreleased]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.9...HEAD
+[0.4.0-dev.9]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.8...v0.4.0-dev.9
 [0.4.0-dev.8]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.7...v0.4.0-dev.8
 [0.4.0-dev.7]: https://github.com/stephansturges/voxhearth-mac/compare/v0.4.0-dev.6...v0.4.0-dev.7
 [0.4.0-dev.6]: https://github.com/stephansturges/voxhearth-mac/compare/v0.3.0-dev.3...v0.4.0-dev.6

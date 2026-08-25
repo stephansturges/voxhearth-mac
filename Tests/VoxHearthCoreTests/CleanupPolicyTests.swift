@@ -137,6 +137,17 @@ func documentedBudgetUsesFormatFloor(format: CleanupFormat) throws {
     #expect(policy.validate(.init(text: "", outputTokens: 0, reachedEndOfGeneration: true), for: normalizationInput("please send it"), budget: budget) == .fallback(.invalidOutput))
 }
 
+@Test func extractedTextSafetyPredicatePreservesEveryValidationCheck() {
+    let policy = CleanupPolicy()
+    #expect(policy.outputTextIsSafe("Send the report.", source: "send the report"))
+    #expect(!policy.outputTextIsSafe("hello\rthere", source: "hello there"))
+    #expect(!policy.outputTextIsSafe("<think>hidden</think>", source: "hidden"))
+    #expect(!policy.outputTextIsSafe(String(repeating: "x", count: 300), source: "x"))
+    let repeated = Array(repeating: "alpha beta gamma", count: 4).joined(separator: " ")
+    #expect(!policy.outputTextIsSafe(repeated, source: "alpha beta gamma"))
+    #expect(!policy.outputTextIsSafe("Visit the site.", source: "visit https://example.com"))
+}
+
 private extension CleanupFallbackReason {
     static let allCasesForTesting: [CleanupFallbackReason] = [
         .cancelled, .deadline, .inputTooLong, .modelUnavailable,

@@ -439,6 +439,40 @@ Do not require bullets under `listGeneral`; the model card explicitly permits
 non-enumerable content to remain prose. Preserve internal newlines and blank
 lines verbatim.
 
+### 7.4 Deterministic number canonicalization
+
+After single-pass validation, or after joined chunk output passes aggregate
+validation, run one queue-confined Foundation finalizer before constructing the
+cleaned transcript. Never run it on individual chunks, fallback, cancellation,
+deadline, disabled-cleanup, or unsupported-language output.
+
+The finalizer uses a fixed `en_US_POSIX`, non-lenient `.spellOut`
+`NumberFormatter`. It may attempt at most four complete English spoken-number
+windows. Each accepted window must consume its entire UTF-16 range, round-trip
+through Foundation spell-out, represent an exact integer from 11 through one
+trillion, avoid protected/ambiguous neighbors, and pass the shared cleanup text
+safety predicate after replacement. More than four eligible windows, a failed
+startup compatibility probe, or any failed invariant makes the whole pass an
+identity operation. A transformed string that fails text safety is discarded
+in favor of the already-validated model output, never a session fallback.
+
+Render ungrouped digits. Convert immediately adjacent `dollar(s)`, `euro(s)`,
+and `yen` to suffix `$`, `€`, and `¥`; never symbolize `pounds`. Narrowly remove
+canonical comma grouping and restyle explicit supported numeric currency forms
+so model-produced `$7,012` and `1,200 euros` become `7012$` and `1200€`.
+Preserve zero through ten, decimals, cents, fractions, dates, years, ordinals,
+negatives, phone/address digit sequences, identifiers, malformed grouping,
+plain ungrouped non-currency integers, URLs, email addresses, and inline/fenced
+code. One observed-model safeguard may repair a malformed or incorrect digit
+sequence: when the accepted output has exactly one compatible numeric slot and
+the effective source has exactly one supported spoken integer, use the spoken
+source value. Currency kind must match and the digit strings must be within two
+edits; protected, decimal, year, identifier, address, time, percentage,
+zero-padded, multiple-slot/window, and otherwise ambiguous shapes remain
+unchanged. Do not add a setting, prompt
+instruction, dependency, worker, log event, network seam, storage seam, or
+public API.
+
 ## 8. Runtime and model lifecycle
 
 ### 8.1 Backend

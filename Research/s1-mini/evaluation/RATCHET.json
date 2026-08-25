@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "fixtureCount": 15,
-  "requiredFixturePasses": 15,
+  "fixtureCount": 16,
+  "requiredFixturePasses": 16,
   "requiredDeterministicRepeat": true,
   "productionDeadlineMilliseconds": 2000,
   "maximumP95Milliseconds": {

@@ -144,18 +144,18 @@ public struct CleanupPolicy: Sendable {
         if output.isEmpty {
             return isFillerOnly(source) ? .accepted(output) : .fallback(.invalidOutput)
         }
-        guard output.unicodeScalars.allSatisfy(isAllowedOutputScalar) else {
-            return .fallback(.invalidOutput)
-        }
-        guard !containsContractLeak(output) else { return .fallback(.invalidOutput) }
-        guard output.utf8.count <= max(source.utf8.count * 4, source.utf8.count + 256) else {
-            return .fallback(.invalidOutput)
-        }
-        guard !hasUngroundedRepetition(output) else { return .fallback(.invalidOutput) }
-        guard protectedContentIsGrounded(source: source, output: output) else {
-            return .fallback(.invalidOutput)
-        }
+        guard outputTextIsSafe(output, source: source) else { return .fallback(.invalidOutput) }
         return .accepted(output)
+    }
+
+    func outputTextIsSafe(_ output: String, source: String) -> Bool {
+        guard output.unicodeScalars.allSatisfy(isAllowedOutputScalar) else { return false }
+        guard !containsContractLeak(output) else { return false }
+        guard output.utf8.count <= max(source.utf8.count * 4, source.utf8.count + 256) else {
+            return false
+        }
+        guard !hasUngroundedRepetition(output) else { return false }
+        return protectedContentIsGrounded(source: source, output: output)
     }
 
     private func budget(

@@ -139,8 +139,20 @@
       "expectedDirective": null,
       "expectedFormat": "proseGeneral",
       "expectedExact": null,
-      "mustContain": ["1,200", "August 25"],
-      "mustNotContain": [],
+      "mustContain": ["1200€", "August 25"],
+      "mustNotContain": ["1,200", "euros"],
+      "requireLineBreak": false,
+      "expectedDisposition": "cleaned",
+      "expectedFallbackReason": null
+    },
+    {
+      "id": "spoken-integer-currency-style",
+      "transcript": "the invoice total is seven thousand and twelve dollars",
+      "expectedDirective": null,
+      "expectedFormat": "proseGeneral",
+      "expectedExact": null,
+      "mustContain": ["7012$"],
+      "mustNotContain": ["seven thousand", "7,012", "$7,012", "dollars"],
       "requireLineBreak": false,
       "expectedDisposition": "cleaned",
       "expectedFallbackReason": null
