@@ -60,14 +60,20 @@ final class S1MiniQueueState: @unchecked Sendable {
     private let factory: Factory
     private let policy: CleanupPolicy
     private let logger = PrivacySafeLogger(category: "Cleanup")
+    private var outputCanonicalizer: (any CleanupOutputCanonicalizing)?
     private var session: (any S1MiniRuntimeSession)?
     private var modelURL: URL?
     private var sessionIsWarm = false
     private(set) var counters = CleanupResourceCounters()
     private(set) var metalDemoted = false
 
-    init(policy: CleanupPolicy, factory: @escaping Factory) {
+    init(
+        policy: CleanupPolicy,
+        outputCanonicalizer: (any CleanupOutputCanonicalizing)? = nil,
+        factory: @escaping Factory
+    ) {
         self.policy = policy
+        self.outputCanonicalizer = outputCanonicalizer
         self.factory = factory
     }
 
@@ -272,7 +278,7 @@ final class S1MiniQueueState: @unchecked Sendable {
                 reachedEndOfGeneration: true
             )
             switch policy.validate(aggregate, for: input, budget: aggregateBudget) {
-            case let .accepted(text): return .insert(policy.cleaned(for: input, text: text))
+            case let .accepted(text): return accept(text, for: input)
             case let .fallback(reason):
                 return .recover(policy.fallback(for: input, reason: reason), reason)
             }
@@ -297,7 +303,7 @@ final class S1MiniQueueState: @unchecked Sendable {
         )
         counters.generations += 1
         switch policy.validate(generation, for: source, budget: chunk.budget) {
-        case let .accepted(text): return .insert(policy.cleaned(for: source, text: text))
+        case let .accepted(text): return accept(text, for: source)
         case let .fallback(reason):
             return .recover(policy.fallback(for: source, reason: reason), reason)
         }
@@ -318,6 +324,21 @@ final class S1MiniQueueState: @unchecked Sendable {
         )
     }
 
+    private func accept(_ text: String, for input: NormalizationInput) -> DictationOutcome {
+        let candidate = outputCanonicalizer?.canonicalize(
+            text,
+            source: String(input.text)
+        ).text ?? text
+        let selected: String
+        if candidate != text,
+           policy.outputTextIsSafe(candidate, source: String(input.text)) {
+            selected = candidate
+        } else {
+            selected = text
+        }
+        return .insert(policy.cleaned(for: input, text: selected))
+    }
+
     private func replaceWithCPU(modelURL: URL, deadline: DispatchTime) throws -> any S1MiniRuntimeSession {
         unloadSessionOnly()
         _ = try loadAndWarm(
@@ -336,6 +357,9 @@ final class S1MiniQueueState: @unchecked Sendable {
         warmUp: Bool,
         deadline: DispatchTime
     ) throws -> LlamaBackend {
+        if outputCanonicalizer == nil {
+            outputCanonicalizer = SpokenNumberCanonicalizer()
+        }
         let loaded = try factory(modelURL, backend)
         session = loaded
         sessionIsWarm = false
@@ -386,8 +410,16 @@ public actor S1MiniNormalizer {
         }
     }
 
-    init(policy: CleanupPolicy, runtimeFactory: @escaping S1MiniQueueState.Factory) {
-        state = S1MiniQueueState(policy: policy, factory: runtimeFactory)
+    init(
+        policy: CleanupPolicy,
+        outputCanonicalizer: (any CleanupOutputCanonicalizing)? = nil,
+        runtimeFactory: @escaping S1MiniQueueState.Factory
+    ) {
+        state = S1MiniQueueState(
+            policy: policy,
+            outputCanonicalizer: outputCanonicalizer,
+            factory: runtimeFactory
+        )
     }
 
     @discardableResult
